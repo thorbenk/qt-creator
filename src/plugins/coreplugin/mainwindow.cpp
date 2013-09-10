@@ -28,32 +28,21 @@
 ****************************************************************************/
 
 #include "mainwindow.h"
-#include "actioncontainer.h"
-#include "command.h"
-#include "actionmanager.h"
-#include "actionmanager_p.h"
 #include "icore.h"
 #include "coreconstants.h"
-#include "editormanager.h"
 #include "toolsettings.h"
 #include "mimetypesettings.h"
 #include "fancytabwidget.h"
 #include "documentmanager.h"
 #include "generalsettings.h"
 #include "helpmanager.h"
-#include "ieditor.h"
 #include "idocumentfactory.h"
 #include "messagemanager.h"
 #include "modemanager.h"
 #include "mimedatabase.h"
-#include "newdialog.h"
 #include "outputpanemanager.h"
 #include "plugindialog.h"
-#include "progressmanager_p.h"
-#include "progressview.h"
-#include "shortcutsettings.h"
 #include "vcsmanager.h"
-#include "settingsdialog.h"
 #include "variablemanager.h"
 #include "versiondialog.h"
 #include "statusbarmanager.h"
@@ -71,8 +60,19 @@
 #endif
 
 #include <app/app_version.h>
+#include <coreplugin/actionmanager/actioncontainer.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/actionmanager/actionmanager_p.h>
+#include <coreplugin/actionmanager/command.h>
+#include <coreplugin/dialogs/newdialog.h>
+#include <coreplugin/dialogs/settingsdialog.h>
+#include <coreplugin/dialogs/shortcutsettings.h>
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/icorelistener.h>
 #include <coreplugin/inavigationwidgetfactory.h>
+#include <coreplugin/progressmanager/progressmanager_p.h>
+#include <coreplugin/progressmanager/progressview.h>
 #include <coreplugin/settingsdatabase.h>
 #include <utils/historycompleter.h>
 #include <utils/hostosinfo.h>
@@ -100,16 +100,6 @@
 #include <QPushButton>
 #include <QStyleFactory>
 
-/*
-#include <signal.h>
-extern "C" void handleSigInt(int sig)
-{
-    Q_UNUSED(sig)
-    Core::ICore::exit();
-    qDebug() << "SIGINT caught. Shutting down.";
-}
-*/
-
 using namespace Core;
 using namespace Core::Internal;
 
@@ -128,7 +118,7 @@ MainWindow::MainWindow() :
     m_actionManager(new ActionManager(this)),
     m_editorManager(0),
     m_externalToolManager(0),
-    m_progressManager(new ProgressManagerPrivate()),
+    m_progressManager(new ProgressManagerPrivate),
     m_variableManager(new VariableManager),
     m_vcsManager(new VcsManager),
     m_statusBarManager(0),
@@ -322,7 +312,7 @@ bool MainWindow::init(QString *errorMessage)
 {
     Q_UNUSED(errorMessage)
 
-    if (!mimeDatabase()->addMimeTypes(QLatin1String(":/core/editormanager/BinFiles.mimetypes.xml"), errorMessage))
+    if (!MimeDatabase::addMimeTypes(QLatin1String(":/core/editormanager/BinFiles.mimetypes.xml"), errorMessage))
         return false;
 
     ExtensionSystem::PluginManager::addObject(m_coreImpl);
@@ -342,7 +332,7 @@ bool MainWindow::init(QString *errorMessage)
     m_outputView->setWidget(OutputPaneManager::instance()->buttonsWidget());
     m_outputView->setPosition(Core::StatusBarWidget::Second);
     ExtensionSystem::PluginManager::addObject(m_outputView);
-    m_messageManager->init();
+    MessageManager::init();
     return true;
 }
 
@@ -799,7 +789,7 @@ void MainWindow::newFile()
 
 void MainWindow::openFile()
 {
-    openFiles(editorManager()->getOpenFileNames(), ICore::SwitchMode);
+    openFiles(EditorManager::getOpenFileNames(), ICore::SwitchMode);
 }
 
 static QList<IDocumentFactory*> getNonEditorDocumentFactories()
@@ -815,10 +805,9 @@ static QList<IDocumentFactory*> getNonEditorDocumentFactories()
 }
 
 static IDocumentFactory *findDocumentFactory(const QList<IDocumentFactory*> &fileFactories,
-                                     const MimeDatabase *db,
                                      const QFileInfo &fi)
 {
-    if (const MimeType mt = db->findByFile(fi)) {
+    if (const MimeType mt = MimeDatabase::findByFile(fi)) {
         const QString type = mt.type();
         foreach (IDocumentFactory *factory, fileFactories) {
             if (factory->mimeTypes().contains(type))
@@ -846,7 +835,7 @@ IDocument *MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesF
     foreach (const QString &fileName, fileNames) {
         const QFileInfo fi(fileName);
         const QString absoluteFilePath = fi.absoluteFilePath();
-        if (IDocumentFactory *documentFactory = findDocumentFactory(nonEditorFileFactories, mimeDatabase(), fi)) {
+        if (IDocumentFactory *documentFactory = findDocumentFactory(nonEditorFileFactories, fi)) {
             IDocument *document = documentFactory->open(absoluteFilePath);
             if (!document) {
                 if (flags & ICore::StopOnLoadFail)
@@ -951,10 +940,9 @@ void MainWindow::exit()
 
 void MainWindow::openFileWith()
 {
-    QStringList fileNames = editorManager()->getOpenFileNames();
-    foreach (const QString &fileName, fileNames) {
+    foreach (const QString &fileName, EditorManager::getOpenFileNames()) {
         bool isExternal;
-        const Id editorId = editorManager()->getOpenWithEditorId(fileName, &isExternal);
+        const Id editorId = EditorManager::getOpenWithEditorId(fileName, &isExternal);
         if (!editorId.isValid())
             continue;
         if (isExternal)
@@ -964,57 +952,12 @@ void MainWindow::openFileWith()
     }
 }
 
-ActionManager *MainWindow::actionManager() const
-{
-    return m_actionManager;
-}
-
-MessageManager *MainWindow::messageManager() const
-{
-    return m_messageManager;
-}
-
-VcsManager *MainWindow::vcsManager() const
-{
-    return m_vcsManager;
-}
-
 QSettings *MainWindow::settings(QSettings::Scope scope) const
 {
     if (scope == QSettings::UserScope)
         return m_settings;
     else
         return m_globalSettings;
-}
-
-EditorManager *MainWindow::editorManager() const
-{
-    return m_editorManager;
-}
-
-ProgressManager *MainWindow::progressManager() const
-{
-    return m_progressManager;
-}
-
-VariableManager *MainWindow::variableManager() const
-{
-     return m_variableManager;
-}
-
-ModeManager *MainWindow::modeManager() const
-{
-    return m_modeManager;
-}
-
-MimeDatabase *MainWindow::mimeDatabase() const
-{
-    return m_mimeDatabase;
-}
-
-HelpManager *MainWindow::helpManager() const
-{
-    return m_helpManager;
 }
 
 IContext *MainWindow::contextObject(QWidget *widget)
@@ -1139,7 +1082,7 @@ void MainWindow::readSettings()
     restoreState(m_settings->value(QLatin1String(windowStateKey)).toByteArray());
 
     bool modeSelectorVisible = m_settings->value(QLatin1String(modeSelectorVisibleKey), true).toBool();
-    ModeManager::instance()->setModeSelectorVisible(modeSelectorVisible);
+    ModeManager::setModeSelectorVisible(modeSelectorVisible);
     m_toggleModeSelectorAction->setChecked(modeSelectorVisible);
 
     m_settings->endGroup();

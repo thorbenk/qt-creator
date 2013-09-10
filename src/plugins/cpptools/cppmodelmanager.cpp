@@ -31,11 +31,10 @@
 
 #include "abstracteditorsupport.h"
 #include "builtinindexingsupport.h"
-#include "cppcompletionassist.h"
 #include "cppfindreferences.h"
 #include "cpphighlightingsupport.h"
-#include "cpphighlightingsupportinternal.h"
 #include "cppindexingsupport.h"
+#include "cppmodelmanagersupportinternal.h"
 #include "cpppreprocessor.h"
 #include "cpptoolsconstants.h"
 #include "cpptoolseditorsupport.h"
@@ -230,8 +229,6 @@ CppModelManager *CppModelManager::instance()
 
 CppModelManager::CppModelManager(QObject *parent)
     : CppModelManagerInterface(parent)
-    , m_completionAssistProvider(0)
-    , m_highlightingFactory(0)
     , m_indexingSupporter(0)
     , m_enableGC(true)
 {
@@ -240,24 +237,18 @@ CppModelManager::CppModelManager(QObject *parent)
 
     m_dirty = true;
 
-    ProjectExplorer::ProjectExplorerPlugin *pe = ProjectExplorer::ProjectExplorerPlugin::instance();
-    QTC_ASSERT(pe, return);
-
     m_delayedGcTimer = new QTimer(this);
     m_delayedGcTimer->setSingleShot(true);
     connect(m_delayedGcTimer, SIGNAL(timeout()), this, SLOT(GC()));
 
-    ProjectExplorer::SessionManager *session = pe->session();
-    connect(session, SIGNAL(projectAdded(ProjectExplorer::Project*)),
+    QObject *sessionManager = ProjectExplorer::SessionManager::instance();
+    connect(sessionManager, SIGNAL(projectAdded(ProjectExplorer::Project*)),
             this, SLOT(onProjectAdded(ProjectExplorer::Project*)));
-
-    connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
+    connect(sessionManager, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
             this, SLOT(onAboutToRemoveProject(ProjectExplorer::Project*)));
-
-    connect(session, SIGNAL(aboutToLoadSession(QString)),
+    connect(sessionManager, SIGNAL(aboutToLoadSession(QString)),
             this, SLOT(onAboutToLoadSession()));
-
-    connect(session, SIGNAL(aboutToUnloadSession(QString)),
+    connect(sessionManager, SIGNAL(aboutToUnloadSession(QString)),
             this, SLOT(onAboutToUnloadSession()));
 
     connect(Core::ICore::instance(), SIGNAL(coreAboutToClose()),
@@ -265,19 +256,14 @@ CppModelManager::CppModelManager(QObject *parent)
 
     qRegisterMetaType<CPlusPlus::Document::Ptr>("CPlusPlus::Document::Ptr");
 
-    m_completionFallback = new InternalCompletionAssistProvider;
-    m_completionAssistProvider = m_completionFallback;
-    ExtensionSystem::PluginManager::addObject(m_completionAssistProvider);
-    m_highlightingFallback = new CppHighlightingSupportInternalFactory;
-    m_highlightingFactory = m_highlightingFallback;
+    m_modelManagerSupportFallback.reset(new ModelManagerSupportInternal);
+    addModelManagerSupport(m_modelManagerSupportFallback.data());
+
     m_internalIndexingSupport = new BuiltinIndexingSupport;
 }
 
 CppModelManager::~CppModelManager()
 {
-    ExtensionSystem::PluginManager::removeObject(m_completionAssistProvider);
-    delete m_completionFallback;
-    delete m_highlightingFallback;
     delete m_internalIndexingSupport;
 }
 
@@ -419,7 +405,7 @@ void CppModelManager::dumpModelManagerConfiguration()
                 cxxExtensions << QLatin1String("MicrosoftExtensions");
             if (part->cxxExtensions & ProjectPart::BorlandExtensions)
                 cxxExtensions << QLatin1String("BorlandExtensions");
-            if (part->cxxExtensions & ProjectPart::OpenMP)
+            if (part->cxxExtensions & ProjectPart::OpenMPExtensions)
                 cxxExtensions << QLatin1String("OpenMP");
 
             qDebug() << "cVersion:" << cVersion;
@@ -786,6 +772,21 @@ QList<ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) co
     return parts;
 }
 
+ProjectPart::Ptr CppModelManager::fallbackProjectPart() const
+{
+    ProjectPart::Ptr part(new ProjectPart);
+
+    part->defines = m_definedMacros;
+    part->includePaths = m_includePaths;
+    part->frameworkPaths = m_frameworkPaths;
+    part->cVersion = ProjectPart::C11;
+    part->cxxVersion = ProjectPart::CXX11;
+    part->cxxExtensions = ProjectPart::AllExtensions;
+    part->qtVersion = ProjectPart::Qt5;
+
+    return part;
+}
+
 bool CppModelManager::isCppEditor(Core::IEditor *editor) const
 {
     return editor->context().contains(ProjectExplorer::Constants::LANG_CXX);
@@ -828,8 +829,7 @@ void CppModelManager::onAboutToLoadSession()
 
 void CppModelManager::onAboutToUnloadSession()
 {
-    if (Core::ProgressManager *pm = Core::ICore::progressManager())
-        pm->cancelTasks(QLatin1String(CppTools::Constants::TASK_INDEX));
+    Core::ProgressManager::cancelTasks(CppTools::Constants::TASK_INDEX);
     do {
         QMutexLocker locker(&m_projectMutex);
         m_projectToProjectsInfo.clear();
@@ -906,38 +906,33 @@ void CppModelManager::finishedRefreshingSourceFiles(const QStringList &files)
     emit sourceFilesRefreshed(files);
 }
 
-CppCompletionSupport *CppModelManager::completionSupport(Core::IEditor *editor) const
+void CppModelManager::addModelManagerSupport(ModelManagerSupport *modelManagerSupport)
 {
-    if (TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor))
-        return m_completionAssistProvider->completionSupport(textEditor);
-    else
-        return 0;
+    if (!m_codeModelSupporters.contains(modelManagerSupport))
+        m_codeModelSupporters.append(modelManagerSupport);
 }
 
-void CppModelManager::setCppCompletionAssistProvider(CppCompletionAssistProvider *completionAssistProvider)
+ModelManagerSupport *CppModelManager::modelManagerSupportForMimeType(const QString &mimeType) const
 {
-    ExtensionSystem::PluginManager::removeObject(m_completionAssistProvider);
-    if (completionAssistProvider)
-        m_completionAssistProvider = completionAssistProvider;
-    else
-        m_completionAssistProvider = m_completionFallback;
-    ExtensionSystem::PluginManager::addObject(m_completionAssistProvider);
+    return m_mimeTypeToCodeModelSupport.value(mimeType, m_modelManagerSupportFallback.data());
+}
+
+CppCompletionAssistProvider *CppModelManager::completionAssistProvider(Core::IEditor *editor) const
+{
+    ModelManagerSupport *cms = modelManagerSupportForMimeType(editor->document()->mimeType());
+
+    return cms->completionAssistProvider();
 }
 
 CppHighlightingSupport *CppModelManager::highlightingSupport(Core::IEditor *editor) const
 {
-    if (TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor))
-        return m_highlightingFactory->highlightingSupport(textEditor);
-    else
+    TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor);
+    if (!textEditor)
         return 0;
-}
 
-void CppModelManager::setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory)
-{
-    if (highlightingFactory)
-        m_highlightingFactory = highlightingFactory;
-    else
-        m_highlightingFactory = m_highlightingFallback;
+    ModelManagerSupport *cms = modelManagerSupportForMimeType(editor->document()->mimeType());
+
+    return cms->highlightingSupport(textEditor);
 }
 
 void CppModelManager::setIndexingSupport(CppIndexingSupport *indexingSupport)

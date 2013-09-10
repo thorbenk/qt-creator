@@ -33,6 +33,7 @@
 #include "wizard/pythonclasswizard.h"
 #include "pythoneditorwidget.h"
 #include "pythoneditorfactory.h"
+#include "tools/pythonhighlighterfactory.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/coreconstants.h>
@@ -183,6 +184,7 @@ static const char *const LIST_OF_PYTHON_BUILTINS[] = {
 };
 
 namespace PythonEditor {
+namespace Internal {
 
 PythonEditorPlugin *PythonEditorPlugin::m_instance = 0;
 
@@ -210,17 +212,12 @@ PythonEditorPlugin::~PythonEditorPlugin()
     m_instance = 0;
 }
 
-bool PythonEditorPlugin::initialize(
-        const QStringList &arguments, QString *errorMessage)
+bool PythonEditorPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
     Q_UNUSED(arguments)
 
-    if (! Core::ICore::mimeDatabase()->addMimeTypes(
-            QLatin1String(RC_PY_MIME_XML),
-            errorMessage))
-    {
+    if (!Core::MimeDatabase::addMimeTypes(QLatin1String(RC_PY_MIME_XML), errorMessage))
         return false;
-    }
 
     m_factory = new EditorFactory(this);
     addObject(m_factory);
@@ -241,9 +238,8 @@ bool PythonEditorPlugin::initialize(
     const QIcon icon = QIcon::fromTheme(QLatin1String(C_PY_MIME_ICON));
     if (!icon.isNull()) {
         Core::FileIconProvider *iconProv = Core::FileIconProvider::instance();
-        Core::MimeDatabase *mimeDB = Core::ICore::instance()->mimeDatabase();
         iconProv->registerIconOverlayForMimeType(
-                    icon, mimeDB->findByType(QLatin1String(C_PY_MIMETYPE)));
+                    icon, Core::MimeDatabase::findByType(QLatin1String(C_PY_MIMETYPE)));
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -251,6 +247,7 @@ bool PythonEditorPlugin::initialize(
     ////////////////////////////////////////////////////////////////////////////
     addAutoReleasedObject(new FileWizard(Core::ICore::instance()));
     addAutoReleasedObject(new ClassWizard(Core::ICore::instance()));
+    addAutoReleasedObject(new Internal::PythonHighlighterFactory);
 
     return true;
 }
@@ -280,7 +277,7 @@ QSet<QString> PythonEditorPlugin::builtins()
     return instance()->m_builtins;
 }
 
+} // namespace Internal
 } // namespace PythonEditor
 
-Q_EXPORT_PLUGIN(PythonEditor::PythonEditorPlugin)
-
+Q_EXPORT_PLUGIN(PythonEditor::Internal::PythonEditorPlugin)

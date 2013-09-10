@@ -416,44 +416,25 @@ IAssistProcessor *InternalCompletionAssistProvider::createProcessor() const
     return new CppCompletionAssistProcessor;
 }
 
-namespace {
-class CppCompletionSupportInternal: public CppCompletionSupport
+TextEditor::IAssistInterface *InternalCompletionAssistProvider::createAssistInterface(
+        ProjectExplorer::Project *project, const QString &filePath, QTextDocument *document,
+        int position, TextEditor::AssistReason reason) const
 {
-public:
-    CppCompletionSupportInternal(TextEditor::ITextEditor *editor)
-        : CppCompletionSupport(editor)
-    {}
-
-    virtual ~CppCompletionSupportInternal()
-    {}
-
-    virtual TextEditor::IAssistInterface *createAssistInterface(ProjectExplorer::Project *project,
-                                                                QTextDocument *document,
-                                                                int position,
-                                                                TextEditor::AssistReason reason) const
-    {
-        CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
-        QStringList includePaths;
-        QStringList frameworkPaths;
-        if (project) {
-            includePaths = modelManager->projectInfo(project).includePaths();
-            frameworkPaths = modelManager->projectInfo(project).frameworkPaths();
-        }
-        return new CppTools::Internal::CppCompletionAssistInterface(
-                    document,
-                    position,
-                    editor()->document()->filePath(),
-                    reason,
-                    modelManager->snapshot(),
-                    includePaths,
-                    frameworkPaths);
+    CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
+    QStringList includePaths;
+    QStringList frameworkPaths;
+    if (project) {
+        includePaths = modelManager->projectInfo(project).includePaths();
+        frameworkPaths = modelManager->projectInfo(project).frameworkPaths();
     }
-};
-}
-
-CppCompletionSupport *InternalCompletionAssistProvider::completionSupport(ITextEditor *editor)
-{
-    return new CppCompletionSupportInternal(editor);
+    return new CppTools::Internal::CppCompletionAssistInterface(
+                document,
+                position,
+                filePath,
+                reason,
+                modelManager->snapshot(),
+                includePaths,
+                frameworkPaths);
 }
 
 // -----------------
@@ -476,8 +457,10 @@ private:
 
 void CppAssistProposal::makeCorrection(BaseTextEditor *editor)
 {
+    const int oldPosition = editor->position();
     editor->setCursorPosition(basePosition() - 1);
     editor->replace(1, QLatin1String("->"));
+    editor->setCursorPosition(oldPosition + 1);
     moveBasePosition(1);
 }
 
@@ -602,6 +585,24 @@ Function *asFunctionOrTemplateFunctionType(FullySpecifiedType ty)
             return decl->asFunction();
     }
     return 0;
+}
+
+bool isQPrivateSignal(const Symbol *symbol)
+{
+    if (!symbol)
+        return false;
+
+    static Identifier qPrivateSignalIdentifier("QPrivateSignal", 14);
+
+    if (FullySpecifiedType type = symbol->type()) {
+        if (NamedType *namedType = type->asNamedType()) {
+            if (const Name *name = namedType->name()) {
+                if (name->isEqualTo(&qPrivateSignalIdentifier))
+                    return true;
+            }
+        }
+    }
+    return false;
 }
 
 } // Anonymous
@@ -1135,7 +1136,7 @@ bool CppCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
         includePaths.append(currentFilePath);
 
     const Core::MimeType mimeType =
-            Core::ICore::mimeDatabase()->findByType(QLatin1String("text/x-c++hdr"));
+            Core::MimeDatabase::findByType(QLatin1String("text/x-c++hdr"));
     const QStringList suffixes = mimeType.suffixes();
 
     foreach (const QString &includePath, includePaths) {
@@ -1193,8 +1194,7 @@ bool CppCompletionAssistProcessor::objcKeywordsWanted() const
 
     const QString fileName = m_interface->fileName();
 
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
-    const QString mt = mdb->findByFile(fileName).type();
+    const QString mt = Core::MimeDatabase::findByFile(fileName).type();
     return mt == QLatin1String(CppTools::Constants::OBJECTIVE_C_SOURCE_MIMETYPE)
             || mt == QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE);
 }
@@ -1639,6 +1639,8 @@ bool CppCompletionAssistProcessor::completeQtMethod(const QList<CPlusPlus::Looku
                     signature += QLatin1Char('(');
                     for (unsigned i = 0; i < count; ++i) {
                         Symbol *arg = fun->argumentAt(i);
+                        if (isQPrivateSignal(arg))
+                            continue;
                         if (i != 0)
                             signature += QLatin1Char(',');
                         signature += o.prettyType(arg->type());
@@ -1710,7 +1712,7 @@ void CppCompletionAssistProcessor::addMacros_helper(const CPlusPlus::Snapshot &s
 
     processed->insert(doc->fileName());
 
-    foreach (const Document::Include &i, doc->includes()) {
+    foreach (const Document::Include &i, doc->resolvedIncludes()) {
         addMacros_helper(snapshot, i.resolvedFileName(), processed, definedMacros);
     }
 

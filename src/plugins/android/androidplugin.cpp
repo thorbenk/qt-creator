@@ -44,6 +44,9 @@
 #include "androiddeployconfiguration.h"
 #include "androidgdbserverkitinformation.h"
 #include "androidmanifesteditorfactory.h"
+#ifdef HAVE_QBS
+#  include "androidqbspropertyprovider.h"
+#endif
 
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/icore.h>
@@ -76,7 +79,7 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
     addAutoReleasedObject(new Internal::AndroidToolChainFactory);
     addAutoReleasedObject(new Internal::AndroidDeployConfigurationFactory);
     addAutoReleasedObject(new Internal::AndroidDeviceFactory);
-    ProjectExplorer::KitManager::instance()->registerKitInformation(new Internal::AndroidGdbServerKitInformation);
+    ProjectExplorer::KitManager::registerKitInformation(new Internal::AndroidGdbServerKitInformation);
 
     // AndroidManifest.xml editor
     Core::MimeGlobPattern androidManifestGlobPattern(QLatin1String("AndroidManifest.xml"), Core::MimeGlobPattern::MaxWeight);
@@ -86,7 +89,7 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
     androidManifestMimeType.setGlobPatterns(QList<Core::MimeGlobPattern>() << androidManifestGlobPattern);
     androidManifestMimeType.setSubClassesOf(QStringList() << QLatin1String("application/xml"));
 
-    if (!Core::ICore::mimeDatabase()->addMimeType(androidManifestMimeType)) {
+    if (!Core::MimeDatabase::addMimeType(androidManifestMimeType)) {
         *errorMessage = tr("Could not add mime-type for AndroidManifest.xml editor.");
         return false;
     }
@@ -97,7 +100,9 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
 
     connect(ProjectExplorer::DeviceManager::instance(), SIGNAL(devicesLoaded()),
             this, SLOT(updateDevice()));
-
+#ifdef HAVE_QBS
+    addAutoReleasedObject(new Internal::AndroidQBSPropertyProvider);
+#endif
     return true;
 }
 

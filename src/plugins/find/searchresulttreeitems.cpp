@@ -29,9 +29,10 @@
 
 #include "searchresulttreeitems.h"
 
-using namespace Find::Internal;
+namespace Find {
+namespace Internal {
 
-SearchResultTreeItem::SearchResultTreeItem(const Find::SearchResultItem &item,
+SearchResultTreeItem::SearchResultTreeItem(const SearchResultItem &item,
                                            SearchResultTreeItem *parent)
   : item(item),
   m_parent(parent),
@@ -115,7 +116,7 @@ int SearchResultTreeItem::insertionIndex(const QString &text, SearchResultTreeIt
     return insertionPosition - m_children.begin();
 }
 
-int SearchResultTreeItem::insertionIndex(const Find::SearchResultItem &item, SearchResultTreeItem **existingItem) const
+int SearchResultTreeItem::insertionIndex(const SearchResultItem &item, SearchResultTreeItem **existingItem) const
 {
     return insertionIndex(item.text, existingItem);
 }
@@ -125,7 +126,7 @@ void SearchResultTreeItem::insertChild(int index, SearchResultTreeItem *child)
     m_children.insert(index, child);
 }
 
-void SearchResultTreeItem::insertChild(int index, const Find::SearchResultItem &item)
+void SearchResultTreeItem::insertChild(int index, const SearchResultItem &item)
 {
     SearchResultTreeItem *child = new SearchResultTreeItem(item, this);
     if (isUserCheckable()) {
@@ -135,7 +136,10 @@ void SearchResultTreeItem::insertChild(int index, const Find::SearchResultItem &
     insertChild(index, child);
 }
 
-void SearchResultTreeItem::appendChild(const Find::SearchResultItem &item)
+void SearchResultTreeItem::appendChild(const SearchResultItem &item)
 {
     insertChild(m_children.count(), item);
 }
+
+} // namespace Internal
+} // namespace Find

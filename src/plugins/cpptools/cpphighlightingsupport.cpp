@@ -40,7 +40,3 @@ CppHighlightingSupport::CppHighlightingSupport(TextEditor::ITextEditor *editor)
 CppHighlightingSupport::~CppHighlightingSupport()
 {
 }
-
-CppHighlightingSupportFactory::~CppHighlightingSupportFactory()
-{
-}

@@ -107,7 +107,7 @@ TextEditorActionHandler::TextEditorActionHandler(const char *context,
     m_contextId(context),
     m_initialized(false)
 {
-    connect(Core::ICore::editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(currentEditorChanged(Core::IEditor*)),
         this, SLOT(updateCurrentEditor(Core::IEditor*)));
 }
 
@@ -248,7 +248,7 @@ void TextEditorActionHandler::createActions()
     m_cleanWhitespaceAction = registerAction(CLEAN_WHITESPACE,
             SLOT(setTextWrapping(bool)), true, tr("Clean Whitespace"),
             QKeySequence(),
-            G_EDIT_FORMAT, advancedEditMenu);;
+            G_EDIT_FORMAT, advancedEditMenu);
     m_textWrappingAction = registerAction(TEXT_WRAPPING,
             SLOT(setTextWrapping(bool)), false, tr("Enable Text &Wrapping"),
             QKeySequence(Core::UseMacShortcuts ? tr("Meta+E, Meta+W") : tr("Ctrl+E, Ctrl+W")),
@@ -448,13 +448,11 @@ void TextEditorActionHandler::updateCopyAction()
 
 void TextEditorActionHandler::gotoAction()
 {
-    Locator::LocatorManager *locatorManager = Locator::LocatorManager::instance();
-    QTC_ASSERT(locatorManager, return);
     QString locatorString = TextEditorPlugin::instance()->lineNumberFilter()->shortcutString();
     locatorString += QLatin1Char(' ');
     const int selectionStart = locatorString.size();
     locatorString += tr("<line>:<column>");
-    locatorManager->show(locatorString, selectionStart, locatorString.size() - selectionStart);
+    Locator::LocatorManager::show(locatorString, selectionStart, locatorString.size() - selectionStart);
 }
 
 void TextEditorActionHandler::printAction()

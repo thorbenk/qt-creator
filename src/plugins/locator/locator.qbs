@@ -1,4 +1,5 @@
 import qbs.base 1.0
+import qbs.FileInfo
 
 import "../QtcPlugin.qbs" as QtcPlugin
 
@@ -7,13 +8,6 @@ QtcPlugin {
 
     Depends { name: "Qt"; submodules: ["widgets", "xml", "network", "script"] }
     Depends { name: "Core" }
-
-    cpp.includePaths: base.concat([
-        "generichighlighter",
-        "tooltip",
-        "snippets",
-        "codeassist"
-    ])
 
     files: [
         "basefilefilter.cpp",
@@ -51,4 +45,16 @@ QtcPlugin {
         "images/locator.png",
         "images/reload.png",
     ]
+
+    Group {
+        name: "Tests"
+        condition: project.testsEnabled
+        files: [
+            "locatorfiltertest.cpp",
+            "locatorfiltertest.h",
+            "locator_test.cpp"
+        ]
+
+        cpp.defines: outer.concat(['SRCDIR="' + FileInfo.path(filePath) + '"'])
+    }
 }

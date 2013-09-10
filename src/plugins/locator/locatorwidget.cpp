@@ -96,13 +96,10 @@ public:
     void updatePreferredSize();
     QSize preferredSize() const { return m_preferredSize; }
 
-    void focusOutEvent (QFocusEvent * event)  {
-        if (Utils::HostOsInfo::isWindowsHost()) {
-            if (event->reason() == Qt::ActiveWindowFocusReason)
-                hide();
-        } else {
-            QTreeView::focusOutEvent(event);
-        }
+    void focusOutEvent (QFocusEvent *event) {
+        if (event->reason() == Qt::ActiveWindowFocusReason)
+            hide();
+        QTreeView::focusOutEvent(event);
     }
 
     void next() {
@@ -400,15 +397,11 @@ bool LocatorWidget::eventFilter(QObject *obj, QEvent *event)
             }
         }
     } else if (obj == m_fileLineEdit && event->type() == QEvent::FocusOut) {
-        bool hideList = true;
-        if (Utils::HostOsInfo::isWindowsHost()) {
-            QFocusEvent *fev = static_cast<QFocusEvent*>(event);
-            if (fev->reason() == Qt::ActiveWindowFocusReason &&
-                    !(fev->reason() == Qt::ActiveWindowFocusReason && !m_completionList->isActiveWindow()))
-                hideList = false;
-        }
-        if (hideList)
+        QFocusEvent *fev = static_cast<QFocusEvent *>(event);
+        if (fev->reason() != Qt::ActiveWindowFocusReason || !m_completionList->isActiveWindow()) {
             m_completionList->hide();
+            m_fileLineEdit->clearFocus();
+        }
     } else if (obj == m_fileLineEdit && event->type() == QEvent::FocusIn) {
         showPopupNow();
     } else if (obj == this && event->type() == QEvent::ShortcutOverride) {
@@ -460,9 +453,9 @@ void LocatorWidget::showPopupNow()
     showCompletionList();
 }
 
-QList<ILocatorFilter*> LocatorWidget::filtersFor(const QString &text, QString &searchText)
+QList<ILocatorFilter *> LocatorWidget::filtersFor(const QString &text, QString &searchText)
 {
-    QList<ILocatorFilter*> filters = m_locatorPlugin->filters();
+    QList<ILocatorFilter *> filters = m_locatorPlugin->filters();
     const int whiteSpace = text.indexOf(QLatin1Char(' '));
     QString prefix;
     if (whiteSpace >= 0)
@@ -480,7 +473,7 @@ QList<ILocatorFilter*> LocatorWidget::filtersFor(const QString &text, QString &s
             return prefixFilters;
     }
     searchText = text;
-    QList<ILocatorFilter*> activeFilters;
+    QList<ILocatorFilter *> activeFilters;
     foreach (ILocatorFilter *filter, filters)
         if (filter->isIncludedByDefault())
             activeFilters << filter;
@@ -491,7 +484,7 @@ void LocatorWidget::updateCompletionList(const QString &text)
 {
     m_updateRequested = true;
     QString searchText;
-    const QList<ILocatorFilter*> filters = filtersFor(text, searchText);
+    const QList<ILocatorFilter *> filters = filtersFor(text, searchText);
 
     // cancel the old future
     m_entriesWatcher->future().cancel();
@@ -542,6 +535,7 @@ void LocatorWidget::acceptCurrentEntry()
         return;
     const FilterEntry entry = m_locatorModel->data(index, Qt::UserRole).value<FilterEntry>();
     m_completionList->hide();
+    m_fileLineEdit->clearFocus();
     entry.filter->accept(entry);
 }
 
@@ -567,9 +561,9 @@ void LocatorWidget::show(const QString &text, int selectionStart, int selectionL
 void LocatorWidget::filterSelected()
 {
     QString searchText = tr("<type here>");
-    QAction *action = qobject_cast<QAction*>(sender());
+    QAction *action = qobject_cast<QAction *>(sender());
     QTC_ASSERT(action, return);
-    ILocatorFilter *filter = action->data().value<ILocatorFilter*>();
+    ILocatorFilter *filter = action->data().value<ILocatorFilter *>();
     QTC_ASSERT(filter, return);
     QString currentText = m_fileLineEdit->text().trimmed();
     // add shortcut string at front or replace existing shortcut string
@@ -577,7 +571,7 @@ void LocatorWidget::filterSelected()
         searchText = currentText;
         foreach (ILocatorFilter *otherfilter, m_locatorPlugin->filters()) {
             if (currentText.startsWith(otherfilter->shortcutString() + QLatin1Char(' '))) {
-                searchText = currentText.mid(otherfilter->shortcutString().length()+1);
+                searchText = currentText.mid(otherfilter->shortcutString().length() + 1);
                 break;
             }
         }

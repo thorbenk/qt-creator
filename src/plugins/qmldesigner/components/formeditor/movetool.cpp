@@ -46,7 +46,9 @@ MoveTool::MoveTool(FormEditorView *editorView)
     : AbstractFormEditorTool(editorView),
     m_moveManipulator(editorView->scene()->manipulatorLayerItem(), editorView),
     m_selectionIndicator(editorView->scene()->manipulatorLayerItem()),
-    m_resizeIndicator(editorView->scene()->manipulatorLayerItem())
+    m_resizeIndicator(editorView->scene()->manipulatorLayerItem()),
+    m_anchorIndicator(editorView->scene()->manipulatorLayerItem()),
+    m_bindingIndicator(editorView->scene()->manipulatorLayerItem())
 {
     m_selectionIndicator.setCursor(Qt::SizeAllCursor);
 }
@@ -63,6 +65,8 @@ void MoveTool::clear()
     m_movingItems.clear();
     m_selectionIndicator.clear();
     m_resizeIndicator.clear();
+    m_anchorIndicator.clear();
+    m_bindingIndicator.clear();
 
     AbstractFormEditorTool::clear();
 }
@@ -93,6 +97,8 @@ void MoveTool::mouseMoveEvent(const QList<QGraphicsItem*> &itemList,
 
         //    m_selectionIndicator.hide();
         m_resizeIndicator.hide();
+        m_anchorIndicator.hide();
+        m_bindingIndicator.hide();
 
         FormEditorItem *containerItem = containerFormEditorItem(itemList, m_movingItems);
         if (containerItem && view()->currentState().isBaseState()) {
@@ -150,6 +156,8 @@ void MoveTool::keyPressEvent(QKeyEvent *event)
         m_moveManipulator.setItems(movableItems);
 //        m_selectionIndicator.hide();
         m_resizeIndicator.hide();
+        m_anchorIndicator.hide();
+        m_bindingIndicator.hide();
         m_moveManipulator.beginRewriterTransaction();
     }
 
@@ -182,6 +190,8 @@ void MoveTool::keyReleaseEvent(QKeyEvent *keyEvent)
         m_moveManipulator.clear();
 //        m_selectionIndicator.show();
         m_resizeIndicator.show();
+        m_anchorIndicator.show();
+        m_bindingIndicator.show();
     }
 }
 
@@ -206,6 +216,8 @@ void MoveTool::mouseReleaseEvent(const QList<QGraphicsItem*> &itemList,
 
         m_selectionIndicator.show();
         m_resizeIndicator.show();
+        m_anchorIndicator.show();
+        m_bindingIndicator.show();
         m_movingItems.clear();
     }
 
@@ -227,6 +239,8 @@ void MoveTool::selectedItemsChanged(const QList<FormEditorItem*> &itemList)
 {
     m_selectionIndicator.setItems(movingItems(itemList));
     m_resizeIndicator.setItems(itemList);
+    m_anchorIndicator.setItems(itemList);
+    m_bindingIndicator.setItems(itemList);
     updateMoveManipulator();
 }
 
@@ -338,7 +352,10 @@ QList<FormEditorItem*> movalbeItems(const QList<FormEditorItem*> &itemList)
     QMutableListIterator<FormEditorItem*> listIterator(filteredItemList);
     while (listIterator.hasNext()) {
         FormEditorItem *item = listIterator.next();
-        if (!item->qmlItemNode().isValid() || !item->qmlItemNode().instanceIsMovable() || item->qmlItemNode().instanceIsInLayoutable())
+        if (!item->qmlItemNode().isValid()
+                || !item->qmlItemNode().instanceIsMovable()
+                || !item->qmlItemNode().modelIsMovable()
+                || item->qmlItemNode().instanceIsInLayoutable())
             listIterator.remove();
     }
 
@@ -375,6 +392,8 @@ void MoveTool::formEditorItemsChanged(const QList<FormEditorItem*> &itemList)
 {
     m_selectionIndicator.updateItems(itemList);
     m_resizeIndicator.updateItems(itemList);
+    m_anchorIndicator.updateItems(itemList);
+    m_bindingIndicator.updateItems(itemList);
 }
 
 }

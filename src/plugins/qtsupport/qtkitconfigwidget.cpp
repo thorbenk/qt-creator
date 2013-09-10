@@ -50,10 +50,8 @@ QtKitConfigWidget::QtKitConfigWidget(ProjectExplorer::Kit *k, bool sticky) :
     m_combo = new QComboBox;
     m_combo->addItem(tr("None"), -1);
 
-    QtVersionManager *mgr = QtVersionManager::instance();
-    QList<BaseQtVersion *> versions = mgr->validVersions();
     QList<int> versionIds;
-    foreach (BaseQtVersion *v, versions)
+    foreach (BaseQtVersion *v, QtVersionManager::versions())
         versionIds.append(v->uniqueId());
     versionsChanged(versionIds, QList<int>(), QList<int>());
 
@@ -64,7 +62,7 @@ QtKitConfigWidget::QtKitConfigWidget(ProjectExplorer::Kit *k, bool sticky) :
 
     connect(m_combo, SIGNAL(currentIndexChanged(int)), this, SLOT(currentWasChanged(int)));
 
-    connect(mgr, SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
+    connect(QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
             this, SLOT(versionsChanged(QList<int>,QList<int>,QList<int>)));
 
     connect(m_manageButton, SIGNAL(clicked()), this, SLOT(manageQtVersions()));
@@ -105,25 +103,25 @@ QWidget *QtKitConfigWidget::buttonWidget() const
 void QtKitConfigWidget::versionsChanged(const QList<int> &added, const QList<int> &removed,
                                         const QList<int> &changed)
 {
-    QtVersionManager *mgr = QtVersionManager::instance();
-
     foreach (const int id, added) {
-        BaseQtVersion *v = mgr->version(id);
+        BaseQtVersion *v = QtVersionManager::version(id);
         QTC_CHECK(v);
+        if (!v->isValid())
+            continue;
         QTC_CHECK(findQtVersion(id) < 0);
         m_combo->addItem(v->displayName(), id);
     }
     foreach (const int id, removed) {
         int pos = findQtVersion(id);
-        QTC_CHECK(pos >= 0);
-        m_combo->removeItem(pos);
+        if (pos >= 0) // We do not include invalid Qt versions, so do not try to remove those.
+            m_combo->removeItem(pos);
 
     }
     foreach (const int id, changed) {
-        BaseQtVersion *v = mgr->version(id);
+        BaseQtVersion *v = QtVersionManager::version(id);
         int pos = findQtVersion(id);
-        QTC_CHECK(pos >= 0);
-        m_combo->setItemText(pos, v->displayName());
+        if (pos >= 0) // We do not include invalid Qt versions, so do not try to remove those.
+            m_combo->setItemText(pos, v->displayName());
     }
 }
 

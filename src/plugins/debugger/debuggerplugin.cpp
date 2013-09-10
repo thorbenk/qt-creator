@@ -33,6 +33,7 @@
 #include "debuggeractions.h"
 #include "debuggerinternalconstants.h"
 #include "debuggercore.h"
+#include "debuggerkitconfigwidget.h"
 #include "debuggerdialogs.h"
 #include "debuggerengine.h"
 #include "debuggermainwindow.h"
@@ -60,8 +61,8 @@
 #include "debuggertooltipmanager.h"
 #include "localsandexpressionswindow.h"
 #include "loadcoredialog.h"
-#include "hostutils.h"
 #include "sourceutils.h"
+#include <debugger/shared/hostutils.h>
 
 #include "snapshothandler.h"
 #include "threadshandler.h"
@@ -424,11 +425,6 @@ void addTcfOptionPages(QList<IOptionsPage*> *opts);
 void addLldbOptionPages(QList<IOptionsPage*> *opts);
 #endif
 
-static SessionManager *sessionManager()
-{
-    return ProjectExplorerPlugin::instance()->session();
-}
-
 static QToolButton *toolButton(QAction *action)
 {
     QToolButton *button = new QToolButton;
@@ -593,12 +589,12 @@ public:
 #ifdef Q_OS_WIN
         if (Utils::winIs64BitSystem()) {
             CdbMatcher matcher64(64);
-            if (Kit *cdb64Kit = KitManager::instance()->find(&matcher64))
+            if (Kit *cdb64Kit = KitManager::find(&matcher64))
                 return cdb64Kit;
         }
 #endif
         CdbMatcher matcher;
-        return KitManager::instance()->find(&matcher);
+        return KitManager::find(&matcher);
     }
 
 private:
@@ -625,14 +621,14 @@ bool fillParameters(DebuggerStartParameters *sp, const Kit *kit, QString *errorM
         }
         if (!abis.isEmpty()) {
             AbiKitMatcher matcher(abis);
-            kit = KitManager::instance()->find(&matcher);
+            kit = KitManager::find(&matcher);
             if (!kit) {
                 CompatibleAbiKitMatcher matcher(abis);
-                kit = KitManager::instance()->find(&matcher);
+                kit = KitManager::find(&matcher);
             }
         }
         if (!kit)
-            kit = KitManager::instance()->defaultKit();
+            kit = KitManager::defaultKit();
     }
 
     // Verify that debugger and profile are valid
@@ -815,7 +811,7 @@ public slots:
     {
         const QAction *act = qobject_cast<QAction *>(sender());
         QTC_ASSERT(act, return);
-        BreakpointModelId id = act->data().value<BreakpointModelId>();;
+        BreakpointModelId id = act->data().value<BreakpointModelId>();
         breakHandler()->setEnabled(id, false);
     }
 
@@ -921,9 +917,6 @@ public slots:
     BreakHandler *breakHandler() const { return m_breakHandler; }
     SnapshotHandler *snapshotHandler() const { return m_snapshotHandler; }
 
-    void setConfigValue(const QString &name, const QVariant &value);
-    QVariant configValue(const QString &name) const;
-
     void displayDebugger(DebuggerEngine *engine, bool updateEngine = true);
 
     void dumpLog();
@@ -955,9 +948,9 @@ public slots:
     void testRunProject(const DebuggerStartParameters &sp, const TestCallBack &cb);
     void testRunControlFinished();
 
-    void testStateMachine1();
-    void testStateMachine2();
-    void testStateMachine3();
+//    void testStateMachine1();
+//    void testStateMachine2();
+//    void testStateMachine3();
 
     void testBenchmark1();
 
@@ -1180,8 +1173,6 @@ public slots:
         return m_mainWindow->activeDebugLanguages() & lang;
     }
 
-    QVariant sessionValue(const QString &name);
-    void setSessionValue(const QString &name, const QVariant &value);
     QIcon locationMarkIcon() const { return m_locationMarkIcon; }
 
     void openTextEditor(const QString &titlePattern0, const QString &contents);
@@ -1282,7 +1273,6 @@ public:
     bool m_shuttingDown;
     DebuggerEngine *m_currentEngine;
     DebuggerSettings *m_debuggerSettings;
-    QSettings *m_coreSettings;
     QStringList m_arguments;
     DebuggerToolTipManager *m_toolTipManager;
     CommonOptionsPage *m_commonOptionsPage;
@@ -1427,7 +1417,7 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
                     sp.displayName = tr("Core file \"%1\"").arg(sp.coreFile);
                     sp.startMessage = tr("Attaching to core file %1.").arg(sp.coreFile);
                 } else if (key == QLatin1String("kit")) {
-                    kit = KitManager::instance()->find(Id::fromString(val));
+                    kit = KitManager::find(Id::fromString(val));
                 }
             }
         }
@@ -1489,7 +1479,7 @@ void DebuggerPluginPrivate::parseCommandLineArguments()
         errorMessage = tr("Error evaluating command line arguments: %1")
             .arg(errorMessage);
         qWarning("%s\n", qPrintable(errorMessage));
-        Core::MessageManager::instance()->printToOutputPane(errorMessage, Core::MessageManager::NoModeSwitch);
+        MessageManager::write(errorMessage);
     }
     if (!m_scheduledStarts.isEmpty())
         QTimer::singleShot(0, this, SLOT(runScheduled()));
@@ -1515,18 +1505,14 @@ bool DebuggerPluginPrivate::initialize(const QStringList &arguments,
     return true;
 }
 
-void DebuggerPluginPrivate::setConfigValue(const QString &name, const QVariant &value)
+void DebuggerCore::setConfigValue(const QByteArray &name, const QVariant &value)
 {
-    m_coreSettings->setValue(_("DebugMode/") + name, value);
+    ICore::settings()->setValue(_("DebugMode/" + name), value);
 }
 
-QVariant DebuggerPluginPrivate::configValue(const QString &name) const
+QVariant DebuggerCore::configValue(const QByteArray &name)
 {
-    const QVariant value = m_coreSettings->value(_("DebugMode/") + name);
-    if (value.isValid())
-        return value;
-    // Legacy (pre-2.1): Check old un-namespaced-settings.
-    return m_coreSettings->value(name);
+    return ICore::settings()->value(_("DebugMode/" + name));
 }
 
 void DebuggerPluginPrivate::onCurrentProjectChanged(Project *project)
@@ -1574,29 +1560,26 @@ void DebuggerPluginPrivate::languagesChanged()
 
 void DebuggerPluginPrivate::debugProject()
 {
-    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
-    if (Project *pro = pe->startupProject())
-        pe->runProject(pro, DebugRunMode);
+    if (Project *pro = SessionManager::startupProject())
+        ProjectExplorerPlugin::instance()->runProject(pro, DebugRunMode);
 }
 
 void DebuggerPluginPrivate::debugProjectWithoutDeploy()
 {
-    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
-    if (Project *pro = pe->startupProject())
-        pe->runProject(pro, DebugRunMode, true);
+    if (Project *pro = SessionManager::startupProject())
+        ProjectExplorerPlugin::instance()->runProject(pro, DebugRunMode, true);
 }
 
 void DebuggerPluginPrivate::debugProjectBreakMain()
 {
-    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
-    if (Project *pro = pe->startupProject())
-        pe->runProject(pro, DebugRunModeWithBreakOnMain);
+    if (Project *pro = SessionManager::startupProject())
+        ProjectExplorerPlugin::instance()->runProject(pro, DebugRunModeWithBreakOnMain);
 }
 
 void DebuggerPluginPrivate::startAndDebugApplication()
 {
     DebuggerStartParameters sp;
-    if (StartApplicationDialog::run(mainWindow(), m_coreSettings, &sp))
+    if (StartApplicationDialog::run(mainWindow(), &sp))
         DebuggerRunControlFactory::createAndScheduleRun(sp);
 }
 
@@ -1604,30 +1587,29 @@ void DebuggerPluginPrivate::attachCore()
 {
     AttachCoreDialog dlg(mainWindow());
 
-    const QString lastExternalKit = configValue(_("LastExternalKit")).toString();
+    const QString lastExternalKit = configValue("LastExternalKit").toString();
     if (!lastExternalKit.isEmpty())
         dlg.setKitId(Id::fromString(lastExternalKit));
-    dlg.setLocalExecutableFile(configValue(_("LastExternalExecutableFile")).toString());
-    dlg.setLocalCoreFile(configValue(_("LastLocalCoreFile")).toString());
-    dlg.setRemoteCoreFile(configValue(_("LastRemoteCoreFile")).toString());
-    dlg.setOverrideStartScript(configValue(_("LastExternalStartScript")).toString());
-    dlg.setForceLocalCoreFile(configValue(_("LastForceLocalCoreFile")).toBool());
+    dlg.setLocalExecutableFile(configValue("LastExternalExecutableFile").toString());
+    dlg.setLocalCoreFile(configValue("LastLocalCoreFile").toString());
+    dlg.setRemoteCoreFile(configValue("LastRemoteCoreFile").toString());
+    dlg.setOverrideStartScript(configValue("LastExternalStartScript").toString());
+    dlg.setForceLocalCoreFile(configValue("LastForceLocalCoreFile").toBool());
 
     if (dlg.exec() != QDialog::Accepted)
         return;
 
-    setConfigValue(_("LastExternalExecutableFile"), dlg.localExecutableFile());
-    setConfigValue(_("LastLocalCoreFile"), dlg.localCoreFile());
-    setConfigValue(_("LastRemoteCoreFile"), dlg.remoteCoreFile());
-    setConfigValue(_("LastExternalKit"), dlg.kit()->id().toSetting());
-    setConfigValue(_("LastExternalStartScript"), dlg.overrideStartScript());
-    setConfigValue(_("LastForceLocalCoreFile"), dlg.forcesLocalCoreFile());
+    setConfigValue("LastExternalExecutableFile", dlg.localExecutableFile());
+    setConfigValue("LastLocalCoreFile", dlg.localCoreFile());
+    setConfigValue("LastRemoteCoreFile", dlg.remoteCoreFile());
+    setConfigValue("LastExternalKit", dlg.kit()->id().toSetting());
+    setConfigValue("LastExternalStartScript", dlg.overrideStartScript());
+    setConfigValue("LastForceLocalCoreFile", dlg.forcesLocalCoreFile());
 
     DebuggerStartParameters sp;
     QString display = dlg.useLocalCoreFile() ? dlg.localCoreFile() : dlg.remoteCoreFile();
     QTC_ASSERT(fillParameters(&sp, dlg.kit()), return);
-    DebuggerKitInformation::DebuggerItem info = DebuggerKitInformation::debuggerItem(dlg.kit());
-    sp.masterEngineType = info.engineType;
+    sp.masterEngineType = DebuggerKitInformation::engineType(dlg.kit());
     sp.executable = dlg.localExecutableFile();
     sp.coreFile = dlg.localCoreFile();
     sp.displayName = tr("Core file \"%1\"").arg(display);
@@ -1639,7 +1621,7 @@ void DebuggerPluginPrivate::attachCore()
 
 void DebuggerPluginPrivate::startRemoteCdbSession()
 {
-    const QString connectionKey = _("CdbRemoteConnection");
+    const QByteArray connectionKey = "CdbRemoteConnection";
     DebuggerStartParameters sp;
     Kit *kit = CdbMatcher::findUniversalCdbKit();
     QTC_ASSERT(kit && fillParameters(&sp, kit), return);
@@ -1661,7 +1643,7 @@ void DebuggerPluginPrivate::attachToRemoteServer()
 {
     DebuggerStartParameters sp;
     sp.startMode = AttachToRemoteServer;
-    if (StartApplicationDialog::run(mainWindow(), m_coreSettings, &sp)) {
+    if (StartApplicationDialog::run(mainWindow(), &sp)) {
         sp.closeMode = KillAtClose;
         sp.serverStartScript.clear();
         DebuggerRunControlFactory::createAndScheduleRun(sp);
@@ -1749,13 +1731,13 @@ void DebuggerPluginPrivate::attachToQmlPort()
     DebuggerStartParameters sp;
     AttachToQmlPortDialog dlg(mainWindow());
 
-    const QVariant qmlServerPort = configValue(_("LastQmlServerPort"));
+    const QVariant qmlServerPort = configValue("LastQmlServerPort");
     if (qmlServerPort.isValid())
         dlg.setPort(qmlServerPort.toInt());
     else
         dlg.setPort(sp.qmlServerPort);
 
-    const Id kitId = Id::fromSetting(configValue(_("LastProfile")));
+    const Id kitId = Id::fromSetting(configValue("LastProfile"));
     if (kitId.isValid())
         dlg.setKitId(kitId);
 
@@ -1764,8 +1746,8 @@ void DebuggerPluginPrivate::attachToQmlPort()
 
     Kit *kit = dlg.kit();
     QTC_ASSERT(kit && fillParameters(&sp, kit), return);
-    setConfigValue(_("LastQmlServerPort"), dlg.port());
-    setConfigValue(_("LastProfile"), kit->id().toSetting());
+    setConfigValue("LastQmlServerPort", dlg.port());
+    setConfigValue("LastProfile", kit->id().toSetting());
 
     IDevice::ConstPtr device = DeviceKitInformation::device(kit);
     if (device) {
@@ -1786,11 +1768,10 @@ void DebuggerPluginPrivate::attachToQmlPort()
     //
     // get files from all the projects in the session
     //
-    SessionManager *sessionManager = ProjectExplorerPlugin::instance()->session();
-    QList<Project *> projects = sessionManager->projects();
-    if (Project *startupProject = ProjectExplorerPlugin::instance()->startupProject()) {
+    QList<Project *> projects = SessionManager::projects();
+    if (Project *startupProject = SessionManager::startupProject()) {
         // startup project first
-        projects.removeOne(ProjectExplorerPlugin::instance()->startupProject());
+        projects.removeOne(startupProject);
         projects.insert(0, startupProject);
     }
     QStringList sourceFiles;
@@ -2364,7 +2345,7 @@ void DebuggerPluginPrivate::updateDebugActions()
         return;
 
     ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
-    Project *project = pe->startupProject();
+    Project *project = SessionManager::startupProject();
     const bool canRun = pe->canRun(project, DebugRunMode);
     m_startAction->setEnabled(canRun);
     m_startAction->setToolTip(canRun ? QString() : pe->cannotRunReason(project, DebugRunMode));
@@ -2422,7 +2403,7 @@ void DebuggerPluginPrivate::showSettingsDialog()
 
 void DebuggerPluginPrivate::updateDebugWithoutDeployMenu()
 {
-    const bool state = ProjectExplorerPlugin::instance()->projectExplorerSettings().deployBeforeRun;
+    const bool state = ProjectExplorerPlugin::projectExplorerSettings().deployBeforeRun;
     m_debugWithoutDeployAction->setVisible(state);
 }
 
@@ -2515,18 +2496,14 @@ const CPlusPlus::Snapshot &DebuggerPluginPrivate::cppCodeModelSnapshot() const
     return m_codeModelSnapshot;
 }
 
-void DebuggerPluginPrivate::setSessionValue(const QString &name, const QVariant &value)
+void DebuggerCore::setSessionValue(const QByteArray &key, const QVariant &value)
 {
-    QTC_ASSERT(sessionManager(), return);
-    sessionManager()->setValue(name, value);
-    //qDebug() << "SET SESSION VALUE: " << name;
+    SessionManager::setValue(QString::fromUtf8(key), value);
 }
 
-QVariant DebuggerPluginPrivate::sessionValue(const QString &name)
+QVariant DebuggerCore::sessionValue(const QByteArray &key)
 {
-    QTC_ASSERT(sessionManager(), return QVariant());
-    //qDebug() << "GET SESSION VALUE: " << name;
-    return sessionManager()->value(name);
+    return SessionManager::value(QString::fromUtf8(key));
 }
 
 void DebuggerPluginPrivate::openTextEditor(const QString &titlePattern0,
@@ -2664,6 +2641,7 @@ void DebuggerPluginPrivate::runControlFinished(DebuggerEngine *engine)
         m_snapshotHandler->activateSnapshot(0);
     }
     action(OperateByInstruction)->setValue(QVariant(false));
+    m_logWindow->clearUndoRedoStacks();
 }
 
 void DebuggerPluginPrivate::remoteCommand(const QStringList &options,
@@ -2707,9 +2685,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
 {
     const QKeySequence debugKey = QKeySequence(UseMacShortcuts ? tr("Ctrl+Y") : tr("F5"));
 
-    m_coreSettings = ICore::settings();
-
-    m_debuggerSettings = new DebuggerSettings(m_coreSettings);
+    m_debuggerSettings = new DebuggerSettings;
     m_debuggerSettings->readSettings();
 
     connect(ICore::instance(), SIGNAL(coreAboutToClose()), this, SLOT(coreShutdown()));
@@ -3181,6 +3157,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
     foreach (IOptionsPage *op, engineOptionPages)
         m_plugin->addAutoReleasedObject(op);
     m_plugin->addAutoReleasedObject(new LocalsAndExpressionsOptionsPage);
+    m_plugin->addAutoReleasedObject(new DebuggerOptionsPage);
 
     connect(ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)),
         SLOT(onModeChanged(Core::IMode*)));
@@ -3210,20 +3187,19 @@ void DebuggerPluginPrivate::extensionsInitialized()
         SLOT(fontSettingsChanged(TextEditor::FontSettings)));
 
     // ProjectExplorer
-    connect(sessionManager(), SIGNAL(sessionLoaded(QString)),
+    connect(SessionManager::instance(), SIGNAL(sessionLoaded(QString)),
         SLOT(sessionLoaded()));
-    connect(sessionManager(), SIGNAL(aboutToSaveSession()),
+    connect(SessionManager::instance(), SIGNAL(aboutToSaveSession()),
         SLOT(aboutToSaveSession()));
-    connect(sessionManager(), SIGNAL(aboutToUnloadSession(QString)),
+    connect(SessionManager::instance(), SIGNAL(aboutToUnloadSession(QString)),
         SLOT(aboutToUnloadSession()));
     connect(ProjectExplorerPlugin::instance(), SIGNAL(updateRunActions()),
         SLOT(updateDebugActions()));
 
     // EditorManager
-    QObject *editorManager = ICore::editorManager();
-    connect(editorManager, SIGNAL(editorOpened(Core::IEditor*)),
+    connect(EditorManager::instance(), SIGNAL(editorOpened(Core::IEditor*)),
         SLOT(editorOpened(Core::IEditor*)));
-    connect(editorManager, SIGNAL(currentEditorChanged(Core::IEditor*)),
+    connect(EditorManager::instance(), SIGNAL(currentEditorChanged(Core::IEditor*)),
             SLOT(updateBreakMenuItem(Core::IEditor*)));
 
     // Application interaction
@@ -3286,15 +3262,14 @@ void DebuggerPluginPrivate::extensionsInitialized()
     setInitialState();
     connectEngine(0);
 
-    connect(sessionManager(),
+    connect(SessionManager::instance(),
         SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
         SLOT(onCurrentProjectChanged(ProjectExplorer::Project*)));
 
     m_commonOptionsPage = new CommonOptionsPage(m_globalDebuggerOptions);
     m_plugin->addAutoReleasedObject(m_commonOptionsPage);
 
-    QTC_CHECK(m_coreSettings);
-    m_globalDebuggerOptions->fromSettings(m_coreSettings);
+    m_globalDebuggerOptions->fromSettings();
     m_watchersWindow->setVisible(false);
     m_returnWindow->setVisible(false);
 
@@ -3384,7 +3359,7 @@ void DebuggerPluginPrivate::showModuleSections(const QString &moduleName,
 void DebuggerPluginPrivate::aboutToShutdown()
 {
     m_plugin->removeObject(this);
-    disconnect(sessionManager(),
+    disconnect(SessionManager::instance(),
         SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
         this, 0);
 }
@@ -3435,7 +3410,9 @@ bool DebuggerPlugin::initialize(const QStringList &arguments, QString *errorMess
     mstart->addSeparator(globalcontext, Constants::G_GENERAL);
     mstart->addSeparator(globalcontext, Constants::G_SPECIAL);
 
-    KitManager::instance()->registerKitInformation(new DebuggerKitInformation);
+    DebuggerItemManager::restoreDebuggers();
+
+    KitManager::registerKitInformation(new DebuggerKitInformation);
 
     return theDebuggerCore->initialize(arguments, errorMessage);
 }
@@ -3513,8 +3490,7 @@ void DebuggerPluginPrivate::testProjectEvaluated()
     QString fileName = m_testProject->projectFilePath();
     QVERIFY(!fileName.isEmpty());
     qWarning("Project %s loaded", qPrintable(fileName));
-    connect(ProjectExplorerPlugin::instance()->buildManager(),
-            SIGNAL(buildQueueFinished(bool)),
+    connect(BuildManager::instance(), SIGNAL(buildQueueFinished(bool)),
             SLOT(testProjectBuilt(bool)));
     ProjectExplorerPlugin::instance()->buildProject(m_testProject);
 }
@@ -3576,37 +3552,37 @@ void DebuggerPluginPrivate::testFinished()
 
 ///////////////////////////////////////////////////////////////////////////
 
-void DebuggerPlugin::testStateMachine()
-{
-    theDebuggerCore->testStateMachine1();
-}
+//void DebuggerPlugin::testStateMachine()
+//{
+//    theDebuggerCore->testStateMachine1();
+//}
 
-void DebuggerPluginPrivate::testStateMachine1()
-{
-    m_testSuccess = true;
-    QString proFile = ICore::resourcePath();
-    if (Utils::HostOsInfo::isMacHost())
-        proFile += QLatin1String("/../..");
-    proFile += QLatin1String("/../../tests/manual/debugger/simple/simple.pro");
-    testLoadProject(proFile, TestCallBack(this,  "testStateMachine2"));
-    QVERIFY(m_testSuccess);
-    QTestEventLoop::instance().enterLoop(20);
-}
+//void DebuggerPluginPrivate::testStateMachine1()
+//{
+//    m_testSuccess = true;
+//    QString proFile = ICore::resourcePath();
+//    if (Utils::HostOsInfo::isMacHost())
+//        proFile += QLatin1String("/../..");
+//    proFile += QLatin1String("/../../tests/manual/debugger/simple/simple.pro");
+//    testLoadProject(proFile, TestCallBack(this,  "testStateMachine2"));
+//    QVERIFY(m_testSuccess);
+//    QTestEventLoop::instance().enterLoop(20);
+//}
 
-void DebuggerPluginPrivate::testStateMachine2()
-{
-    DebuggerStartParameters sp;
-    fillParameters(&sp, currentKit());
-    sp.executable = activeLocalRunConfiguration()->executable();
-    sp.testCase = TestNoBoundsOfCurrentFunction;
-    testRunProject(sp, TestCallBack(this, "testStateMachine3"));
-}
+//void DebuggerPluginPrivate::testStateMachine2()
+//{
+//    DebuggerStartParameters sp;
+//    fillParameters(&sp, currentKit());
+//    sp.executable = activeLocalRunConfiguration()->executable();
+//    sp.testCase = TestNoBoundsOfCurrentFunction;
+//    testRunProject(sp, TestCallBack(this, "testStateMachine3"));
+//}
 
-void DebuggerPluginPrivate::testStateMachine3()
-{
-    testUnloadProject();
-    testFinished();
-}
+//void DebuggerPluginPrivate::testStateMachine3()
+//{
+//    testUnloadProject();
+//    testFinished();
+//}
 
 
 ///////////////////////////////////////////////////////////////////////////

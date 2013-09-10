@@ -53,9 +53,6 @@ class PROJECTEXPLORER_EXPORT SysRootKitInformation : public KitInformation
 public:
     SysRootKitInformation();
 
-    Core::Id dataId() const;
-    unsigned int priority() const;
-
     QVariant defaultValue(Kit *k) const;
 
     QList<Task> validate(const Kit *k) const;
@@ -68,7 +65,7 @@ public:
     static Utils::FileName sysRoot(const Kit *k);
     static void setSysRoot(Kit *k, const Utils::FileName &v);
 
-    static void makeSticky(Kit *k);
+    static void setSticky(Kit *k, bool b);
 };
 
 class PROJECTEXPLORER_EXPORT SysRootMatcher : public KitMatcher
@@ -97,9 +94,6 @@ class PROJECTEXPLORER_EXPORT ToolChainKitInformation : public KitInformation
 public:
     ToolChainKitInformation();
 
-    Core::Id dataId() const;
-    unsigned int priority() const;
-
     QVariant defaultValue(Kit *k) const;
 
     QList<Task> validate(const Kit *k) const;
@@ -120,7 +114,7 @@ public:
 
     static QString msgNoToolChainInTarget();
 
-    static void makeSticky(Kit *k);
+    static void setSticky(Kit *k, bool b);
 
 private slots:
     void kitsWereLoaded();
@@ -154,9 +148,6 @@ class PROJECTEXPLORER_EXPORT DeviceTypeKitInformation : public KitInformation
 public:
     DeviceTypeKitInformation();
 
-    Core::Id dataId() const;
-    unsigned int priority() const;
-
     QVariant defaultValue(Kit *k) const;
 
     QList<Task> validate(const Kit *k) const;
@@ -167,7 +158,7 @@ public:
 
     static const Core::Id deviceTypeId(const Kit *k);
     static void setDeviceTypeId(Kit *k, Core::Id type);
-    static void makeSticky(Kit *k);
+    static void setSticky(Kit *k, bool b);
 };
 
 class PROJECTEXPLORER_EXPORT DeviceTypeMatcher : public KitMatcher
@@ -199,9 +190,6 @@ class PROJECTEXPLORER_EXPORT DeviceKitInformation : public KitInformation
 public:
     DeviceKitInformation();
 
-    Core::Id dataId() const;
-    unsigned int priority() const;
-
     QVariant defaultValue(Kit *k) const;
 
     QList<Task> validate(const Kit *k) const;
@@ -219,7 +207,7 @@ public:
     static void setDevice(Kit *k, IDevice::ConstPtr dev);
     static void setDeviceId(Kit *k, const Core::Id id);
 
-    static void makeSticky(Kit *k);
+    static void setSticky(Kit *k, bool b);
 
 private slots:
     void kitsWereLoaded();

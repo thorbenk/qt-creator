@@ -33,7 +33,6 @@
 #include "gitplugin.h"
 #include "gitversioncontrol.h"
 
-#include <vcsbase/checkoutjobs.h>
 #include <vcsbase/vcsbaseconstants.h>
 #include <vcsbase/vcsconfigurationpage.h>
 #include <utils/qtcassert.h>
@@ -47,6 +46,7 @@ CloneWizard::CloneWizard(QObject *parent) :
         VcsBase::BaseCheckoutWizard(parent)
 {
     setId(QLatin1String(VcsBase::Constants::VCS_ID_GIT));
+    setCustomLabels(tr("Cloning"), tr("Cloning started..."));
 }
 
 QIcon CloneWizard::icon() const
@@ -76,8 +76,8 @@ QList<QWizardPage*> CloneWizard::createParameterPages(const QString &path)
     return rc;
 }
 
-QSharedPointer<VcsBase::AbstractCheckoutJob> CloneWizard::createJob(const QList<QWizardPage*> &parameterPages,
-                                                                    QString *checkoutPath)
+VcsBase::Command *CloneWizard::createCommand(const QList<QWizardPage*> &parameterPages,
+                                             QString *checkoutPath)
 {
     // Collect parameters for the clone command.
     const CloneWizardPage *cwp = 0;
@@ -87,7 +87,7 @@ QSharedPointer<VcsBase::AbstractCheckoutJob> CloneWizard::createJob(const QList<
             break;
     }
 
-    QTC_ASSERT(cwp, return QSharedPointer<VcsBase::AbstractCheckoutJob>());
+    QTC_ASSERT(cwp, return 0);
     return cwp->createCheckoutJob(checkoutPath);
 }
 

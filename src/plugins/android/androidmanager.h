@@ -33,6 +33,7 @@
 #include <utils/fileutils.h>
 
 #include <QDomDocument>
+#include <QPair>
 #include <QObject>
 #include <QStringList>
 
@@ -72,8 +73,9 @@ public:
     static bool updateDeploymentSettings(ProjectExplorer::Target *target);
     static bool bundleQt(ProjectExplorer::Target *target);
 
-    static QString targetSDK(ProjectExplorer::Target *target);
-    static bool setTargetSDK(ProjectExplorer::Target *target, const QString &sdk);
+    static QString buildTargetSDK(ProjectExplorer::Target *target);
+    static bool setBuildTargetSDK(ProjectExplorer::Target *target, const QString &sdk);
+    static int minimumSDK(ProjectExplorer::Target *target);
 
     static QString targetArch(ProjectExplorer::Target *target);
 
@@ -86,7 +88,7 @@ public:
     static Utils::FileName apkPath(ProjectExplorer::Target *target, BuildType buildType);
 
     static bool createAndroidTemplatesIfNecessary(ProjectExplorer::Target *target);
-    static void updateTarget(ProjectExplorer::Target *target, const QString &targetSDK,
+    static void updateTarget(ProjectExplorer::Target *target, const QString &buildTargetSDK,
                              const QString &name = QString());
 
     static Utils::FileName localLibsRulesFilePath(ProjectExplorer::Target *target);
@@ -94,6 +96,9 @@ public:
     static QString loadLocalJars(ProjectExplorer::Target *target, int apiLevel = -1);
     static QString loadLocalBundledFiles(ProjectExplorer::Target *target, int apiLevel = -1);
     static QString loadLocalJarsInitClasses(ProjectExplorer::Target *target, int apiLevel = -1);
+
+    static QPair<int, int> apiLevelRange(ProjectExplorer::Target *target);
+    static QString androidNameForApiLevel(int x);
 
     class Library
     {

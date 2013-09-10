@@ -172,9 +172,7 @@ bool Project::removeTarget(Target *target)
     if (!target || !d->m_targets.contains(target))
         return false;
 
-    ProjectExplorer::BuildManager *bm =
-            ProjectExplorer::ProjectExplorerPlugin::instance()->buildManager();
-    if (bm->isBuilding(target))
+    if (BuildManager::isBuilding(target))
         return false;
 
     if (target == activeTarget()) {
@@ -270,7 +268,7 @@ Target *Project::restoreTarget(const QVariantMap &data)
         return 0;
     }
 
-    Kit *k = KitManager::instance()->find(id);
+    Kit *k = KitManager::find(id);
     if (!k) {
         qWarning("Warning: No kit '%s' found. Continuing.", qPrintable(id.toString()));
         return 0;

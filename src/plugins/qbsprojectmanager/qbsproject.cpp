@@ -38,8 +38,6 @@
 #include <coreplugin/documentmanager.h>
 #include <utils/qtcassert.h>
 
-#include <language/language.h>
-
 #include <coreplugin/icontext.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/id.h>
@@ -47,6 +45,8 @@
 #include <coreplugin/mimedatabase.h>
 #include <cpptools/cppmodelmanager.h>
 #include <projectexplorer/buildenvironmentwidget.h>
+#include <projectexplorer/buildtargetinfo.h>
+#include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/kit.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorer.h>
@@ -62,9 +62,15 @@
 #include <qmljs/qmljsmodelmanagerinterface.h>
 
 #include <qbs.h>
-#include <tools/scripttools.h> // qbs, remove once there is a expand method in Qbs itself!
 
 #include <QFileInfo>
+
+using namespace Core;
+using namespace ProjectExplorer;
+using namespace Utils;
+
+namespace QbsProjectManager {
+namespace Internal {
 
 // --------------------------------------------------------------------
 // Constants:
@@ -77,11 +83,7 @@ static const char CONFIG_DEFINES[] = "defines";
 static const char CONFIG_INCLUDEPATHS[] = "includePaths";
 static const char CONFIG_FRAMEWORKPATHS[] = "frameworkPaths";
 static const char CONFIG_PRECOMPILEDHEADER[] = "precompiledHeader";
-
 static const char CONFIGURATION_PATH[] = "<configuration>";
-
-namespace QbsProjectManager {
-namespace Internal {
 
 // --------------------------------------------------------------------
 // QbsProject:
@@ -100,8 +102,8 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
 {
     m_parsingDelay.setInterval(1000); // delay parsing by 1s.
 
-    setProjectContext(Core::Context(Constants::PROJECT_ID));
-    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    setProjectContext(Context(Constants::PROJECT_ID));
+    setProjectLanguages(Context(ProjectExplorer::Constants::LANG_CXX));
 
     connect(this, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
             this, SLOT(changeActiveTarget(ProjectExplorer::Target*)));
@@ -118,6 +120,11 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
 QbsProject::~QbsProject()
 {
     m_codeModelFuture.cancel();
+    if (m_qbsSetupProjectJob) {
+        m_qbsSetupProjectJob->disconnect(this);
+        m_qbsSetupProjectJob->cancel();
+        delete m_qbsSetupProjectJob;
+    }
 }
 
 QString QbsProject::displayName() const
@@ -125,14 +132,14 @@ QString QbsProject::displayName() const
     return m_projectName;
 }
 
-Core::Id QbsProject::id() const
+Id QbsProject::id() const
 {
-    return Core::Id(Constants::PROJECT_ID);
+    return Constants::PROJECT_ID;
 }
 
-Core::IDocument *QbsProject::document() const
+IDocument *QbsProject::document() const
 {
-    foreach (Core::IDocument *doc, m_qbsDocuments) {
+    foreach (IDocument *doc, m_qbsDocuments) {
         if (doc->filePath() == m_fileName)
             return doc;
     }
@@ -144,12 +151,12 @@ QbsManager *QbsProject::projectManager() const
     return m_manager;
 }
 
-ProjectExplorer::ProjectNode *QbsProject::rootProjectNode() const
+ProjectNode *QbsProject::rootProjectNode() const
 {
     return m_rootProjectNode;
 }
 
-QStringList QbsProject::files(ProjectExplorer::Project::FilesMode fileMode) const
+QStringList QbsProject::files(Project::FilesMode fileMode) const
 {
     Q_UNUSED(fileMode);
     QSet<QString> result;
@@ -211,7 +218,7 @@ qbs::InstallJob *QbsProject::install(const qbs::InstallOptions &opts)
     return qbsProject()->installAllProducts(opts);
 }
 
-QString QbsProject::profileForTarget(const ProjectExplorer::Target *t) const
+QString QbsProject::profileForTarget(const Target *t) const
 {
     return m_manager->profileForKit(t->kit());
 }
@@ -226,11 +233,11 @@ bool QbsProject::hasParseResult() const
     return qbsProject();
 }
 
-Utils::FileName QbsProject::defaultBuildDirectory() const
+FileName QbsProject::defaultBuildDirectory() const
 {
     QFileInfo fi(m_fileName);
     const QString buildDir = QDir(fi.canonicalPath()).absoluteFilePath(QString::fromLatin1("../%1-build").arg(fi.baseName()));
-    return Utils::FileName::fromString(buildDir);
+    return FileName::fromString(buildDir);
 }
 
 const qbs::Project *QbsProject::qbsProject() const
@@ -277,8 +284,10 @@ void QbsProject::handleQbsParsingDone(bool success)
 
     updateCppCodeModel(m_rootProjectNode->qbsProjectData());
     updateQmlJsCodeModel(m_rootProjectNode->qbsProjectData());
+    updateApplicationTargets(m_rootProjectNode->qbsProjectData());
+    updateDeploymentInfo(m_rootProjectNode->qbsProject());
 
-    foreach (ProjectExplorer::Target *t, targets())
+    foreach (Target *t, targets())
         t->updateDefaultRunConfigurations();
 
     emit fileListChanged();
@@ -300,22 +309,22 @@ void QbsProject::handleQbsParsingTaskSetup(const QString &description, int maxim
     }
 }
 
-void QbsProject::targetWasAdded(ProjectExplorer::Target *t)
+void QbsProject::targetWasAdded(Target *t)
 {
     connect(t, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
             this, SLOT(delayForcedParsing()));
     connect(t, SIGNAL(buildDirectoryChanged()), this, SLOT(delayForcedParsing()));
 }
 
-void QbsProject::changeActiveTarget(ProjectExplorer::Target *t)
+void QbsProject::changeActiveTarget(Target *t)
 {
-    ProjectExplorer::BuildConfiguration *bc = 0;
+    BuildConfiguration *bc = 0;
     if (t && t->kit())
         bc = t->activeBuildConfiguration();
     buildConfigurationChanged(bc);
 }
 
-void QbsProject::buildConfigurationChanged(ProjectExplorer::BuildConfiguration *bc)
+void QbsProject::buildConfigurationChanged(BuildConfiguration *bc)
 {
     if (m_currentBc)
         disconnect(m_currentBc, SIGNAL(qbsConfigurationChanged()), this, SLOT(delayParsing()));
@@ -349,7 +358,7 @@ void QbsProject::parseCurrentBuildConfiguration()
     QbsBuildConfiguration *bc = qobject_cast<QbsBuildConfiguration *>(activeTarget()->activeBuildConfiguration());
     if (!bc)
         return;
-    parse(bc->qbsConfiguration(), bc->environment(), bc->buildDirectory());
+    parse(bc->qbsConfiguration(), bc->environment(), bc->buildDirectory().toString());
 }
 
 bool QbsProject::fromMap(const QVariantMap &map)
@@ -357,9 +366,9 @@ bool QbsProject::fromMap(const QVariantMap &map)
     if (!Project::fromMap(map))
         return false;
 
-    ProjectExplorer::KitManager *km = ProjectExplorer::KitManager::instance();
-    if (!activeTarget() && km->defaultKit()) {
-        ProjectExplorer::Target *t = new ProjectExplorer::Target(this, km->defaultKit());
+    Kit *defaultKit = KitManager::defaultKit();
+    if (!activeTarget() && defaultKit) {
+        Target *t = new Target(this, defaultKit);
         t->updateDefaultBuildConfigurations();
         t->updateDefaultDeployConfigurations();
         t->updateDefaultRunConfigurations();
@@ -372,20 +381,16 @@ bool QbsProject::fromMap(const QVariantMap &map)
 void QbsProject::generateErrors(const qbs::ErrorInfo &e)
 {
     foreach (const qbs::ErrorItem &item, e.items())
-        ProjectExplorer::TaskHub::addTask(
-                    ProjectExplorer::Task(ProjectExplorer::Task::Error,
-                                          item.description(),
-                                          Utils::FileName::fromString(item.codeLocation().fileName()),
-                                          item.codeLocation().line(),
-                                          ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
+        TaskHub::addTask(Task::Error, item.description(),
+                         ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM,
+                         FileName::fromString(item.codeLocation().fileName()),
+                         item.codeLocation().line());
+
 }
 
-void QbsProject::parse(const QVariantMap &config, const Utils::Environment &env, const QString &dir)
+void QbsProject::parse(const QVariantMap &config, const Environment &env, const QString &dir)
 {
     QTC_ASSERT(!dir.isNull(), return);
-
-    // Clear buildsystem related tasks:
-    ProjectExplorer::TaskHub::clearTasks(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM);
 
     qbs::SetupProjectParameters params;
     params.setBuildConfiguration(config);
@@ -443,20 +448,24 @@ void QbsProject::prepareForParsing()
 {
     m_forceParsing = false;
 
-   ProjectExplorer::TaskHub::clearTasks(ProjectExplorer::Constants::TASK_CATEGORY_COMPILE);
+    TaskHub::clearTasks(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM);
     if (m_qbsUpdateFutureInterface)
         m_qbsUpdateFutureInterface->reportCanceled();
     delete m_qbsUpdateFutureInterface;
     m_qbsUpdateFutureInterface = 0;
 
-    delete m_qbsSetupProjectJob;
-    m_qbsSetupProjectJob = 0;
+    if (m_qbsSetupProjectJob) {
+        m_qbsSetupProjectJob->disconnect(this);
+        m_qbsSetupProjectJob->cancel();
+        m_qbsSetupProjectJob->deleteLater();
+        m_qbsSetupProjectJob = 0;
+    }
 
     m_currentProgressBase = 0;
     m_qbsUpdateFutureInterface = new QFutureInterface<void>();
     m_qbsUpdateFutureInterface->setProgressRange(0, 0);
-    Core::ICore::progressManager()->addTask(m_qbsUpdateFutureInterface->future(), tr("Evaluating"),
-                                            QLatin1String(Constants::QBS_EVALUATE));
+    ProgressManager::addTask(m_qbsUpdateFutureInterface->future(),
+        tr("Evaluating"), "Qbs.QbsEvaluate");
     m_qbsUpdateFutureInterface->reportStarted();
 }
 
@@ -466,7 +475,7 @@ void QbsProject::updateDocuments(const QSet<QString> &files)
     QSet<QString> newFiles = files;
     QTC_ASSERT(!newFiles.isEmpty(), newFiles << m_fileName);
     QSet<QString> oldFiles;
-    foreach (Core::IDocument *doc, m_qbsDocuments)
+    foreach (IDocument *doc, m_qbsDocuments)
         oldFiles.insert(doc->filePath());
 
     QSet<QString> filesToAdd = newFiles;
@@ -474,18 +483,18 @@ void QbsProject::updateDocuments(const QSet<QString> &files)
     QSet<QString> filesToRemove = oldFiles;
     filesToRemove.subtract(newFiles);
 
-    QSet<Core::IDocument *> currentDocuments = m_qbsDocuments;
-    foreach (Core::IDocument *doc, currentDocuments) {
+    QSet<IDocument *> currentDocuments = m_qbsDocuments;
+    foreach (IDocument *doc, currentDocuments) {
         if (filesToRemove.contains(doc->filePath())) {
             m_qbsDocuments.remove(doc);
             delete doc;
         }
     }
-    QSet<Core::IDocument *> toAdd;
+    QSet<IDocument *> toAdd;
     foreach (const QString &f, filesToAdd)
         toAdd.insert(new QbsProjectFile(this, f));
 
-    Core::DocumentManager::instance()->addDocuments(toAdd.toList());
+    DocumentManager::addDocuments(toAdd.toList());
     m_qbsDocuments.unite(toAdd);
 }
 
@@ -494,12 +503,12 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData &prj)
     if (!prj.isValid())
         return;
 
-    ProjectExplorer::Kit *k = 0;
+    Kit *k = 0;
     QtSupport::BaseQtVersion *qtVersion = 0;
-    if (ProjectExplorer::Target *target = activeTarget())
+    if (Target *target = activeTarget())
         k = target->kit();
     else
-        k = ProjectExplorer::KitManager::instance()->defaultKit();
+        k = KitManager::defaultKit();
     qtVersion = QtSupport::QtKitInformation::qtVersion(k);
 
     CppTools::CppModelManagerInterface *modelmanager =
@@ -549,7 +558,7 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData &prj)
                                                          QLatin1String(CONFIG_INCLUDEPATHS));
             QStringList grpIncludePaths;
             foreach (const QString &p, list) {
-                const QString cp = Utils::FileName::fromUserInput(p).toString();
+                const QString cp = FileName::fromUserInput(p).toString();
                 grpIncludePaths.append(cp);
             }
 
@@ -557,7 +566,7 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData &prj)
                                                          QLatin1String(CONFIG_FRAMEWORKPATHS));
             QStringList grpFrameworkPaths;
             foreach (const QString &p, list) {
-                const QString cp = Utils::FileName::fromUserInput(p).toString();
+                const QString cp = FileName::fromUserInput(p).toString();
                 grpFrameworkPaths.append(cp);
             }
 
@@ -565,10 +574,10 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData &prj)
                     QLatin1String(CONFIG_PRECOMPILEDHEADER)).toString();
 
             CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
-            part->evaluateToolchain(ProjectExplorer::ToolChainKitInformation::toolChain(k),
+            part->evaluateToolchain(ToolChainKitInformation::toolChain(k),
                                     cxxFlags,
                                     cFlags,
-                                    ProjectExplorer::SysRootKitInformation::sysRoot(k));
+                                    SysRootKitInformation::sysRoot(k));
 
             CppTools::ProjectFileAdder adder(part->files);
             foreach (const QString &file, grp.allFilePaths()) {
@@ -618,12 +627,42 @@ void QbsProject::updateQmlJsCodeModel(const qbs::ProjectData &prj)
     modelManager->updateProjectInfo(projectInfo);
 }
 
+void QbsProject::updateApplicationTargets(const qbs::ProjectData &projectData)
+{
+    ProjectExplorer::BuildTargetInfoList applications;
+    foreach (const qbs::ProductData &productData, projectData.allProducts()) {
+        foreach (const qbs::TargetArtifact &ta, productData.targetArtifacts()) {
+            QTC_ASSERT(ta.isValid(), continue);
+            if (!ta.isExecutable())
+                continue;
+            applications.list << ProjectExplorer::BuildTargetInfo(Utils::FileName::fromString(ta.filePath()),
+                    Utils::FileName::fromString(productData.location().fileName()));
+        }
+    }
+    activeTarget()->setApplicationTargets(applications);
+}
+
+void QbsProject::updateDeploymentInfo(const qbs::Project *project)
+{
+    ProjectExplorer::DeploymentData deploymentData;
+    if (project) {
+        qbs::InstallOptions installOptions;
+        installOptions.setInstallRoot(QLatin1String("/"));
+        foreach (const qbs::InstallableFile &f,
+                 project->installableFilesForProject(project->projectData(), installOptions)) {
+            deploymentData.addFile(f.sourceFilePath(), f.targetDirectory(), f.isExecutable()
+                                   ? ProjectExplorer::DeployableFile::TypeExecutable
+                                   : ProjectExplorer::DeployableFile::TypeNormal);
+        }
+    }
+    activeTarget()->setDeploymentData(deploymentData);
+}
+
 QString QbsProject::qbsBuildDir() const
 {
-    QString buildDir = Utils::Environment::systemEnvironment()
-            .value(QLatin1String("QBS_BUILD_DIR"));
+    QString buildDir = Environment::systemEnvironment().value(QLatin1String("QBS_BUILD_DIR"));
     if (buildDir.isEmpty())
-        buildDir = Core::ICore::resourcePath() + QLatin1String("/qbs");
+        buildDir = ICore::resourcePath() + QLatin1String("/qbs");
     return buildDir;
 }
 

@@ -100,7 +100,6 @@ public:
 
         SearchSymbols search;
         search.setSymbolsToSearchFor(m_parameters.types);
-        search.setSeparateScope(true);
         CPlusPlus::Snapshot::const_iterator it = m_snapshot.begin();
 
         QString findString = (m_parameters.flags & Find::FindRegularExpression
@@ -120,11 +119,14 @@ public:
                 foreach (const ModelItemInfo &info, modelInfos) {
                     int index = matcher.indexIn(info.symbolName);
                     if (index != -1) {
-                        QStringList path = info.fullyQualifiedName.mid(0,
-                            info.fullyQualifiedName.size() - 1);
+                        QString text = info.typeNameRepresentation();
+                        if (text.isEmpty())
+                            text = info.symbolName;
+
                         Find::SearchResultItem item;
-                        item.path = path;
-                        item.text = info.symbolName;
+                        item.path = info.symbolScope.split(QLatin1String("::"),
+                                                           QString::SkipEmptyParts);
+                        item.text = text;
                         item.textMarkPos = -1;
                         item.textMarkLength = 0;
                         item.icon = info.icon;
@@ -190,9 +192,8 @@ QFuture<void> BuiltinIndexingSupport::refreshSourceFiles(const QStringList &sour
     m_synchronizer.addFuture(result);
 
     if (mode == CppModelManagerInterface::ForcedProgressNotification || sourceFiles.count() > 1) {
-        Core::ICore::progressManager()->addTask(result,
-                                                QCoreApplication::translate("CppTools::Internal::BuiltinIndexingSupport", "Parsing"),
-                                                QLatin1String(CppTools::Constants::TASK_INDEX));
+        Core::ProgressManager::addTask(result, QCoreApplication::translate("CppTools::Internal::BuiltinIndexingSupport", "Parsing"),
+                                                CppTools::Constants::TASK_INDEX);
     }
 
     return result;

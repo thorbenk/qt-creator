@@ -45,6 +45,8 @@ class Qt4BuildConfigurationFactory;
 class Qt4ProFileNode;
 class BuildConfigurationInfo;
 
+namespace Internal { class Qt4ProjectConfigWidget; }
+
 class QT4PROJECTMANAGER_EXPORT Qt4BuildConfiguration : public ProjectExplorer::BuildConfiguration
 {
     Q_OBJECT
@@ -55,10 +57,7 @@ public:
     ~Qt4BuildConfiguration();
 
     ProjectExplorer::NamedWidget *createConfigWidget();
-    QString buildDirectory() const;
-    bool shadowBuild() const;
-    QString shadowBuildDirectory() const;
-    void setShadowBuildAndDirectory(bool shadowBuild, const QString &buildDirectory);
+    bool isShadowBuild() const;
 
     void setSubNodeBuild(Qt4ProjectManager::Qt4ProFileNode *node);
     Qt4ProjectManager::Qt4ProFileNode *subNodeBuild() const;
@@ -120,12 +119,12 @@ signals:
     /// emitted for setQMakeBuildConfig, not emitted for Qt version changes, even
     /// if those change the qmakebuildconfig
     void qmakeBuildConfigurationChanged();
+    void shadowBuildChanged();
 
 private slots:
     void kitChanged();
     void toolChainUpdated(ProjectExplorer::ToolChain *tc);
     void qtVersionsChanged(const QList<int> &, const QList<int> &, const QList<int> &changed);
-    void emitBuildDirectoryChanged();
 
 protected:
     Qt4BuildConfiguration(ProjectExplorer::Target *target, Qt4BuildConfiguration *source);
@@ -134,8 +133,9 @@ protected:
 
 private:
     void ctor();
-    QString rawBuildDirectory() const;
     QString defaultShadowBuildDirectory() const;
+    void setBuildDirectory(const Utils::FileName &directory);
+    void updateShadowBuild();
 
     class LastKitState
     {
@@ -155,11 +155,12 @@ private:
     bool m_shadowBuild;
     bool m_isEnabled;
     QString m_buildDirectory;
-    QString m_lastEmmitedBuildDirectory;
     bool m_qtVersionSupportsShadowBuilds;
     QtSupport::BaseQtVersion::QmakeBuildConfigs m_qmakeBuildConfiguration;
     Qt4ProjectManager::Qt4ProFileNode *m_subNodeBuild;
     ProjectExplorer::FileNode *m_fileNodeBuild;
+
+    friend class Internal::Qt4ProjectConfigWidget;
 };
 
 class QT4PROJECTMANAGER_EXPORT Qt4BuildConfigurationFactory : public ProjectExplorer::IBuildConfigurationFactory

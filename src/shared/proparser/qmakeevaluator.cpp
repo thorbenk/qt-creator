@@ -265,6 +265,8 @@ ProStringList QMakeEvaluator::split_value_list(const QString &vals, const ProFil
         ushort unicode = vals_data[x].unicode();
         if (unicode == quote) {
             quote = 0;
+            hadWord = true;
+            build += QChar(unicode);
             continue;
         }
         switch (unicode) {
@@ -272,7 +274,7 @@ ProStringList QMakeEvaluator::split_value_list(const QString &vals, const ProFil
         case '\'':
             quote = unicode;
             hadWord = true;
-            continue;
+            break;
         case ' ':
         case '\t':
             if (!quote) {
@@ -283,22 +285,23 @@ ProStringList QMakeEvaluator::split_value_list(const QString &vals, const ProFil
                 }
                 continue;
             }
-            build += QChar(unicode);
             break;
         case '\\':
             if (x + 1 != vals_len) {
                 ushort next = vals_data[++x].unicode();
-                if (next == '\'' || next == '"' || next == '\\')
+                if (next == '\'' || next == '"' || next == '\\') {
+                    build += QChar(unicode);
                     unicode = next;
-                else
+                } else {
                     --x;
+                }
             }
             // fallthrough
         default:
             hadWord = true;
-            build += QChar(unicode);
             break;
         }
+        build += QChar(unicode);
     }
     if (hadWord)
         ret << ProString(build).setSource(source);
@@ -572,13 +575,7 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::visitProBlock(
             okey = true, or_op = false; // force next evaluation
             break;
         case TokForLoop:
-            if (m_cumulative) { // This is a no-win situation, so just pretend it's no loop
-                skipHashStr(tokPtr);
-                uint exprLen = getBlockLen(tokPtr);
-                tokPtr += exprLen;
-                blockLen = getBlockLen(tokPtr);
-                ret = visitProBlock(tokPtr);
-            } else if (okey != or_op) {
+            if (m_cumulative || okey != or_op) {
                 const ProKey &variable = getHashStr(tokPtr);
                 uint exprLen = getBlockLen(tokPtr);
                 const ushort *exprPtr = tokPtr;
@@ -748,6 +745,11 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::visitProLoop(
     ProStringList list = values(it_list.toKey());
     if (list.isEmpty()) {
         if (it_list == statics.strforever) {
+            if (m_cumulative) {
+                // The termination conditions wouldn't be evaluated, so we must skip it.
+                traceMsg("skipping forever loop in cumulative mode");
+                return ReturnFalse;
+            }
             infinite = true;
         } else {
             const QString &itl = it_list.toQString(m_tmp1);
@@ -758,6 +760,12 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::visitProLoop(
                 if (ok) {
                     int end = itl.mid(dotdot+2).toInt(&ok);
                     if (ok) {
+                        if (m_cumulative && qAbs(end - start) > 100) {
+                            // Such a loop is unlikely to contribute something useful to the
+                            // file collection, and may cause considerable delay.
+                            traceMsg("skipping excessive loop in cumulative mode");
+                            return ReturnFalse;
+                        }
                         if (start < end) {
                             for (int i = start; i <= end; i++)
                                 list << ProString(QString::number(i));
@@ -1302,45 +1310,45 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::visitProFile(
         QMakeBaseEnv *baseEnv = *baseEnvPtr;
 
 #ifdef PROEVALUATOR_THREAD_SAFE
-        {
-            QMutexLocker locker(&baseEnv->mutex);
-            m_option->mutex.unlock();
-            if (baseEnv->inProgress) {
-                QThreadPool::globalInstance()->releaseThread();
-                baseEnv->cond.wait(&baseEnv->mutex);
-                QThreadPool::globalInstance()->reserveThread();
-                if (!baseEnv->isOk)
-                    return ReturnFalse;
-            } else
+        QMutexLocker locker(&baseEnv->mutex);
+        m_option->mutex.unlock();
+        if (baseEnv->inProgress) {
+            QThreadPool::globalInstance()->releaseThread();
+            baseEnv->cond.wait(&baseEnv->mutex);
+            QThreadPool::globalInstance()->reserveThread();
+            if (!baseEnv->isOk)
+                return ReturnFalse;
+        } else
 #endif
-            if (!baseEnv->evaluator) {
+        if (!baseEnv->evaluator) {
 #ifdef PROEVALUATOR_THREAD_SAFE
-                baseEnv->inProgress = true;
-                locker.unlock();
-#endif
-
-                QMakeEvaluator *baseEval = new QMakeEvaluator(m_option, m_parser, m_vfs, m_handler);
-                baseEnv->evaluator = baseEval;
-                baseEval->m_superfile = m_superfile;
-                baseEval->m_conffile = m_conffile;
-                baseEval->m_cachefile = m_cachefile;
-                baseEval->m_sourceRoot = m_sourceRoot;
-                baseEval->m_buildRoot = m_buildRoot;
-                baseEval->m_hostBuild = m_hostBuild;
-                bool ok = baseEval->loadSpec();
-
-#ifdef PROEVALUATOR_THREAD_SAFE
-                locker.relock();
-                baseEnv->isOk = ok;
-                baseEnv->inProgress = false;
-                baseEnv->cond.wakeAll();
+            baseEnv->inProgress = true;
+            locker.unlock();
 #endif
 
-                if (!ok)
-                    return ReturnFalse;
-            }
+            QMakeEvaluator *baseEval = new QMakeEvaluator(m_option, m_parser, m_vfs, m_handler);
+            baseEnv->evaluator = baseEval;
+            baseEval->m_superfile = m_superfile;
+            baseEval->m_conffile = m_conffile;
+            baseEval->m_cachefile = m_cachefile;
+            baseEval->m_sourceRoot = m_sourceRoot;
+            baseEval->m_buildRoot = m_buildRoot;
+            baseEval->m_hostBuild = m_hostBuild;
+            bool ok = baseEval->loadSpec();
+
 #ifdef PROEVALUATOR_THREAD_SAFE
+            locker.relock();
+            baseEnv->isOk = ok;
+            baseEnv->inProgress = false;
+            baseEnv->cond.wakeAll();
+#endif
+
+            if (!ok)
+                return ReturnFalse;
         }
+#ifdef PROEVALUATOR_THREAD_SAFE
+        else if (!baseEnv->isOk)
+            return ReturnFalse;
 #endif
 
         initFrom(*baseEnv->evaluator);
@@ -1804,7 +1812,10 @@ ProString QMakeEvaluator::first(const ProKey &variableName) const
 QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateFile(
         const QString &fileName, QMakeHandler::EvalFileType type, LoadFlags flags)
 {
-    if (ProFile *pro = m_parser->parsedProFile(fileName, true)) {
+    QMakeParser::ParseFlags pflags = QMakeParser::ParseUseCache;
+    if (!(flags & LoadSilent))
+        pflags |= QMakeParser::ParseReportMissing;
+    if (ProFile *pro = m_parser->parsedProFile(fileName, pflags)) {
         m_locationStack.push(m_current);
         VisitReturn ok = visitProFile(pro, type, flags);
         m_current = m_locationStack.pop();
@@ -1819,8 +1830,6 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateFile(
 #endif
         return ok;
     } else {
-        if (!(flags & LoadSilent) && !m_vfs->exists(fileName))
-            evalError(fL1S("WARNING: Include file %1 not found").arg(fileName));
         return ReturnFalse;
     }
 }

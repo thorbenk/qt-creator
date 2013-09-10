@@ -32,6 +32,9 @@
 #include "profilehighlighter.h"
 #include "qt4projectmanagerconstants.h"
 #include "profileeditorfactory.h"
+#include "profilecompletionassist.h"
+
+#include <extensionsystem/pluginmanager.h>
 
 #include <texteditor/fontsettings.h>
 #include <texteditor/texteditoractionhandler.h>
@@ -68,6 +71,11 @@ Core::IEditor *ProFileEditor::duplicate(QWidget *parent)
 Core::Id ProFileEditor::id() const
 {
     return Core::Id(Constants::PROFILE_EDITOR_ID);
+}
+
+TextEditor::CompletionAssistProvider *ProFileEditor::completionAssistProvider()
+{
+    return ExtensionSystem::PluginManager::getObject<ProFileCompletionAssistProvider>();
 }
 
 //
@@ -188,25 +196,6 @@ TextEditor::BaseTextEditor *ProFileEditorWidget::createEditor()
 void ProFileEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 {
     showDefaultContextMenu(e, Constants::M_CONTEXT);
-}
-
-void ProFileEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
-{
-    TextEditor::BaseTextEditorWidget::setFontSettings(fs);
-    ProFileHighlighter *highlighter = qobject_cast<ProFileHighlighter*>(baseTextDocument()->syntaxHighlighter());
-    if (!highlighter)
-        return;
-
-    static QVector<TextEditor::TextStyle> categories;
-    if (categories.isEmpty()) {
-        categories << TextEditor::C_TYPE
-                   << TextEditor::C_KEYWORD
-                   << TextEditor::C_COMMENT
-                   << TextEditor::C_VISUAL_WHITESPACE;
-    }
-
-    highlighter->setFormats(fs.toTextCharFormats(categories));
-    highlighter->rehighlight();
 }
 
 //

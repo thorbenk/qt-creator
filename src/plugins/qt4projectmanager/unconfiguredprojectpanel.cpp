@@ -45,6 +45,7 @@
 #include <QPushButton>
 #include <QDialogButtonBox>
 
+using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;
 
@@ -144,13 +145,13 @@ TargetSetupPageWrapper::TargetSetupPageWrapper(ProjectExplorer::Project *project
 
 void TargetSetupPageWrapper::kitUpdated(ProjectExplorer::Kit *k)
 {
-    if (k == ProjectExplorer::KitManager::instance()->defaultKit())
+    if (k == ProjectExplorer::KitManager::defaultKit())
         updateNoteText();
 }
 
 void TargetSetupPageWrapper::updateNoteText()
 {
-    ProjectExplorer::Kit *k = ProjectExplorer::KitManager::instance()->defaultKit();
+    ProjectExplorer::Kit *k = ProjectExplorer::KitManager::defaultKit();
 
     QString text;
     bool showHint = false;
@@ -194,16 +195,16 @@ void TargetSetupPageWrapper::keyReleaseEvent(QKeyEvent *event)
 
 void TargetSetupPageWrapper::cancel()
 {
-    ProjectExplorer::ProjectExplorerPlugin::instance()->unloadProject(m_project);
-    if (ProjectExplorer::ProjectExplorerPlugin::instance()->session()->projects().isEmpty())
-        Core::ICore::instance()->modeManager()->activateMode(Core::Constants::MODE_WELCOME);
+    ProjectExplorerPlugin::instance()->unloadProject(m_project);
+    if (!SessionManager::hasProjects())
+        Core::ModeManager::activateMode(Core::Constants::MODE_WELCOME);
 }
 
 void TargetSetupPageWrapper::done()
 {
     m_targetSetupPage->setupProject(m_project);
-    ProjectExplorer::ProjectExplorerPlugin::instance()->requestProjectModeUpdate(m_project);
-    Core::ICore::instance()->modeManager()->activateMode(Core::Constants::MODE_EDIT);
+    ProjectExplorerPlugin::instance()->requestProjectModeUpdate(m_project);
+    Core::ModeManager::activateMode(Core::Constants::MODE_EDIT);
 }
 
 void TargetSetupPageWrapper::completeChanged()

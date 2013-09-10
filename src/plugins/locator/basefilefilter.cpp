@@ -47,19 +47,25 @@ BaseFileFilter::BaseFileFilter()
 QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEntry> &future, const QString &origEntry)
 {
     updateFiles();
-    QList<FilterEntry> matches;
-    QList<FilterEntry> badMatches;
+    QList<FilterEntry> betterEntries;
+    QList<FilterEntry> goodEntries;
     QString needle = trimWildcards(origEntry);
     const QString lineNoSuffix = EditorManager::splitLineNumber(&needle);
     QStringMatcher matcher(needle, Qt::CaseInsensitive);
     const QChar asterisk = QLatin1Char('*');
     QRegExp regexp(asterisk + needle+ asterisk, Qt::CaseInsensitive, QRegExp::Wildcard);
     if (!regexp.isValid())
-        return matches;
+        return betterEntries;
+    const QChar pathSeparator = QDir::separator();
+    const bool hasPathSeparator = needle.contains(pathSeparator);
     const bool hasWildcard = needle.contains(asterisk) || needle.contains(QLatin1Char('?'));
     QStringList searchListPaths;
     QStringList searchListNames;
-    if (!m_previousEntry.isEmpty() && !m_forceNewSearchList && needle.contains(m_previousEntry)) {
+    const bool containsPreviousEntry = !m_previousEntry.isEmpty()
+            && needle.contains(m_previousEntry);
+    const bool pathSeparatorAdded = !m_previousEntry.contains(pathSeparator)
+            && needle.contains(pathSeparator);
+    if (!m_forceNewSearchList && containsPreviousEntry && !pathSeparatorAdded) {
         searchListPaths = m_previousResultPaths;
         searchListNames = m_previousResultNames;
     } else {
@@ -70,6 +76,7 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
     m_previousResultNames.clear();
     m_forceNewSearchList = false;
     m_previousEntry = needle;
+    const Qt::CaseSensitivity caseSensitivityForPrefix = caseSensitivity(needle);
     QStringListIterator paths(searchListPaths);
     QStringListIterator names(searchListNames);
     while (paths.hasNext() && names.hasNext()) {
@@ -78,23 +85,24 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
 
         QString path = paths.next();
         QString name = names.next();
-        if ((hasWildcard && regexp.exactMatch(name))
-                || (!hasWildcard && matcher.indexIn(name) != -1)) {
+        QString matchText = hasPathSeparator ? path : name;
+        if ((hasWildcard && regexp.exactMatch(matchText))
+                || (!hasWildcard && matcher.indexIn(matchText) != -1)) {
             QFileInfo fi(path);
             FilterEntry entry(this, fi.fileName(), QString(path + lineNoSuffix));
             entry.extraInfo = FileUtils::shortNativePath(FileName(fi));
             entry.fileName = path;
-            if (name.startsWith(needle))
-                matches.append(entry);
+            if (matchText.startsWith(needle, caseSensitivityForPrefix))
+                betterEntries.append(entry);
             else
-                badMatches.append(entry);
+                goodEntries.append(entry);
             m_previousResultPaths.append(path);
             m_previousResultNames.append(name);
         }
     }
 
-    matches.append(badMatches);
-    return matches;
+    betterEntries.append(goodEntries);
+    return betterEntries;
 }
 
 void BaseFileFilter::accept(Locator::FilterEntry selection) const

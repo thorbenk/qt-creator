@@ -3,9 +3,6 @@ QT += xml network
 CONFIG += exceptions
 greaterThan(QT_MAJOR_VERSION, 4): QT += printsupport
 include(../../qtcreatorplugin.pri)
-INCLUDEPATH += generichighlighter \
-    snippets \
-    codeassist
 SOURCES += texteditorplugin.cpp \
     textfilewizard.cpp \
     plaintexteditor.cpp \
@@ -57,6 +54,7 @@ SOURCES += texteditorplugin.cpp \
     generichighlighter/highlightersettings.cpp \
     generichighlighter/managedefinitionsdialog.cpp \
     generichighlighter/definitiondownloader.cpp \
+    generichighlighter/highlighterutils.cpp \
     refactoringchanges.cpp \
     refactoroverlay.cpp \
     outlinefactory.cpp \
@@ -146,6 +144,7 @@ HEADERS += texteditorplugin.h \
     normalindenter.h \
     indenter.h \
     quickfix.h \
+    ihighlighterfactory.h \
     syntaxhighlighter.h \
     generichighlighter/reuse.h \
     generichighlighter/itemdata.h \
@@ -167,6 +166,7 @@ HEADERS += texteditorplugin.h \
     generichighlighter/managedefinitionsdialog.h \
     generichighlighter/highlightdefinitionmetadata.h \
     generichighlighter/definitiondownloader.h \
+    generichighlighter/highlighterutils.h \
     refactoringchanges.h \
     refactoroverlay.h \
     outlinefactory.h \

@@ -28,16 +28,16 @@
 ****************************************************************************/
 
 #include "coreplugin.h"
-#include "actionmanager.h"
 #include "designmode.h"
 #include "editmode.h"
-#include "editormanager.h"
 #include "fileiconprovider.h"
 #include "helpmanager.h"
 #include "mainwindow.h"
 #include "mimedatabase.h"
 #include "modemanager.h"
 #include "infobar.h"
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/editormanager/editormanager.h>
 
 #include <utils/savefile.h>
 
@@ -48,9 +48,10 @@
 using namespace Core;
 using namespace Core::Internal;
 
-CorePlugin::CorePlugin() :
-    m_mainWindow(new MainWindow), m_editMode(0), m_designMode(0)
+CorePlugin::CorePlugin() : m_editMode(0), m_designMode(0)
 {
+    qRegisterMetaType<Core::Id>();
+    m_mainWindow = new MainWindow;
 }
 
 CorePlugin::~CorePlugin()
@@ -106,7 +107,7 @@ bool CorePlugin::initialize(const QStringList &arguments, QString *errorMessage)
 
 void CorePlugin::extensionsInitialized()
 {
-    m_mainWindow->mimeDatabase()->syncUserModifiedMimeTypes();
+    MimeDatabase::syncUserModifiedMimeTypes();
     if (m_designMode->designModeIsRequired())
         addObject(m_designMode);
     m_mainWindow->extensionsInitialized();
@@ -114,7 +115,7 @@ void CorePlugin::extensionsInitialized()
 
 bool CorePlugin::delayedInitialize()
 {
-    HelpManager::instance()->setupHelpManager();
+    HelpManager::setupHelpManager();
     return true;
 }
 

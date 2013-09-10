@@ -31,10 +31,10 @@
 #include "importwidget.h"
 #include "../qt4targetsetupwidget.h"
 
-#include "buildconfigurationinfo.h"
-#include "qt4buildconfiguration.h"
-#include "qt4project.h"
-#include "qmakekitinformation.h"
+#include <qt4projectmanager/buildconfigurationinfo.h>
+#include <qt4projectmanager/qt4buildconfiguration.h>
+#include <qt4projectmanager/qt4project.h>
+#include <qt4projectmanager/qmakekitinformation.h>
 
 #include <coreplugin/icore.h>
 #include <projectexplorer/projectexplorerconstants.h>
@@ -49,6 +49,8 @@
 #include <QMessageBox>
 #include <QScrollArea>
 #include <QVBoxLayout>
+
+using namespace QtSupport;
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -252,7 +254,7 @@ void TargetSetupPage::setImportSearch(bool b)
 void TargetSetupPage::setupWidgets()
 {
     // Known profiles:
-    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::instance()->kits(m_requiredMatcher))
+    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::kits(m_requiredMatcher))
         addWidget(k);
 
     // Setup import widget:
@@ -279,12 +281,12 @@ void TargetSetupPage::reset()
     m_firstWidget = 0;
 }
 
-ProjectExplorer::Kit *TargetSetupPage::createTemporaryKit(QtSupport::BaseQtVersion *version,
+ProjectExplorer::Kit *TargetSetupPage::createTemporaryKit(BaseQtVersion *version,
                                                           bool temporaryVersion,
                                                           const Utils::FileName &parsedSpec)
 {
     ProjectExplorer::Kit *k = new ProjectExplorer::Kit;
-    QtSupport::QtKitInformation::setQtVersion(k, version);
+    QtKitInformation::setQtVersion(k, version);
     ProjectExplorer::ToolChainKitInformation::setToolChain(k, version->preferredToolChain(parsedSpec));
     QmakeKitInformation::setMkspec(k, parsedSpec);
 
@@ -296,7 +298,7 @@ ProjectExplorer::Kit *TargetSetupPage::createTemporaryKit(QtSupport::BaseQtVersi
         k->setValue(QT_IS_TEMPORARY, version->uniqueId());
 
     m_ignoreUpdates = true;
-    ProjectExplorer::KitManager::instance()->registerKit(k);
+    ProjectExplorer::KitManager::registerKit(k);
     m_ignoreUpdates = false;
 
     return k;
@@ -347,7 +349,7 @@ void TargetSetupPage::removeProject(ProjectExplorer::Kit *k, const QString &path
         projects.removeOne(path);
         m_ignoreUpdates = true;
         if (projects.isEmpty())
-            ProjectExplorer::KitManager::instance()->deregisterKit(k);
+            ProjectExplorer::KitManager::deregisterKit(k);
         else
             k->setValue(TEMPORARY_OF_PROJECTS, projects);
         m_ignoreUpdates = false;
@@ -394,26 +396,23 @@ void TargetSetupPage::import(const Utils::FileName &path, const bool silent)
 
     QStringList makefiles = QDir(path.toString()).entryList(QStringList(QLatin1String("Makefile*")));
 
-    QtSupport::BaseQtVersion *version = 0;
+    BaseQtVersion *version = 0;
     bool temporaryVersion = false;
-
-    QtSupport::QtVersionManager *vm = QtSupport::QtVersionManager::instance();
-    ProjectExplorer::KitManager *km = ProjectExplorer::KitManager::instance();
     bool found = false;
 
     foreach (const QString &file, makefiles) {
         // find interesting makefiles
         QString makefile = path.toString() + QLatin1Char('/') + file;
-        Utils::FileName qmakeBinary = QtSupport::QtVersionManager::findQMakeBinaryFromMakefile(makefile);
+        Utils::FileName qmakeBinary = QtVersionManager::findQMakeBinaryFromMakefile(makefile);
         QFileInfo fi = qmakeBinary.toFileInfo();
         Utils::FileName canonicalQmakeBinary = Utils::FileName::fromString(fi.canonicalFilePath());
         if (canonicalQmakeBinary.isEmpty())
             continue;
-        if (QtSupport::QtVersionManager::makefileIsFor(makefile, m_proFilePath) != QtSupport::QtVersionManager::SameProject)
+        if (QtVersionManager::makefileIsFor(makefile, m_proFilePath) != QtVersionManager::SameProject)
             continue;
 
         // Find version:
-        foreach (QtSupport::BaseQtVersion *v, vm->versions()) {
+        foreach (BaseQtVersion *v, QtVersionManager::versions()) {
             QFileInfo vfi = v->qmakeCommand().toFileInfo();
             Utils::FileName current = Utils::FileName::fromString(vfi.canonicalFilePath());
             if (current == canonicalQmakeBinary) {
@@ -425,17 +424,17 @@ void TargetSetupPage::import(const Utils::FileName &path, const bool silent)
         // Create a new version if not found:
         if (!version) {
             // Do not use the canonical path here...
-            version = QtSupport::QtVersionFactory::createQtVersionFromQMakePath(qmakeBinary);
+            version = QtVersionFactory::createQtVersionFromQMakePath(qmakeBinary);
             if (!version)
                 continue;
 
-            vm->addVersion(version);
+            QtVersionManager::addVersion(version);
             temporaryVersion = true;
         }
 
         // find qmake arguments and mkspec
-        QPair<QtSupport::BaseQtVersion::QmakeBuildConfigs, QString> makefileBuildConfig =
-                QtSupport::QtVersionManager::scanMakeFile(makefile, version->defaultBuildConfig());
+        QPair<BaseQtVersion::QmakeBuildConfigs, QString> makefileBuildConfig =
+                QtVersionManager::scanMakeFile(makefile, version->defaultBuildConfig());
 
         QString additionalArguments = makefileBuildConfig.second;
         Utils::FileName parsedSpec =
@@ -452,8 +451,8 @@ void TargetSetupPage::import(const Utils::FileName &path, const bool silent)
 
         // Find profiles (can be more than one, e.g. (Linux-)Desktop and embedded linux):
         QList<ProjectExplorer::Kit *> kitList;
-        foreach (ProjectExplorer::Kit *k, km->kits()) {
-            QtSupport::BaseQtVersion *profileVersion = QtSupport::QtKitInformation::qtVersion(k);
+        foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::kits()) {
+            BaseQtVersion *profileVersion = QtKitInformation::qtVersion(k);
             Utils::FileName profileSpec = QmakeKitInformation::mkspec(k);
             ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(k);
             if (profileSpec.isEmpty() && profileVersion)
@@ -502,7 +501,7 @@ void TargetSetupPage::handleQtUpdate(const QList<int> &add, const QList<int> &rm
 {
     Q_UNUSED(add);
     // Update kit to no longer claim a Qt version is temporary once it is modified/removed.
-    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::instance()->kits()) {
+    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::kits()) {
         if (!k->hasValue(QT_IS_TEMPORARY))
             continue;
         int qtVersion = k->value(QT_IS_TEMPORARY, -1).toInt();
@@ -521,7 +520,7 @@ void TargetSetupPage::setupImports()
     QStringList toImport;
     toImport << pfi.absolutePath();
 
-    QList<ProjectExplorer::Kit *> kitList = ProjectExplorer::KitManager::instance()->kits();
+    QList<ProjectExplorer::Kit *> kitList = ProjectExplorer::KitManager::kits();
     foreach (ProjectExplorer::Kit *k, kitList) {
         QFileInfo fi(Qt4Project::shadowBuildDirectory(m_proFilePath, k, QString()));
         const QString baseDir = fi.absolutePath();
@@ -549,10 +548,9 @@ void TargetSetupPage::handleKitAddition(ProjectExplorer::Kit *k)
 
 void TargetSetupPage::handleKitRemoval(ProjectExplorer::Kit *k)
 {
-    QtSupport::QtVersionManager *vm = QtSupport::QtVersionManager::instance();
-    QtSupport::BaseQtVersion *version = vm->version(k->value(QT_IS_TEMPORARY, -1).toInt());
+    BaseQtVersion *version = QtVersionManager::version(k->value(QT_IS_TEMPORARY, -1).toInt());
     if (version)
-        vm->removeVersion(version);
+        QtVersionManager::removeVersion(version);
 
     if (m_ignoreUpdates)
         return;
@@ -593,7 +591,7 @@ void TargetSetupPage::selectAtLeastOneKit()
 
     if (!atLeastOneKitSelected) {
         Qt4TargetSetupWidget *widget = m_firstWidget;
-        ProjectExplorer::Kit *defaultKit = ProjectExplorer::KitManager::instance()->defaultKit();
+        ProjectExplorer::Kit *defaultKit = ProjectExplorer::KitManager::defaultKit();
         if (defaultKit)
             widget = m_widgets.value(defaultKit->id(), m_firstWidget);
         if (widget)
@@ -700,8 +698,8 @@ bool TargetSetupPage::setupProject(Qt4ProjectManager::Qt4Project *project)
     QList<ProjectExplorer::Target *> targets = project->targets();
     int activeTargetPriority = 0;
     foreach (ProjectExplorer::Target *t, targets) {
-        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(t->kit());
-        if (t->kit() == ProjectExplorer::KitManager::instance()->defaultKit()) {
+        BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(t->kit());
+        if (t->kit() == ProjectExplorer::KitManager::defaultKit()) {
             activeTarget = t;
             activeTargetPriority = 3;
         } else if (activeTargetPriority < 2 && version && version->type() == QLatin1String(QtSupport::Constants::SIMULATORQT)) {

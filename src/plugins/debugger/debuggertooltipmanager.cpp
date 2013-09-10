@@ -756,7 +756,7 @@ DebuggerToolTipWidget *DebuggerToolTipWidget::loadSessionDataI(QXmlStreamReader 
     if (attributes.hasAttribute(offsetYAttribute))
         offset.setY(attributes.value(offsetYAttribute).toString().toInt());
 
-    const QString className = attributes.value(QLatin1String(toolTipClassAttributeC)).toString();
+    const QStringRef className = attributes.value(QLatin1String(toolTipClassAttributeC));
     const QString engineType = attributes.value(QLatin1String(engineTypeAttributeC)).toString();
     const QDate creationDate = dateFromString(attributes.value(QLatin1String(dateAttributeC)).toString());
     if (!creationDate.isValid() || creationDate.daysTo(QDate::currentDate()) >  toolTipsExpiryDays) {
@@ -780,7 +780,7 @@ DebuggerToolTipWidget *DebuggerToolTipWidget::loadSessionDataI(QXmlStreamReader 
             rc->setOffset(offset);
         rc->pin();
     } else {
-        qWarning("Unable to create debugger tool tip widget of class %s", qPrintable(className));
+        qWarning("Unable to create debugger tool tip widget of class %s", qPrintable(className.toString()));
         r.readElementText(QXmlStreamReader::SkipChildElements); // Skip
     }
     return rc;
@@ -1176,7 +1176,7 @@ void DebuggerToolTipManager::sessionAboutToChange()
 
 void DebuggerToolTipManager::loadSessionData()
 {
-    const QString data = debuggerCore()->sessionValue(QLatin1String(sessionSettingsKeyC)).toString();
+    const QString data = DebuggerCore::sessionValue(sessionSettingsKeyC).toString();
     if (data.isEmpty())
         return;
     QXmlStreamReader r(data);
@@ -1209,7 +1209,7 @@ void DebuggerToolTipManager::saveSessionData()
     }
     if (debugToolTips)
         qDebug() << "DebuggerToolTipManager::saveSessionData" << m_tooltips.size() << data ;
-    debuggerCore()->setSessionValue(QLatin1String(sessionSettingsKeyC), QVariant(data));
+    DebuggerCore::setSessionValue(sessionSettingsKeyC, QVariant(data));
 }
 
 void DebuggerToolTipManager::closeAllToolTips()
@@ -1359,7 +1359,7 @@ void DebuggerToolTipManager::debugModeEntered()
         m_debugModeActive = true;
         QWidget *topLevel = ICore::mainWindow()->topLevelWidget();
         topLevel->installEventFilter(this);
-        EditorManager *em = EditorManager::instance();
+        QObject *em = EditorManager::instance();
         connect(em, SIGNAL(currentEditorChanged(Core::IEditor*)),
                 this, SLOT(slotUpdateVisibleToolTips()));
         connect(em, SIGNAL(editorOpened(Core::IEditor*)),

@@ -53,6 +53,8 @@ public:
     bool canAutoDetectPorts() const;
     bool canCreateProcessModel() const;
     DeviceProcessList *createProcessListModel(QObject *parent) const;
+    bool canCreateProcess() const { return true; }
+    DeviceProcess *createProcess(QObject *parent) const;
 
     IDevice::Ptr clone() const;
 

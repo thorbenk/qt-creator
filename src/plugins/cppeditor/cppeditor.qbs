@@ -2,7 +2,6 @@ import qbs.base 1.0
 import qbs.FileInfo
 
 import "../QtcPlugin.qbs" as QtcPlugin
-import "../../../qbs/defaults.js" as Defaults
 
 QtcPlugin {
     name: "CppEditor"
@@ -13,8 +12,6 @@ QtcPlugin {
     Depends { name: "CPlusPlus" }
     Depends { name: "TextEditor" }
     Depends { name: "ProjectExplorer" }
-
-    cpp.includePaths: base.concat("../../libs/3rdparty")
 
     files: [
         "cppautocompleter.cpp",
@@ -37,6 +34,8 @@ QtcPlugin {
         "cppfunctiondecldeflink.h",
         "cpphighlighter.cpp",
         "cpphighlighter.h",
+        "cpphighlighterfactory.cpp",
+        "cpphighlighterfactory.h",
         "cpphoverhandler.cpp",
         "cpphoverhandler.h",
         "cppoutline.cpp",
@@ -55,7 +54,7 @@ QtcPlugin {
 
     Group {
         name: "Tests"
-        condition: Defaults.testsEnabled(qbs)
+        condition: project.testsEnabled
         files: [
             "cppdoxygen_test.cpp",
             "cppquickfix_test.cpp",

@@ -33,11 +33,10 @@
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/kitconfigwidget.h>
 
-QT_FORWARD_DECLARE_CLASS(QLabel);
-QT_FORWARD_DECLARE_CLASS(QPushButton);
-
-namespace ProjectExplorer {
-}
+QT_BEGIN_NAMESPACE
+class QLabel;
+class QPushButton;
+QT_END_NAMESPACE
 
 namespace Android {
 namespace Internal {
@@ -69,10 +68,7 @@ class AndroidGdbServerKitInformation : public ProjectExplorer::KitInformation
 {
     Q_OBJECT
 public:
-    explicit AndroidGdbServerKitInformation();
-    Core::Id dataId() const;
-
-    unsigned int priority() const; // the higher the closer to the top.
+    AndroidGdbServerKitInformation();
 
     QVariant defaultValue(ProjectExplorer::Kit *) const;
 
@@ -82,10 +78,11 @@ public:
 
     ProjectExplorer::KitConfigWidget *createConfigWidget(ProjectExplorer::Kit *) const;
 
+    static bool isAndroidKit(const ProjectExplorer::Kit *kit);
     static Utils::FileName gdbServer(const ProjectExplorer::Kit *kit);
     static void setGdbSever(ProjectExplorer::Kit *kit, const Utils::FileName &gdbServerCommand);
     static Utils::FileName autoDetect(ProjectExplorer::Kit *kit);
-    static void makeSticky(ProjectExplorer::Kit *k);
+    static void setSticky(ProjectExplorer::Kit *k, bool b);
 };
 
 } // namespace Internal

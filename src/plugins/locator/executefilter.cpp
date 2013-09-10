@@ -64,12 +64,13 @@ QList<FilterEntry> ExecuteFilter::matchesFor(QFutureInterface<Locator::FilterEnt
     if (!entry.isEmpty()) // avoid empty entry
         value.append(FilterEntry(this, entry, QVariant()));
     QList<FilterEntry> others;
-    foreach (const QString& i, m_commandHistory) {
+    const Qt::CaseSensitivity caseSensitivityForPrefix = caseSensitivity(entry);
+    foreach (const QString &i, m_commandHistory) {
         if (future.isCanceled())
             break;
         if (i == entry) // avoid repeated entry
             continue;
-        if (i.startsWith(entry))
+        if (i.startsWith(entry, caseSensitivityForPrefix))
             value.append(FilterEntry(this, i, QVariant()));
         else
             others.append(FilterEntry(this, i, QVariant()));
@@ -125,9 +126,9 @@ void ExecuteFilter::finished(int exitCode, QProcess::ExitStatus status)
 {
     QString log = QLatin1Char('\'') + headCommand() + QLatin1String("' ");
     if (status == QProcess::NormalExit && exitCode == 0)
-        ICore::messageManager()->printToOutputPane(log + tr("finished"), MessageManager::NoModeSwitch);
+        MessageManager::write(log + tr("finished"));
     else
-        ICore::messageManager()->printToOutputPane(log + tr("failed"), MessageManager::NoModeSwitch);
+        MessageManager::write(log + tr("failed"));
 
     m_taskQueue.dequeue();
     if (!m_taskQueue.isEmpty())
@@ -137,13 +138,13 @@ void ExecuteFilter::finished(int exitCode, QProcess::ExitStatus status)
 void ExecuteFilter::readStandardOutput()
 {
     QByteArray data = m_process->readAllStandardOutput();
-    ICore::messageManager()->printToOutputPane(QString::fromLocal8Bit(data), MessageManager::NoModeSwitch);
+    MessageManager::write(QString::fromLocal8Bit(data));
 }
 
 void ExecuteFilter::readStandardError()
 {
     QByteArray data = m_process->readAllStandardError();
-    ICore::messageManager()->printToOutputPane(QString::fromLocal8Bit(data), MessageManager::NoModeSwitch);
+    MessageManager::write(QString::fromLocal8Bit(data));
 }
 
 void ExecuteFilter::runHeadCommand()
@@ -152,14 +153,12 @@ void ExecuteFilter::runHeadCommand()
         const ExecuteData &d = m_taskQueue.head();
         const QString fullPath = Utils::Environment::systemEnvironment().searchInPath(d.executable);
         if (fullPath.isEmpty()) {
-            const QString log = tr("Could not find executable for '%1'").arg(d.executable);
-            ICore::messageManager()->printToOutputPane(log, MessageManager::NoModeSwitch);
+            MessageManager::write(tr("Could not find executable for '%1'").arg(d.executable));
             m_taskQueue.dequeue();
             runHeadCommand();
             return;
         }
-        QString log(tr("Starting command '%1'").arg(headCommand()));
-        ICore::messageManager()->printToOutputPane(log, MessageManager::NoModeSwitch);
+        MessageManager::write(tr("Starting command '%1'").arg(headCommand()));
         m_process->setWorkingDirectory(d.workingDirectory);
         m_process->setCommand(fullPath, d.arguments);
         m_process->start();

@@ -9,27 +9,26 @@ QtcPlugin {
     Depends { name: "Find" }
     Depends { name: "Qt"; submodules: ["widgets", "xml"] }
 
-    cpp.includePaths: base.concat("qrceditor")
+    Group {
+        name: "General"
+        files: [
+            "resourceeditor.qrc",
+            "resourceeditorconstants.h",
+            "resourceeditorfactory.cpp", "resourceeditorfactory.h",
+            "resourceeditorplugin.cpp", "resourceeditorplugin.h",
+            "resourceeditorw.cpp", "resourceeditorw.h",
+            "resourcewizard.cpp", "resourcewizard.h",
+        ]
+    }
 
-    files: [
-        "resourceeditor.qrc",
-        "resourceeditorconstants.h",
-        "resourceeditorfactory.cpp",
-        "resourceeditorfactory.h",
-        "resourceeditorplugin.cpp",
-        "resourceeditorplugin.h",
-        "resourceeditorw.cpp",
-        "resourceeditorw.h",
-        "resourcewizard.cpp",
-        "resourcewizard.h",
-        "qrceditor/qrceditor.cpp",
-        "qrceditor/qrceditor.h",
-        "qrceditor/qrceditor.ui",
-        "qrceditor/resourcefile.cpp",
-        "qrceditor/resourcefile_p.h",
-        "qrceditor/resourceview.cpp",
-        "qrceditor/resourceview.h",
-        "qrceditor/undocommands.cpp",
-        "qrceditor/undocommands_p.h",
-    ]
+    Group {
+        name: "QRC Editor"
+        prefix: "qrceditor/"
+        files: [
+            "qrceditor.cpp", "qrceditor.h", "qrceditor.ui",
+            "resourcefile.cpp", "resourcefile_p.h",
+            "resourceview.cpp", "resourceview.h",
+            "undocommands.cpp", "undocommands_p.h",
+        ]
+    }
 }

@@ -30,7 +30,8 @@
 #include "helpindexfilter.h"
 
 #include "centralwidget.h"
-#include "topicchooser.h"
+
+#include <topicchooser.h>
 
 #include <extensionsystem/pluginmanager.h>
 #include <coreplugin/icore.h>
@@ -62,9 +63,9 @@ QList<FilterEntry> HelpIndexFilter::matchesFor(QFutureInterface<Locator::FilterE
 {
     QStringList keywords;
     if (entry.length() < 2)
-        keywords = Core::HelpManager::instance()->findKeywords(entry, 200);
+        keywords = Core::HelpManager::findKeywords(entry, caseSensitivity(entry), 200);
     else
-        keywords = Core::HelpManager::instance()->findKeywords(entry);
+        keywords = Core::HelpManager::findKeywords(entry, caseSensitivity(entry));
 
     QList<FilterEntry> entries;
     foreach (const QString &keyword, keywords) {
@@ -79,7 +80,7 @@ QList<FilterEntry> HelpIndexFilter::matchesFor(QFutureInterface<Locator::FilterE
 void HelpIndexFilter::accept(FilterEntry selection) const
 {
     const QString &key = selection.displayName;
-    const QMap<QString, QUrl> &links = Core::HelpManager::instance()->linksForKeyword(key);
+    const QMap<QString, QUrl> &links = Core::HelpManager::linksForKeyword(key);
 
     if (links.size() == 1) {
         emit linkActivated(links.begin().value());

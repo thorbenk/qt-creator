@@ -35,7 +35,7 @@
 #include "bazaarsettings.h"
 
 #include <coreplugin/iversioncontrol.h>
-#include <vcsbase/checkoutjobs.h>
+#include <vcsbase/command.h>
 #include <vcsbase/vcsbaseconstants.h>
 #include <vcsbase/vcsconfigurationpage.h>
 
@@ -48,6 +48,7 @@ CloneWizard::CloneWizard(QObject *parent)
       m_icon(QIcon(QLatin1String(":/bazaar/images/bazaar.png")))
 {
     setId(QLatin1String(VcsBase::Constants::VCS_ID_BAZAAR));
+    setCustomLabels(tr("Cloning"), tr("Cloning started..."));
 }
 
 QIcon CloneWizard::icon() const
@@ -77,13 +78,13 @@ QList<QWizardPage *> CloneWizard::createParameterPages(const QString &path)
     return wizardPageList;
 }
 
-QSharedPointer<VcsBase::AbstractCheckoutJob> CloneWizard::createJob(const QList<QWizardPage *> &parameterPages,
-                                                                    QString *checkoutPath)
+VcsBase::Command *CloneWizard::createCommand(const QList<QWizardPage *> &parameterPages,
+                                             QString *checkoutPath)
 {
     const CloneWizardPage *page = qobject_cast<const CloneWizardPage *>(parameterPages.front());
 
     if (!page)
-        return QSharedPointer<VcsBase::AbstractCheckoutJob>();
+        return 0;
 
     const BazaarSettings &settings = BazaarPlugin::instance()->settings();
     *checkoutPath = page->path() + QLatin1Char('/') + page->directory();
@@ -111,7 +112,8 @@ QSharedPointer<VcsBase::AbstractCheckoutJob> CloneWizard::createJob(const QList<
     args << client->vcsCommandString(BazaarClient::CloneCommand)
          << extraOptions << page->repository() << page->directory();
 
-    VcsBase::ProcessCheckoutJob *job = new VcsBase::ProcessCheckoutJob;
-    job->addStep(settings.binaryPath(), args, page->path());
-    return QSharedPointer<VcsBase::AbstractCheckoutJob>(job);
+    VcsBase::Command *command = new VcsBase::Command(settings.binaryPath(), page->path(),
+                                                     client->processEnvironment());
+    command->addJob(args, -1);
+    return command;
 }

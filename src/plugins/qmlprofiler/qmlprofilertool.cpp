@@ -297,11 +297,10 @@ void QmlProfilerTool::populateFileFinder(QString projectDirectory, QString activ
 {
     // Initialize filefinder with some sensible default
     QStringList sourceFiles;
-    SessionManager *sessionManager = ProjectExplorerPlugin::instance()->session();
-    QList<Project *> projects = sessionManager->projects();
-    if (Project *startupProject = ProjectExplorerPlugin::instance()->startupProject()) {
+    QList<Project *> projects = SessionManager::projects();
+    if (Project *startupProject = SessionManager::startupProject()) {
         // startup project first
-        projects.removeOne(ProjectExplorerPlugin::instance()->startupProject());
+        projects.removeOne(startupProject);
         projects.insert(0, startupProject);
     }
     foreach (Project *project, projects)
@@ -363,7 +362,7 @@ void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber,
     TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor*>(editor);
 
     if (textEditor) {
-        EditorManager::instance()->addCurrentPositionToNavigationHistory();
+        EditorManager::addCurrentPositionToNavigationHistory();
         // textEditor counts columns starting with 0, but the ASTs store the
         // location starting with 1, therefore the -1 in the call to gotoLine
         textEditor->gotoLine(lineNumber, columnNumber - 1);
@@ -459,10 +458,9 @@ void QmlProfilerTool::startTool(StartMode mode)
     AnalyzerManager::showMode();
 
     if (mode == StartLocal) {
-        ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
         // ### not sure if we're supposed to check if the RunConFiguration isEnabled
-        Project *pro = pe->startupProject();
-        pe->runProject(pro, runMode());
+        Project *pro = SessionManager::startupProject();
+        ProjectExplorerPlugin::instance()->runProject(pro, runMode());
     } else if (mode == StartRemote) {
         startRemoteTool(this, mode);
     }
@@ -470,14 +468,12 @@ void QmlProfilerTool::startTool(StartMode mode)
 
 void QmlProfilerTool::logStatus(const QString &msg)
 {
-    MessageManager *messageManager = MessageManager::instance();
-    messageManager->printToOutputPane(msg, Core::MessageManager::Flash);
+    MessageManager::write(msg, Core::MessageManager::Flash);
 }
 
 void QmlProfilerTool::logError(const QString &msg)
 {
-    MessageManager *messageManager = MessageManager::instance();
-    messageManager->printToOutputPane(msg, Core::MessageManager::NoModeSwitch);
+    MessageManager::write(msg);
 }
 
 void QmlProfilerTool::showErrorDialog(const QString &error)
@@ -587,8 +583,7 @@ QMessageBox *QmlProfilerTool::requestMessageBox()
 
 void QmlProfilerTool::handleHelpRequest(const QString &link)
 {
-    HelpManager *helpManager = HelpManager::instance();
-    helpManager->handleHelpRequest(link);
+    HelpManager::handleHelpRequest(link);
 }
 
 void QmlProfilerTool::profilerStateChanged()

@@ -44,6 +44,9 @@
 #include <qset.h>
 #include <qstringlist.h>
 #include <qtextstream.h>
+#ifdef PROEVALUATOR_THREAD_SAFE
+# include <qthreadpool.h>
+#endif
 
 #ifdef Q_OS_UNIX
 #include <time.h>
@@ -1262,6 +1265,8 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
         }
         QString parseInto;
         LoadFlags flags = 0;
+        if (m_cumulative)
+            flags = LoadSilent;
         if (args.count() >= 2) {
             parseInto = args.at(1).toQString(m_tmp2);
             if (args.count() >= 3 && isTrue(args.at(2), m_tmp3))
@@ -1526,8 +1531,31 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
             ProStringList newval;
             bool changed = false;
             for (bool hostBuild = false; ; hostBuild = true) {
-                if (QMakeBaseEnv *baseEnv = m_option->baseEnvs.value(
-                            QMakeBaseKey(m_buildRoot, hostBuild))) {
+#ifdef PROEVALUATOR_THREAD_SAFE
+                m_option->mutex.lock();
+#endif
+                QMakeBaseEnv *baseEnv =
+                        m_option->baseEnvs.value(QMakeBaseKey(m_buildRoot, hostBuild));
+#ifdef PROEVALUATOR_THREAD_SAFE
+                // It's ok to unlock this before locking baseEnv,
+                // as we have no intention to initialize the env.
+                m_option->mutex.unlock();
+#endif
+                do {
+                    if (!baseEnv)
+                        break;
+#ifdef PROEVALUATOR_THREAD_SAFE
+                    QMutexLocker locker(&baseEnv->mutex);
+                    if (baseEnv->inProgress && baseEnv->evaluator != this) {
+                        // The env is still in the works, but it may be already past the cache
+                        // loading. So we need to wait for completion and amend it as usual.
+                        QThreadPool::globalInstance()->releaseThread();
+                        baseEnv->cond.wait(&baseEnv->mutex);
+                        QThreadPool::globalInstance()->reserveThread();
+                    }
+                    if (!baseEnv->isOk)
+                        break;
+#endif
                     QMakeEvaluator *baseEval = baseEnv->evaluator;
                     const ProStringList &oldval = baseEval->values(dstvar);
                     if (mode == CacheSet) {
@@ -1558,7 +1586,7 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
                         }
                         changed = true;
                     }
-                }
+                } while (false);
                 if (hostBuild)
                     break;
             }

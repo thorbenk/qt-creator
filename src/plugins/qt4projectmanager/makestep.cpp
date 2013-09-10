@@ -173,7 +173,7 @@ bool MakeStep::init()
     if (bc->subNodeBuild())
         workingDirectory = bc->subNodeBuild()->buildDir();
     else
-        workingDirectory = bc->buildDirectory();
+        workingDirectory = bc->buildDirectory().toString();
     pp->setWorkingDirectory(workingDirectory);
 
     QString makeCmd = tc->makeCommand(bc->environment());
@@ -298,15 +298,6 @@ void MakeStep::run(QFutureInterface<bool> & fi)
     AbstractProcessStep::run(fi);
 }
 
-bool MakeStep::processSucceeded(int exitCode, QProcess::ExitStatus status)
-{
-    // Symbian does retun 0, even on failed makes! So we check for fatal make errors here.
-    if (outputParser() && outputParser()->hasFatalErrors())
-        return false;
-
-    return AbstractProcessStep::processSucceeded(exitCode, status);
-}
-
 bool MakeStep::immutable() const
 {
     return false;
@@ -409,7 +400,7 @@ void MakeStepConfigWidget::updateDetails()
         bc = qobject_cast<Qt4BuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
 
     if (tc && bc)
-        m_ui->makeLabel->setText(tr("Override %1:").arg(tc->makeCommand(bc->environment())));
+        m_ui->makeLabel->setText(tr("Override %1:").arg(QDir::toNativeSeparators(tc->makeCommand(bc->environment()))));
     else
         m_ui->makeLabel->setText(tr("Make:"));
 
@@ -424,7 +415,7 @@ void MakeStepConfigWidget::updateDetails()
 
     ProcessParameters param;
     param.setMacroExpander(bc->macroExpander());
-    param.setWorkingDirectory(bc->buildDirectory());
+    param.setWorkingDirectory(bc->buildDirectory().toString());
     QString makeCmd = tc->makeCommand(bc->environment());
     if (!m_makeStep->makeCommand().isEmpty())
         makeCmd = m_makeStep->makeCommand();

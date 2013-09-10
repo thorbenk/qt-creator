@@ -14,9 +14,8 @@ QtcPlugin {
     Depends { name: "Qt4ProjectManager" }
     Depends { name: "RemoteLinux" }
     Depends { name: "TextEditor" }
+    Depends { name: "QmlDebug" }
     Depends { name: "Qt"; submodules: ["widgets", "xml", "network"] }
-
-    cpp.includePaths: base.concat("../../shared")
 
     files: [
         "bardescriptordocument.cpp",
@@ -118,6 +117,8 @@ QtcPlugin {
         "blackberrydevicelistdetector.h",
         "blackberrydeviceprocesssupport.h",
         "blackberrydeviceprocesssupport.cpp",
+        "blackberrylogprocessrunner.cpp",
+        "blackberrylogprocessrunner.h",
         "blackberryqtversion.cpp",
         "blackberryqtversion.h",
         "blackberryqtversionfactory.cpp",

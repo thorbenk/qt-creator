@@ -62,6 +62,7 @@
     \internal
 */
 
+using namespace Core;
 using namespace Locator;
 using namespace Locator::Internal;
 
@@ -103,29 +104,29 @@ bool LocatorPlugin::initialize(const QStringList &, QString *)
 
     m_locatorWidget = new LocatorWidget(this);
     m_locatorWidget->setEnabled(false);
-    Core::StatusBarWidget *view = new Core::StatusBarWidget;
+    StatusBarWidget *view = new StatusBarWidget;
     view->setWidget(m_locatorWidget);
-    view->setContext(Core::Context("LocatorWidget"));
-    view->setPosition(Core::StatusBarWidget::First);
+    view->setContext(Context("LocatorWidget"));
+    view->setPosition(StatusBarWidget::First);
     addAutoReleasedObject(view);
 
     QAction *action = new QAction(m_locatorWidget->windowIcon(), m_locatorWidget->windowTitle(), this);
-    Core::Command *cmd = Core::ActionManager::registerAction(action, "QtCreator.Locate",
-                                                             Core::Context(Core::Constants::C_GLOBAL));
+    Command *cmd = ActionManager::registerAction(action, "QtCreator.Locate",
+                                                             Context(Core::Constants::C_GLOBAL));
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+K")));
     connect(action, SIGNAL(triggered()), this, SLOT(openLocator()));
     connect(cmd, SIGNAL(keySequenceChanged()), this, SLOT(updatePlaceholderText()));
     updatePlaceholderText(cmd);
 
-    Core::ActionContainer *mtools = Core::ActionManager::actionContainer(Core::Constants::M_TOOLS);
+    ActionContainer *mtools = ActionManager::actionContainer(Core::Constants::M_TOOLS);
     mtools->addAction(cmd);
 
     addObject(new LocatorManager(m_locatorWidget));
 
-    m_openDocumentsFilter = new OpenDocumentsFilter(Core::ICore::editorManager());
+    m_openDocumentsFilter = new OpenDocumentsFilter;
     addObject(m_openDocumentsFilter);
 
-    m_fileSystemFilter = new FileSystemFilter(Core::ICore::editorManager(), m_locatorWidget);
+    m_fileSystemFilter = new FileSystemFilter(m_locatorWidget);
     addObject(m_fileSystemFilter);
 
     m_executeFilter = new ExecuteFilter();
@@ -136,10 +137,10 @@ bool LocatorPlugin::initialize(const QStringList &, QString *)
     return true;
 }
 
-void LocatorPlugin::updatePlaceholderText(Core::Command *command)
+void LocatorPlugin::updatePlaceholderText(Command *command)
 {
     if (!command)
-        command = qobject_cast<Core::Command *>(sender());
+        command = qobject_cast<Command *>(sender());
     QTC_ASSERT(command, return);
     if (command->keySequence().isEmpty())
         m_locatorWidget->setPlaceholderText(tr("Type to locate"));
@@ -168,13 +169,13 @@ bool LocatorPlugin::delayedInitialize()
 
 void LocatorPlugin::loadSettings()
 {
-    QSettings *qs = Core::ICore::settings();
+    QSettings *qs = ICore::settings();
 
     // Backwards compatibility to old settings location
     if (qs->contains(QLatin1String("QuickOpen/FiltersFilter"))) {
         loadSettingsHelper(qs);
     } else {
-        Core::SettingsDatabase *settings = Core::ICore::settingsDatabase();
+        SettingsDatabase *settings = ICore::settingsDatabase();
         loadSettingsHelper(settings);
     }
 
@@ -190,7 +191,7 @@ void LocatorPlugin::loadSettings()
 void LocatorPlugin::saveSettings()
 {
     if (m_settingsInitialized) {
-        Core::SettingsDatabase *s = Core::ICore::settingsDatabase();
+        SettingsDatabase *s = ICore::settingsDatabase();
         s->beginGroup(QLatin1String("QuickOpen"));
         s->remove(QString());
         s->setValue(QLatin1String("RefreshInterval"), refreshInterval());
@@ -213,7 +214,7 @@ void LocatorPlugin::saveSettings()
 /*!
     Return all filters, including the ones created by the user.
 */
-QList<ILocatorFilter*> LocatorPlugin::filters()
+QList<ILocatorFilter *> LocatorPlugin::filters()
 {
     return m_filters;
 }
@@ -222,12 +223,12 @@ QList<ILocatorFilter*> LocatorPlugin::filters()
     This returns a subset of all the filters, that contains only the filters that
     have been created by the user at some point (maybe in a previous session).
  */
-QList<ILocatorFilter*> LocatorPlugin::customFilters()
+QList<ILocatorFilter *> LocatorPlugin::customFilters()
 {
     return m_customFilters;
 }
 
-void LocatorPlugin::setFilters(QList<ILocatorFilter*> f)
+void LocatorPlugin::setFilters(QList<ILocatorFilter *> f)
 {
     m_filters = f;
     m_locatorWidget->updateFilterList();
@@ -254,13 +255,13 @@ void LocatorPlugin::setRefreshInterval(int interval)
     m_refreshTimer.start();
 }
 
-void LocatorPlugin::refresh(QList<ILocatorFilter*> filters)
+void LocatorPlugin::refresh(QList<ILocatorFilter *> filters)
 {
     if (filters.isEmpty())
         filters = m_filters;
     QFuture<void> task = QtConcurrent::run(&ILocatorFilter::refresh, filters);
-    Core::FutureProgress *progress = Core::ICore::progressManager()
-        ->addTask(task, tr("Indexing"), QLatin1String(Locator::Constants::TASK_INDEX));
+    FutureProgress *progress =
+        ProgressManager::addTask(task, tr("Indexing"), Locator::Constants::TASK_INDEX);
     connect(progress, SIGNAL(finished()), this, SLOT(saveSettings()));
 }
 

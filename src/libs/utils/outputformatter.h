@@ -44,6 +44,8 @@ QT_END_NAMESPACE
 
 namespace Utils {
 
+class AnsiEscapeCodeHandler;
+
 class QTCREATOR_UTILS_EXPORT OutputFormatter : public QObject
 {
     Q_OBJECT
@@ -57,6 +59,7 @@ public:
 
     QFont font() const;
     void setFont(const QFont &font);
+    void flush();
 
     virtual void appendMessage(const QString &text, OutputFormat format);
     virtual void handleLink(const QString &href);
@@ -72,6 +75,7 @@ private:
     QPlainTextEdit *m_plainTextEdit;
     QTextCharFormat *m_formats;
     QFont m_font;
+    AnsiEscapeCodeHandler *m_escapeCodeHandler;
 };
 
 } // namespace Utils

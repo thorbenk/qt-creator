@@ -29,11 +29,12 @@
 
 #include "qtwizard.h"
 
-#include "qt4project.h"
-#include "qt4projectmanager.h"
-#include "qt4projectmanagerconstants.h"
 #include "modulespage.h"
 #include "targetsetuppage.h"
+
+#include <qt4projectmanager/qt4project.h>
+#include <qt4projectmanager/qt4projectmanager.h>
+#include <qt4projectmanager/qt4projectmanagerconstants.h>
 
 #include <coreplugin/icore.h>
 
@@ -324,7 +325,7 @@ bool BaseQt4ProjectWizardDialog::isQtPlatformSelected(const QString &platform) c
 
     QtSupport::QtPlatformKitMatcher matcher(platform);
     QList<ProjectExplorer::Kit *> kitList
-            = ProjectExplorer::KitManager::instance()->kits(&matcher);
+            = ProjectExplorer::KitManager::kits(&matcher);
     foreach (ProjectExplorer::Kit *k, kitList) {
         if (selectedKitList.contains(k->id()))
             return true;

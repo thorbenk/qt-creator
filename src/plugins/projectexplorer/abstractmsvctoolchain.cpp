@@ -47,10 +47,10 @@ namespace Internal {
 
 
 AbstractMsvcToolChain::AbstractMsvcToolChain(const QString &id,
-                                             bool autodetect,
+                                             Detection d,
                                              const Abi &abi,
                                              const QString& vcvarsBat) :
-    ToolChain(id, autodetect),
+    ToolChain(id, d),
     m_lastEnvironment(Utils::Environment::systemEnvironment()),
     m_abi(abi),
     m_vcvarsBat(vcvarsBat)
@@ -61,8 +61,8 @@ AbstractMsvcToolChain::AbstractMsvcToolChain(const QString &id,
     Q_ASSERT(!m_vcvarsBat.isEmpty());
 }
 
-AbstractMsvcToolChain::AbstractMsvcToolChain(const QString &id, bool autodetect) :
-    ToolChain(id, autodetect),
+AbstractMsvcToolChain::AbstractMsvcToolChain(const QString &id, Detection d) :
+    ToolChain(id, d),
     m_lastEnvironment(Utils::Environment::systemEnvironment())
 {
 
@@ -181,7 +181,7 @@ void AbstractMsvcToolChain::addToEnvironment(Utils::Environment &env) const
 
 QString AbstractMsvcToolChain::makeCommand(const Utils::Environment &environment) const
 {
-    bool useJom = ProjectExplorerPlugin::instance()->projectExplorerSettings().useJom;
+    bool useJom = ProjectExplorerPlugin::projectExplorerSettings().useJom;
     const QString jom = QLatin1String("jom.exe");
     const QString nmake = QLatin1String("nmake.exe");
     QString tmp;
@@ -278,7 +278,9 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
     // if Creator is launched within a session set up by setenv.cmd.
     env.unset(QLatin1String("ORIGINALPATH"));
     run.setEnvironment(env);
-    const QString cmdPath = QString::fromLocal8Bit(qgetenv("COMSPEC"));
+    QString cmdPath = QString::fromLocal8Bit(qgetenv("COMSPEC"));
+    if (cmdPath.isEmpty())
+        cmdPath = env.searchInPath(QLatin1String("cmd.exe"));
     // Windows SDK setup scripts require command line switches for environment expansion.
     QString cmdArguments = QLatin1String(" /E:ON /V:ON /c \"");
     cmdArguments += QDir::toNativeSeparators(saver.fileName());

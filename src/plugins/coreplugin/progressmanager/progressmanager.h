@@ -31,6 +31,7 @@
 #define PROGRESSMANAGER_H
 
 #include <coreplugin/core_global.h>
+#include <coreplugin/id.h>
 
 #include <QObject>
 #include <QFuture>
@@ -50,20 +51,28 @@ public:
     };
     Q_DECLARE_FLAGS(ProgressFlags, ProgressFlag)
 
-    virtual FutureProgress *addTask(const QFuture<void> &future, const QString &title,
-                                    const QString &type, ProgressFlags flags = 0) = 0;
-    virtual void setApplicationLabel(const QString &text) = 0;
+    static QObject *instance();
+
+    static FutureProgress *addTask(const QFuture<void> &future, const QString &title,
+                                   Core::Id type, ProgressFlags flags = 0);
+    static void setApplicationLabel(const QString &text);
 
 public slots:
-    virtual void cancelTasks(const QString &type) = 0;
+    static void cancelTasks(const Core::Id type);
 
 signals:
-    void taskStarted(const QString &type);
-    void allTasksFinished(const QString &type);
+    void taskStarted(Core::Id type);
+    void allTasksFinished(Core::Id type);
+
+protected:
+    virtual void doCancelTasks(Core::Id type) = 0;
+    virtual FutureProgress *doAddTask(const QFuture<void> &future, const QString &title,
+                                      Core::Id type, ProgressFlags flags = 0) = 0;
+    virtual void doSetApplicationLabel(const QString &text) = 0;
 
 private:
-    ProgressManager(QObject *parent = 0) : QObject(parent) {}
-    virtual ~ProgressManager() {}
+    ProgressManager();
+    ~ProgressManager();
 
     friend class Core::Internal::ProgressManagerPrivate;
 };

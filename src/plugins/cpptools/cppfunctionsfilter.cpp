@@ -31,18 +31,32 @@
 
 using namespace CppTools::Internal;
 
-CppFunctionsFilter::CppFunctionsFilter(CppModelManager *manager)
-    : CppLocatorFilter(manager)
+CppFunctionsFilter::CppFunctionsFilter(CppLocatorData *locatorData)
+    : CppLocatorFilter(locatorData)
 {
     setId("Methods");
     setDisplayName(tr("C++ Methods and Functions"));
     setShortcutString(QString(QLatin1Char('m')));
     setIncludedByDefault(false);
-
-    search.setSymbolsToSearchFor(SymbolSearcher::Functions);
-    search.setSeparateScope(true);
 }
 
 CppFunctionsFilter::~CppFunctionsFilter()
 {
 }
+
+QList<QList<CppTools::ModelItemInfo> > CppFunctionsFilter::itemsToMatchUserInputAgainst() const
+{
+    return QList<QList<CppTools::ModelItemInfo> >() << m_data->functions();
+}
+
+Locator::FilterEntry CppFunctionsFilter::filterEntryFromModelItemInfo(const CppTools::ModelItemInfo &info)
+{
+    const QVariant id = qVariantFromValue(info);
+    Locator::FilterEntry filterEntry(this, info.symbolName + info.symbolType, id, info.icon);
+    filterEntry.extraInfo = info.symbolScope.isEmpty()
+        ? info.shortNativeFilePath()
+        : info.symbolScope;
+
+    return filterEntry;
+}
+

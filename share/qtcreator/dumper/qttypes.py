@@ -723,21 +723,55 @@ def qdump__QHash__iterator(d, value):
 
 
 def qdump__QHostAddress(d, value):
+    # QHostAddress in Qt 4.5 (byte offsets)
+    #   quint32 a        (0)
+    #   Q_IPV6ADDR a6    (4)
+    #   protocol         (20)
+    #   QString ipString (24)
+    #   QString scopeId  (24 + ptrSize)
+    #   bool isParsed    (24 + 2 * ptrSize)
+    # QHostAddress in Qt 5.0
+    #   QString ipString (0)
+    #   QString scopeId  (ptrSize)
+    #   quint32 a        (2*ptrSize)
+    #   Q_IPV6ADDR a6    (2*ptrSize + 4)
+    #   protocol         (2*ptrSize + 20)
+    #   bool isParsed    (2*ptrSize + 24)
+
     privAddress = d.dereferenceValue(value)
     isQt5 = d.qtVersion() >= 0x050000
+    sizeofQString = d.ptrSize()
     ipStringAddress = privAddress + (0 if isQt5 else 24)
+    isParsedAddress = privAddress + 24 + 2 * sizeofQString
     # value.d.d->ipString
     ipString = qEncodeString(d, d.dereference(ipStringAddress))
-    if len(ipString) > 0:
+    if d.extractByte(isParsedAddress) and len(ipString) > 0:
         d.putValue(ipString, Hex4EncodedLittleEndian)
     else:
-        # value.d.d->a
-        a = d.extractInt(privAddress + (2 * d.ptrSize() if isQt5 else 0))
-        a, n4 = divmod(a, 256)
-        a, n3 = divmod(a, 256)
-        a, n2 = divmod(a, 256)
-        a, n1 = divmod(a, 256)
-        d.putValue("%d.%d.%d.%d" % (n1, n2, n3, n4))
+        # value.d.d->protocol:
+        #  QAbstractSocket::IPv4Protocol = 0
+        #  QAbstractSocket::IPv6Protocol = 1
+        protoAddress = privAddress + 20 + (2 * sizeofQString if isQt5 else 0);
+        proto = d.extractInt(protoAddress)
+        if proto == 1:
+            # value.d.d->a6
+            a6 = privAddress + 4 + (2 * sizeofQString if isQt5 else 0)
+            data = d.readRawMemory(a6, 16)
+            address = ':'.join("%x" % int(data[i:i+4], 16) for i in xrange(0, 32, 4))
+            scopeId = privAddress + sizeofQString + (0 if isQt5 else 24)
+            scopeId = qEncodeString(d, d.dereference(scopeId))
+            d.putValue("%s%%%s" % (address, scopeId), IPv6AddressAndHexScopeId)
+        elif proto == 0:
+            # value.d.d->a
+            a = d.extractInt(privAddress + (2 * sizeofQString if isQt5 else 0))
+            a, n4 = divmod(a, 256)
+            a, n3 = divmod(a, 256)
+            a, n2 = divmod(a, 256)
+            a, n1 = divmod(a, 256)
+            d.putValue("%d.%d.%d.%d" % (n1, n2, n3, n4));
+        else:
+            d.putValue("<unspecified>")
+
     d.putPlainChildren(value["d"]["d"].dereference())
 
 
@@ -2272,6 +2306,12 @@ def qdump__std__map(d, value):
 def qdump__std____debug__map(d, value):
     qdump__std__map(d, value)
 
+def qdump__std____debug__set(d, value):
+    qdump__std__set(d, value)
+
+def qdump__std____cxx1998__map(d, value):
+    qdump__std__map(d, value)
+
 def stdTreeIteratorHelper(d, value):
     pnode = value["_M_node"]
     node = pnode.dereference()
@@ -2308,6 +2348,9 @@ def qdump__std___Rb_tree_const_iterator(d, value):
 def qdump__std__map__iterator(d, value):
     stdTreeIteratorHelper(d, value)
 
+def qdump____gnu_debug___Safe_iterator(d, value):
+    d.putItem(value["_M_current"])
+
 def qdump__std__map__const_iterator(d, value):
     stdTreeIteratorHelper(d, value)
 
@@ -2317,7 +2360,8 @@ def qdump__std__set__iterator(d, value):
 def qdump__std__set__const_iterator(d, value):
     stdTreeIteratorHelper(d, value)
 
-
+def qdump__std____cxx1998__set(d, value):
+    qdump__std__set(d, value)
 
 def qdump__std__set(d, value):
     impl = value["_M_t"]["_M_impl"]
@@ -2483,6 +2527,67 @@ def qdump__std____1__unique_ptr(d, value):
     with Children(d, 1):
         d.putSubItem("data", i.dereference())
 
+
+def qform__std__unordered_map():
+    return mapForms()
+
+def qform__std____debug__unordered_map():
+    return mapForms()
+
+def qdump__std__unordered_map(d, value):
+    try:
+        size = value["_M_element_count"]
+        start = value["_M_before_begin"]["_M_nxt"]
+    except:
+        size = value["_M_h"]["_M_element_count"]
+        start = value["_M_h"]["_M_bbegin"]["_M_node"]["_M_nxt"]
+    d.putItemCount(size)
+    d.putNumChild(size)
+    if d.isExpanded():
+        p = pointerValue(start)
+        keyType = d.templateArgument(value.type, 0)
+        valueType = d.templateArgument(value.type, 1)
+        allocatorType = d.templateArgument(value.type, 4)
+        pairType = d.templateArgument(allocatorType, 0)
+        ptrSize = d.ptrSize()
+        if d.isMapCompact(keyType, valueType):
+            with Children(d, size, childType=valueType):
+                for i in d.childRange():
+                    pair = d.createValue(p + ptrSize, pairType)
+                    with SubItem(d, i):
+                        d.putField("iname", d.currentIName)
+                        d.putName("[%s] %s" % (i, pair["first"]))
+                        d.putValue(pair["second"])
+                    p = d.dereference(p)
+        else:
+            with Children(d, size, childType=pairType):
+                for i in d.childRange():
+                    d.putSubItem(i, d.createValue(p + ptrSize, pairType))
+                    p = d.dereference(p)
+
+def qdump__std____debug__unordered_map(d, value):
+    qdump__std__unordered_map(d, value)
+
+def qdump__std__unordered_set(d, value):
+    try:
+        size = value["_M_element_count"]
+        start = value["_M_before_begin"]["_M_nxt"]
+    except:
+        size = value["_M_h"]["_M_element_count"]
+        start = value["_M_h"]["_M_bbegin"]["_M_node"]["_M_nxt"]
+    d.putItemCount(size)
+    d.putNumChild(size)
+    if d.isExpanded():
+        p = pointerValue(start)
+        valueType = d.templateArgument(value.type, 0)
+        with Children(d, size, childType=valueType):
+            ptrSize = d.ptrSize()
+            for i in d.childRange():
+                d.putSubItem(i, d.createValue(p + ptrSize, valueType))
+                p = d.dereference(p)
+
+def qdump__std____debug__unordered_set(d, value):
+    qdump__std__unordered_set(d, value)
 
 
 def qedit__std__vector(expr, value):
@@ -2914,6 +3019,10 @@ def qdump__CPlusPlus__TemplateNameId(d, value):
     d.putPlainChildren(value)
 
 def qdump__CPlusPlus__Literal(d, value):
+    d.putValue(encodeCharArray(value["_chars"]), Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__StringLiteral(d, value):
     d.putValue(encodeCharArray(value["_chars"]), Hex2EncodedLatin1)
     d.putPlainChildren(value)
 

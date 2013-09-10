@@ -33,3 +33,11 @@ FORMS += settingspage.ui \
     filesystemfilter.ui \
     directoryfilter.ui
 RESOURCES += locator.qrc
+
+equals(TEST, 1) {
+    HEADERS += locatorfiltertest.h
+    SOURCES += \
+        locatorfiltertest.cpp \
+        locator_test.cpp
+    DEFINES += SRCDIR=\\\"$$PWD\\\"
+}

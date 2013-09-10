@@ -162,8 +162,6 @@ const char ICON_STOP[]            = ":/projectexplorer/images/stop.png";
 const char ICON_STOP_SMALL[]      = ":/projectexplorer/images/stop_small.png";
 const char ICON_WINDOW[]          = ":/projectexplorer/images/window.png";
 
-const char TASK_BUILD[]           = "ProjectExplorer.Task.Build";
-
 // Mime types
 const char C_SOURCE_MIMETYPE[]    = "text/x-csrc";
 const char C_HEADER_MIMETYPE[]    = "text/x-chdr";
@@ -179,6 +177,7 @@ const char PROJECTEXPLORER_SETTINGS_TR_CATEGORY[] = QT_TRANSLATE_NOOP("ProjectEx
 const char PROJECTEXPLORER_SETTINGS_CATEGORY_ICON[]  = ":/core/images/category_buildrun.png";
 const char PROJECTEXPLORER_SETTINGS_ID[] = "A.ProjectExplorer.ProjectExplorer";
 const char TOOLCHAIN_SETTINGS_PAGE_ID[] = "M.ProjectExplorer.ToolChainOptions";
+const char DEBUGGER_SETTINGS_PAGE_ID[] = "N.ProjectExplorer.DebuggerOptions";
 const char KITS_SETTINGS_PAGE_ID[] = "D.ProjectExplorer.KitsOptions";
 
 // Device settings page
@@ -188,6 +187,7 @@ const char DEVICE_SETTINGS_PAGE_ID[] = "AA.Device Settings";
 // Task categories
 const char TASK_CATEGORY_COMPILE[] = "Task.Category.Compile";
 const char TASK_CATEGORY_BUILDSYSTEM[] = "Task.Category.Buildsystem";
+const char TASK_CATEGORY_DEPLOYMENT[] = "Task.Category.Deploy";
 
 // Wizard categories
 const char QT_PROJECT_WIZARD_CATEGORY[] = "H.QtProjects";

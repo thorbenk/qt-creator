@@ -36,7 +36,7 @@
 using namespace CppTools::Internal;
 using namespace CPlusPlus;
 
-CppCurrentDocumentFilter::CppCurrentDocumentFilter(CppModelManager *manager, Core::EditorManager *editorManager)
+CppCurrentDocumentFilter::CppCurrentDocumentFilter(CppModelManager *manager)
     : m_modelManager(manager)
 {
     setId("Methods in current Document");
@@ -49,13 +49,11 @@ CppCurrentDocumentFilter::CppCurrentDocumentFilter(CppModelManager *manager, Cor
                                  SymbolSearcher::Functions |
                                  SymbolSearcher::Classes);
 
-    search.setSeparateScope(true);
-
     connect(manager, SIGNAL(documentUpdated(CPlusPlus::Document::Ptr)),
             this,    SLOT(onDocumentUpdated(CPlusPlus::Document::Ptr)));
-    connect(editorManager, SIGNAL(currentEditorChanged(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(currentEditorChanged(Core::IEditor*)),
             this,          SLOT(onCurrentEditorChanged(Core::IEditor*)));
-    connect(editorManager, SIGNAL(editorAboutToClose(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(editorAboutToClose(Core::IEditor*)),
             this,          SLOT(onEditorAboutToClose(Core::IEditor*)));
 }
 
@@ -81,20 +79,25 @@ QList<Locator::FilterEntry> CppCurrentDocumentFilter::matchesFor(QFutureInterfac
             m_itemsOfCurrentDoc = search(thisDocument);
     }
 
+    const Qt::CaseSensitivity caseSensitivityForPrefix = caseSensitivity(entry);
+
     foreach (const ModelItemInfo & info, m_itemsOfCurrentDoc)
     {
         if (future.isCanceled())
             break;
 
-        if ((hasWildcard && regexp.exactMatch(info.symbolName))
-            || (!hasWildcard && matcher.indexIn(info.symbolName) != -1))
-        {
-            QString symbolName = info.symbolName;// + (info.type == ModelItemInfo::Declaration ? ";" : " {...}");
-            QVariant id = qVariantFromValue(info);
-            Locator::FilterEntry filterEntry(this, symbolName, id, info.icon);
-            filterEntry.extraInfo = info.symbolType;
+        QString matchString = info.typeNameRepresentation();
+        if (matchString.isEmpty())
+            matchString = info.symbolName;
 
-            if (info.symbolName.startsWith(entry))
+        if ((hasWildcard && regexp.exactMatch(matchString))
+            || (!hasWildcard && matcher.indexIn(matchString) != -1))
+        {
+            QVariant id = qVariantFromValue(info);
+            Locator::FilterEntry filterEntry(this, matchString, id, info.icon);
+            filterEntry.extraInfo = info.symbolScope;
+
+            if (matchString.startsWith(entry, caseSensitivityForPrefix))
                 betterEntries.append(filterEntry);
             else
                 goodEntries.append(filterEntry);

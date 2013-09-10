@@ -31,13 +31,20 @@
 #include "androidmanifesteditor.h"
 #include "androidconstants.h"
 #include "androidmanifestdocument.h"
+#include "androidmanager.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/infobar.h>
 #include <texteditor/plaintexteditor.h>
+#include <projectexplorer/project.h>
 #include <projectexplorer/projectwindow.h>
 #include <projectexplorer/iprojectproperties.h>
+#include <projectexplorer/session.h>
+#include <projectexplorer/target.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/kitinformation.h>
 #include <texteditor/texteditoractionhandler.h>
+#include <qt4projectmanager/qt4project.h>
 
 #include <QLineEdit>
 #include <QFileInfo>
@@ -58,6 +65,10 @@
 #include <QFileDialog>
 #include <QTimer>
 
+using namespace ProjectExplorer;
+using namespace Android;
+using namespace Android::Internal;
+
 namespace {
 const QLatin1String packageNameRegExp("^([a-z_]{1}[a-z0-9_]+(\\.[a-zA-Z_]{1}[a-zA-Z0-9_]*)*)$");
 const char infoBarId[] = "Android.AndroidManifestEditor.InfoBar";
@@ -67,11 +78,22 @@ bool checkPackageName(const QString &packageName)
 {
     return QRegExp(packageNameRegExp).exactMatch(packageName);
 }
+
+Project *androidProject(const QString &file)
+{
+    Utils::FileName fileName = Utils::FileName::fromString(file);
+    foreach (Project *project, SessionManager::projects()) {
+        if (!project->activeTarget())
+            continue;
+        Kit *kit = project->activeTarget()->kit();
+        if (DeviceTypeKitInformation::deviceTypeId(kit) == Android::Constants::ANDROID_DEVICE_TYPE
+                && fileName.isChildOf(Utils::FileName::fromString(project->projectDirectory())))
+            return project;
+    }
+    return 0;
+}
+
 } // anonymous namespace
-
-
-using namespace Android;
-using namespace Android::Internal;
 
 AndroidManifestEditorWidget::AndroidManifestEditorWidget(QWidget *parent, TextEditor::TextEditorActionHandler *ah)
     : TextEditor::PlainTextEditorWidget(parent),
@@ -106,6 +128,7 @@ TextEditor::BaseTextEditor *AndroidManifestEditorWidget::createEditor()
 {
     return new AndroidManifestEditor(this);
 }
+
 
 void AndroidManifestEditorWidget::initializePage()
 {
@@ -170,6 +193,21 @@ void AndroidManifestEditorWidget::initializePage()
         m_versionNameLinedit = new QLineEdit(packageGroupBox);
         formLayout->addRow(tr("Version name:"), m_versionNameLinedit);
 
+        m_androidMinSdkVersion = new QComboBox(packageGroupBox);
+        m_androidMinSdkVersion->setToolTip(
+                    tr("Sets the minimum required version on which this application can be run."));
+        m_androidMinSdkVersion->addItem(tr("Not set"), 0);
+
+        formLayout->addRow(tr("Minimum required SDK:"), m_androidMinSdkVersion);
+
+        m_androidTargetSdkVersion = new QComboBox(packageGroupBox);
+        m_androidTargetSdkVersion->setToolTip(
+                    tr("Sets the targe SDK, set this to the highest tested version."
+                       "This disables compatibility behavior of the system for your application."));
+        m_androidTargetSdkVersion->addItem(tr("Not set"), 0);
+
+        formLayout->addRow(tr("Target SDK:"), m_androidTargetSdkVersion);
+
         packageGroupBox->setLayout(formLayout);
 
         connect(m_packageNameLineEdit, SIGNAL(textEdited(QString)),
@@ -177,6 +215,10 @@ void AndroidManifestEditorWidget::initializePage()
         connect(m_versionCode, SIGNAL(valueChanged(int)),
                 this, SLOT(setDirty()));
         connect(m_versionNameLinedit, SIGNAL(textEdited(QString)),
+                this, SLOT(setDirty()));
+        connect(m_androidMinSdkVersion, SIGNAL(currentIndexChanged(int)),
+                this, SLOT(setDirty()));
+        connect(m_androidTargetSdkVersion, SIGNAL(currentIndexChanged(int)),
                 this, SLOT(setDirty()));
 
     }
@@ -192,7 +234,10 @@ void AndroidManifestEditorWidget::initializePage()
         m_appNameLineEdit = new QLineEdit(applicationGroupBox);
         formLayout->addRow(tr("Application name:"), m_appNameLineEdit);
 
-        m_targetLineEdit = new QLineEdit(applicationGroupBox);
+        m_targetLineEdit = new QComboBox(applicationGroupBox);
+        m_targetLineEdit->setEditable(true);
+        m_targetLineEdit->setDuplicatesEnabled(true);
+        m_targetLineEdit->installEventFilter(this);
         formLayout->addRow(tr("Run:"), m_targetLineEdit);
 
         QHBoxLayout *iconLayout = new QHBoxLayout();
@@ -224,7 +269,7 @@ void AndroidManifestEditorWidget::initializePage()
 
         connect(m_appNameLineEdit, SIGNAL(textEdited(QString)),
                 this, SLOT(setAppName()));
-        connect(m_targetLineEdit, SIGNAL(textEdited(QString)),
+        connect(m_targetLineEdit, SIGNAL(currentTextChanged(QString)),
                 this, SLOT(setDirty()));
 
         connect(m_lIconButton, SIGNAL(clicked()), SLOT(setLDPIIcon()));
@@ -407,6 +452,41 @@ void AndroidManifestEditorWidget::initializePage()
     m_overlayWidget = mainWidget;
 }
 
+bool AndroidManifestEditorWidget::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_targetLineEdit) {
+        if (event->type() == QEvent::FocusIn) {
+            QTimer::singleShot(0, this, SLOT(updateTargetComboBox()));
+        }
+    }
+
+    return TextEditor::PlainTextEditorWidget::eventFilter(obj, event);
+}
+
+void AndroidManifestEditorWidget::updateTargetComboBox()
+{
+    const QString docPath(static_cast<AndroidManifestDocument *>(editor()->document())->filePath());
+    ProjectExplorer::Project *project = androidProject(docPath);
+    QStringList items;
+    if (project) {
+        ProjectExplorer::Kit *kit = project->activeTarget()->kit();
+        if (ProjectExplorer::DeviceTypeKitInformation::deviceTypeId(kit) == Constants::ANDROID_DEVICE_TYPE)
+            items = AndroidManager::availableTargetApplications(project->activeTarget());
+    }
+
+    // QComboBox randomly resets what the user has entered
+    // if all rows are removed, thus we ensure that the current text
+    // is not removed by first adding it and then removing all old rows
+    // and then adding the new rows
+    QString text = m_targetLineEdit->currentText();
+    m_targetLineEdit->addItem(text);
+    while (m_targetLineEdit->count() > 1)
+        m_targetLineEdit->removeItem(0);
+    items.removeDuplicates();
+    items.removeAll(text);
+    m_targetLineEdit->addItems(items);
+}
+
 void AndroidManifestEditorWidget::resizeEvent(QResizeEvent *event)
 {
     PlainTextEditorWidget::resizeEvent(event);
@@ -434,6 +514,7 @@ bool AndroidManifestEditorWidget::open(QString *errorString, const QString &file
     }
     // some error occured
     updateInfoBar(error, errorLine, errorColumn);
+    updateSdkVersions();
     setActivePage(Source);
 
     return true;
@@ -606,6 +687,23 @@ void AndroidManifestEditorWidget::updateInfoBar()
     updateInfoBar(errorMessage, errorLine, errorColumn);
 }
 
+void AndroidManifestEditorWidget::updateSdkVersions()
+{
+    const QString docPath(static_cast<AndroidManifestDocument *>(editor()->document())->filePath());
+    QPair<int, int> apiLevels = AndroidManager::apiLevelRange(androidProject(docPath)->activeTarget());
+    for (int i = apiLevels.first; i < apiLevels.second + 1; ++i)
+        m_androidMinSdkVersion->addItem(tr("API %1: %2")
+                                        .arg(i)
+                                        .arg(AndroidManager::androidNameForApiLevel(i)),
+                                        i);
+
+    for (int i = apiLevels.first; i < apiLevels.second + 1; ++i)
+        m_androidTargetSdkVersion->addItem(tr("API %1: %2")
+                                           .arg(i)
+                                           .arg(AndroidManager::androidNameForApiLevel(i)),
+                                           i);
+}
+
 void AndroidManifestEditorWidget::updateInfoBar(const QString &errorMessage, int line, int column)
 {
     Core::InfoBar *infoBar = editorDocument()->infoBar();
@@ -636,6 +734,23 @@ void AndroidManifestEditorWidget::gotoError()
     gotoLine(m_errorLine, m_errorColumn);
 }
 
+void setApiLevel(QComboBox *box, const QDomElement &element, const QString &attribute)
+{
+    if (!element.isNull() && element.hasAttribute(attribute)) {
+        bool ok;
+        int tmp = element.attribute(attribute).toInt(&ok);
+        if (ok) {
+            int index = box->findData(tmp);
+            if (index != -1) {
+                box->setCurrentIndex(index);
+                return;
+            }
+        }
+    }
+    int index = box->findData(0);
+    box->setCurrentIndex(index);
+}
+
 void AndroidManifestEditorWidget::syncToWidgets(const QDomDocument &doc)
 {
     m_stayClean = true;
@@ -643,6 +758,10 @@ void AndroidManifestEditorWidget::syncToWidgets(const QDomDocument &doc)
     m_packageNameLineEdit->setText(manifest.attribute(QLatin1String("package")));
     m_versionCode->setValue(manifest.attribute(QLatin1String("android:versionCode")).toInt());
     m_versionNameLinedit->setText(manifest.attribute(QLatin1String("android:versionName")));
+
+    QDomElement usesSdkElement = manifest.firstChildElement(QLatin1String("uses-sdk"));
+    setApiLevel(m_androidMinSdkVersion, usesSdkElement, QLatin1String("android:minSdkVersion"));
+    setApiLevel(m_androidTargetSdkVersion, usesSdkElement, QLatin1String("android:targetSdkVersion"));
 
     QString baseDir = QFileInfo(static_cast<AndroidManifestDocument *>(editor()->document())->filePath()).absolutePath();
     QString fileName = baseDir + QLatin1String("/res/values/strings.xml");
@@ -665,7 +784,7 @@ void AndroidManifestEditorWidget::syncToWidgets(const QDomDocument &doc)
     QDomElement metadataElem = manifest.firstChildElement(QLatin1String("application")).firstChildElement(QLatin1String("activity")).firstChildElement(QLatin1String("meta-data"));
     while (!metadataElem.isNull()) {
         if (metadataElem.attribute(QLatin1String("android:name")) == QLatin1String("android.app.lib_name")) {
-            m_targetLineEdit->setText(metadataElem.attribute(QLatin1String("android:value")));
+            m_targetLineEdit->setEditText(metadataElem.attribute(QLatin1String("android:value")));
             break;
         }
         metadataElem = metadataElem.nextSiblingElement(QLatin1String("meta-data"));
@@ -692,6 +811,53 @@ void AndroidManifestEditorWidget::syncToWidgets(const QDomDocument &doc)
     m_dirty = false;
 }
 
+void setUsesSdk(QDomDocument &doc, QDomElement &manifest, int minimumSdk, int targetSdk)
+{
+    QDomElement usesSdk = manifest.firstChildElement(QLatin1String("uses-sdk"));
+    if (usesSdk.isNull()) { // doesn't exist yet
+        if (minimumSdk == 0 && targetSdk == 0) {
+            // and doesn't need to exist
+        } else {
+            usesSdk = doc.createElement(QLatin1String("uses-sdk"));
+            if (minimumSdk != 0)
+                usesSdk.setAttribute(QLatin1String("android:minSdkVersion"), minimumSdk);
+            if (targetSdk != 0)
+                usesSdk.setAttribute(QLatin1String("android:targetSdkVersion"), targetSdk);
+            manifest.appendChild(usesSdk);
+        }
+    } else {
+        if (minimumSdk == 0 && targetSdk == 0) {
+            // We might be able to remove the whole element
+            // check if there are other attributes
+            QDomNamedNodeMap usesSdkAttributes = usesSdk.attributes();
+            bool keepNode = false;
+            for (int i = 0; i < usesSdkAttributes.size(); ++i) {
+                if (usesSdkAttributes.item(i).nodeName() != QLatin1String("android:minSdkVersion")
+                        && usesSdkAttributes.item(i).nodeName() != QLatin1String("android:targetSdkVersion")) {
+                    keepNode = true;
+                    break;
+                }
+            }
+            if (keepNode) {
+                usesSdk.removeAttribute(QLatin1String("android:minSdkVersion"));
+                usesSdk.removeAttribute(QLatin1String("android:targetSdkVersion"));
+            } else {
+                manifest.removeChild(usesSdk);
+            }
+        } else {
+            if (minimumSdk == 0)
+                usesSdk.removeAttribute(QLatin1String("android:minSdkVersion"));
+            else
+                usesSdk.setAttribute(QLatin1String("android:minSdkVersion"), minimumSdk);
+
+            if (targetSdk == 0)
+                usesSdk.removeAttribute(QLatin1String("android:targetSdkVersion"));
+            else
+                usesSdk.setAttribute(QLatin1String("android:targetSdkVersion"), targetSdk);
+        }
+    }
+}
+
 void AndroidManifestEditorWidget::syncToEditor()
 {
     QDomDocument doc;
@@ -706,7 +872,12 @@ void AndroidManifestEditorWidget::syncToEditor()
     manifest.setAttribute(QLatin1String("android:versionCode"), m_versionCode->value());
     manifest.setAttribute(QLatin1String("android:versionName"), m_versionNameLinedit->text());
 
-    setAndroidAppLibName(doc, manifest.firstChildElement(QLatin1String("application")).firstChildElement(QLatin1String("activity")), m_targetLineEdit->text());
+    setUsesSdk(doc, manifest, m_androidMinSdkVersion->currentText().toInt(),
+               m_androidTargetSdkVersion->currentText().toInt());
+
+    setAndroidAppLibName(doc, manifest.firstChildElement(QLatin1String("application"))
+                                      .firstChildElement(QLatin1String("activity")),
+                         m_targetLineEdit->currentText());
 
     // permissions
     QDomElement permissionElem = manifest.firstChildElement(QLatin1String("uses-permission"));

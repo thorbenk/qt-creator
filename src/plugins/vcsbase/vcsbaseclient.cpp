@@ -318,8 +318,8 @@ Utils::SynchronousProcessResponse VcsBaseClient::vcsSynchronousExec(
 {
     const QString binary = settings()->binaryPath();
     const int timeoutSec = settings()->intValue(VcsBaseClientSettings::timeoutKey);
-    return VcsBase::VcsBasePlugin::runVcs(workingDirectory, binary, args,
-                                          timeoutSec * 1000, flags, outputCodec);
+    return VcsBase::VcsBasePlugin::runVcs(workingDirectory, binary, args, timeoutSec * 1000,
+                                          flags, outputCodec);
 }
 
 void VcsBaseClient::annotate(const QString &workingDir, const QString &file,
@@ -492,7 +492,6 @@ void VcsBaseClient::update(const QString &repositoryRoot, const QString &revisio
     args << revisionSpec(revision) << extraOptions;
     Command *cmd = createCommand(repositoryRoot);
     cmd->setCookie(repositoryRoot);
-    cmd->setUnixTerminalDisabled(VcsBase::VcsBasePlugin::isSshPromptConfigured());
     connect(cmd, SIGNAL(success(QVariant)), this, SIGNAL(changed(QVariant)), Qt::QueuedConnection);
     enqueueJob(cmd, args);
 }
@@ -596,34 +595,25 @@ Command *VcsBaseClient::createCommand(const QString &workingDirectory,
     if (editor)
         d->bindCommandToEditor(cmd, editor);
     if (mode == VcsWindowOutputBind) {
-        if (editor) { // assume that the commands output is the important thing
-            connect(cmd, SIGNAL(output(QString)),
-                    ::vcsOutputWindow(), SLOT(appendSilently(QString)));
-        } else {
-            connect(cmd, SIGNAL(output(QString)),
-                    ::vcsOutputWindow(), SLOT(append(QString)));
-        }
+        cmd->addFlags(VcsBasePlugin::ShowStdOutInLogWindow);
+        if (editor) // assume that the commands output is the important thing
+            cmd->addFlags(VcsBasePlugin::SilentOutput);
     } else if (editor) {
         connect(cmd, SIGNAL(output(QString)), editor, SLOT(setPlainText(QString)));
     }
 
-    if (::vcsOutputWindow())
-        connect(cmd, SIGNAL(errorText(QString)),
-                ::vcsOutputWindow(), SLOT(appendError(QString)));
     return cmd;
 }
 
 void VcsBaseClient::enqueueJob(Command *cmd, const QStringList &args)
 {
-    const QString binary = QFileInfo(d->m_clientSettings->binaryPath()).baseName();
-    ::vcsOutputWindow()->appendCommand(cmd->workingDirectory(), binary, args);
     cmd->addJob(args);
     cmd->execute();
 }
 
 void VcsBaseClient::resetCachedVcsInfo(const QString &workingDir)
 {
-    Core::ICore::vcsManager()->resetVersionControlForDirectory(workingDir);
+    Core::VcsManager::resetVersionControlForDirectory(workingDir);
 }
 
 } // namespace VcsBase

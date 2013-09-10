@@ -81,7 +81,7 @@ bool BlackBerryAbstractDeployStep::init()
     m_processCounter = -1;
 
     m_environment = target()->activeBuildConfiguration()->environment();
-    m_buildDirectory = target()->activeBuildConfiguration()->buildDirectory();
+    m_buildDirectory = target()->activeBuildConfiguration()->buildDirectory().toString();
 
     return true;
 }
@@ -132,7 +132,8 @@ void BlackBerryAbstractDeployStep::reportProgress(int progress)
 {
     QTC_ASSERT(progress >= 0 && progress <= 100, return);
 
-    m_futureInterface->setProgressValue(100 * m_processCounter + progress);
+    if (m_futureInterface)
+        m_futureInterface->setProgressValue(100 * m_processCounter + progress);
 }
 
 void BlackBerryAbstractDeployStep::runCommands()
@@ -186,7 +187,7 @@ void BlackBerryAbstractDeployStep::raiseError(const QString &errorMessage)
 {
     emit addOutput(errorMessage, BuildStep::ErrorMessageOutput);
     emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error, errorMessage, Utils::FileName(), -1,
-                                       Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                       ProjectExplorer::Constants::TASK_CATEGORY_DEPLOYMENT));
 }
 
 void BlackBerryAbstractDeployStep::processReadyReadStdOutput()

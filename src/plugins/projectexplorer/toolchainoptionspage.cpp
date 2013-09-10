@@ -106,9 +106,8 @@ ToolChainModel::ToolChainModel(QObject *parent) :
     m_autoRoot = new ToolChainNode(m_root);
     m_manualRoot = new ToolChainNode(m_root);
 
-    foreach (ToolChain *tc, ToolChainManager::instance()->toolChains()) {
+    foreach (ToolChain *tc, ToolChainManager::toolChains())
         addToolChain(tc);
-    }
 }
 
 ToolChainModel::~ToolChainModel()
@@ -278,7 +277,7 @@ void ToolChainModel::apply()
     QList<ToolChainNode *> nodes = m_toRemoveList;
     foreach (ToolChainNode *n, nodes) {
         Q_ASSERT(!n->parent);
-        ToolChainManager::instance()->deregisterToolChain(n->toolChain);
+        ToolChainManager::deregisterToolChain(n->toolChain);
     }
     Q_ASSERT(m_toRemoveList.isEmpty());
 
@@ -299,7 +298,7 @@ void ToolChainModel::apply()
     QStringList removedTcs;
     nodes = m_toAddList;
     foreach (ToolChainNode *n, nodes) {
-        if (!ToolChainManager::instance()->registerToolChain(n->toolChain))
+        if (!ToolChainManager::registerToolChain(n->toolChain))
             removedTcs << n->toolChain->displayName();
     }
     //
@@ -626,7 +625,7 @@ void ToolChainOptionsPage::updateState()
     ToolChain *tc = m_model->toolChain(currentIndex());
     if (tc) {
         canCopy = tc->isValid() && tc->canClone();
-        canDelete = !tc->isAutoDetected();
+        canDelete = tc->detection() != ToolChain::AutoDetection;
     }
 
     m_cloneButton->setEnabled(canCopy);

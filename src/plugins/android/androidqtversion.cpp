@@ -122,7 +122,7 @@ void AndroidQtVersion::addToEnvironment(const ProjectExplorer::Kit *k, Utils::En
         return;
 
     env.set(QLatin1String("ANDROID_NDK_PLATFORM"),
-            AndroidConfigurations::instance().bestMatch(AndroidManager::targetSDK(target)));
+            AndroidConfigurations::instance().bestMatch(AndroidManager::buildTargetSDK(target)));
 
 }
 
@@ -141,6 +141,7 @@ QString AndroidQtVersion::targetArch() const
 void AndroidQtVersion::parseMkSpec(ProFileEvaluator *evaluator) const
 {
     m_targetArch = evaluator->value(QLatin1String("ANDROID_TARGET_ARCH"));
+    BaseQtVersion::parseMkSpec(evaluator);
 }
 
 Core::FeatureSet AndroidQtVersion::availableFeatures() const

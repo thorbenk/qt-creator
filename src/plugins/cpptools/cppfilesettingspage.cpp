@@ -30,6 +30,7 @@
 #include "cppfilesettingspage.h"
 
 #include "cpptoolsconstants.h"
+#include "cpptoolsplugin.h"
 #include <ui_cppfilesettingspage.h>
 
 #include <coreplugin/icore.h>
@@ -52,6 +53,8 @@
 
 static const char headerSuffixKeyC[] = "HeaderSuffix";
 static const char sourceSuffixKeyC[] = "SourceSuffix";
+static const char headerSearchPathsKeyC[] = "HeaderSearchPaths";
+static const char sourceSearchPathsKeyC[] = "SourceSearchPaths";
 static const char licenseTemplatePathKeyC[] = "LicenseTemplate";
 
 const char *licenseTemplateTemplate = QT_TRANSLATE_NOOP("CppTools::Internal::CppFileSettingsWidget",
@@ -75,6 +78,8 @@ void CppFileSettings::toSettings(QSettings *s) const
     s->beginGroup(QLatin1String(Constants::CPPTOOLS_SETTINGSGROUP));
     s->setValue(QLatin1String(headerSuffixKeyC), headerSuffix);
     s->setValue(QLatin1String(sourceSuffixKeyC), sourceSuffix);
+    s->setValue(QLatin1String(headerSearchPathsKeyC), headerSearchPaths);
+    s->setValue(QLatin1String(sourceSearchPathsKeyC), sourceSearchPaths);
     s->setValue(QLatin1String(Constants::LOWERCASE_CPPFILES_KEY), lowerCaseFiles);
     s->setValue(QLatin1String(licenseTemplatePathKeyC), licenseTemplatePath);
     s->endGroup();
@@ -82,9 +87,22 @@ void CppFileSettings::toSettings(QSettings *s) const
 
 void CppFileSettings::fromSettings(QSettings *s)
 {
+    const QStringList defaultHeaderSearchPaths = QStringList()
+            << QLatin1String("include")
+            << QLatin1String("Include")
+            << QDir::toNativeSeparators(QLatin1String("../include"))
+            << QDir::toNativeSeparators(QLatin1String("../Include"));
+    const QStringList defaultSourceSearchPaths = QStringList()
+            << QDir::toNativeSeparators(QLatin1String("../src"))
+            << QDir::toNativeSeparators(QLatin1String("../Src"))
+            << QLatin1String("..");
     s->beginGroup(QLatin1String(Constants::CPPTOOLS_SETTINGSGROUP));
     headerSuffix= s->value(QLatin1String(headerSuffixKeyC), QLatin1String("h")).toString();
     sourceSuffix = s->value(QLatin1String(sourceSuffixKeyC), QLatin1String("cpp")).toString();
+    headerSearchPaths = s->value(QLatin1String(headerSearchPathsKeyC), defaultHeaderSearchPaths)
+            .toStringList();
+    sourceSearchPaths = s->value(QLatin1String(sourceSearchPathsKeyC), defaultSourceSearchPaths)
+            .toStringList();
     const bool lowerCaseDefault = Constants::lowerCaseFilesDefault;
     lowerCaseFiles = s->value(QLatin1String(Constants::LOWERCASE_CPPFILES_KEY), QVariant(lowerCaseDefault)).toBool();
     licenseTemplatePath = s->value(QLatin1String(licenseTemplatePathKeyC), QString()).toString();
@@ -93,9 +111,8 @@ void CppFileSettings::fromSettings(QSettings *s)
 
 bool CppFileSettings::applySuffixesToMimeDB()
 {
-    Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
-    return mdb->setPreferredSuffix(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE), sourceSuffix)
-            && mdb->setPreferredSuffix(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE), headerSuffix);
+    return Core::MimeDatabase::setPreferredSuffix(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE), sourceSuffix)
+            && Core::MimeDatabase::setPreferredSuffix(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE), headerSuffix);
 }
 
 bool CppFileSettings::equals(const CppFileSettings &rhs) const
@@ -103,6 +120,8 @@ bool CppFileSettings::equals(const CppFileSettings &rhs) const
     return lowerCaseFiles == rhs.lowerCaseFiles
            && headerSuffix == rhs.headerSuffix
            && sourceSuffix == rhs.sourceSuffix
+           && headerSearchPaths == rhs.headerSearchPaths
+           && sourceSearchPaths == rhs.sourceSearchPaths
            && licenseTemplatePath == rhs.licenseTemplatePath;
 }
 
@@ -205,9 +224,8 @@ QString CppFileSettings::licenseTemplate(const QString &fileName, const QString 
         return QString();
     }
 
-    QTextCodec *codec = Core::EditorManager::instance()->defaultTextCodec();
     QTextStream licenseStream(&file);
-    licenseStream.setCodec(codec);
+    licenseStream.setCodec(Core::EditorManager::defaultTextCodec());
     licenseStream.setAutoDetectUnicode(true);
     QString license = licenseStream.readAll();
 
@@ -227,13 +245,12 @@ CppFileSettingsWidget::CppFileSettingsWidget(QWidget *parent) :
     m_ui(new Internal::Ui::CppFileSettingsPage)
 {
     m_ui->setupUi(this);
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     // populate suffix combos
-    if (const Core::MimeType sourceMt = mdb->findByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)))
+    if (const Core::MimeType sourceMt = Core::MimeDatabase::findByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)))
         foreach (const QString &suffix, sourceMt.suffixes())
             m_ui->sourceSuffixComboBox->addItem(suffix);
 
-    if (const Core::MimeType headerMt = mdb->findByType(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE)))
+    if (const Core::MimeType headerMt = Core::MimeDatabase::findByType(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE)))
         foreach (const QString &suffix, headerMt.suffixes())
             m_ui->headerSuffixComboBox->addItem(suffix);
     m_ui->licenseTemplatePathChooser->setExpectedKind(Utils::PathChooser::File);
@@ -255,12 +272,22 @@ void CppFileSettingsWidget::setLicenseTemplatePath(const QString &lp)
     m_ui->licenseTemplatePathChooser->setPath(lp);
 }
 
+static QStringList trimmedPaths(const QString &paths)
+{
+    QStringList res;
+    foreach (const QString &path, paths.split(QLatin1Char(','), QString::SkipEmptyParts))
+        res << path.trimmed();
+    return res;
+}
+
 CppFileSettings CppFileSettingsWidget::settings() const
 {
     CppFileSettings rc;
     rc.lowerCaseFiles = m_ui->lowerCaseFileNamesCheckBox->isChecked();
     rc.headerSuffix = m_ui->headerSuffixComboBox->currentText();
     rc.sourceSuffix = m_ui->sourceSuffixComboBox->currentText();
+    rc.headerSearchPaths = trimmedPaths(m_ui->headerSearchPathsEdit->text());
+    rc.sourceSearchPaths = trimmedPaths(m_ui->sourceSearchPathsEdit->text());
     rc.licenseTemplatePath = licenseTemplatePath();
     return rc;
 }
@@ -268,8 +295,12 @@ CppFileSettings CppFileSettingsWidget::settings() const
 QString CppFileSettingsWidget::searchKeywords() const
 {
     QString rc;
-    QTextStream(&rc) << m_ui->headerSuffixLabel->text()
+    QTextStream(&rc) << m_ui->headersGroupBox->title()
+            << ' ' << m_ui->headerSuffixLabel->text()
+            << ' ' << m_ui->headerSearchPathsLabel->text()
+            << ' ' << m_ui->sourcesGroupBox->title()
             << ' ' << m_ui->sourceSuffixLabel->text()
+            << ' ' << m_ui->sourceSearchPathsLabel->text()
             << ' ' << m_ui->lowerCaseFileNamesCheckBox->text()
             << ' ' << m_ui->licenseTemplateLabel->text();
     rc.remove(QLatin1Char('&'));
@@ -287,6 +318,8 @@ void CppFileSettingsWidget::setSettings(const CppFileSettings &s)
     m_ui->lowerCaseFileNamesCheckBox->setChecked(s.lowerCaseFiles);
     setComboText(m_ui->headerSuffixComboBox, s.headerSuffix);
     setComboText(m_ui->sourceSuffixComboBox, s.sourceSuffix);
+    m_ui->headerSearchPathsEdit->setText(s.headerSearchPaths.join(QLatin1String(",")));
+    m_ui->sourceSearchPathsEdit->setText(s.sourceSearchPaths.join(QLatin1String(",")));
     setLicenseTemplatePath(s.licenseTemplatePath);
 }
 
@@ -339,6 +372,7 @@ void CppFileSettingsPage::apply()
             *m_settings = newSettings;
             m_settings->toSettings(Core::ICore::settings());
             m_settings->applySuffixesToMimeDB();
+            CppToolsPlugin::clearHeaderSourceCache();
         }
     }
 }

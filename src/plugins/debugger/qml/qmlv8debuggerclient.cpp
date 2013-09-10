@@ -29,14 +29,14 @@
 
 #include "qmlv8debuggerclient.h"
 #include "qmlv8debuggerclientconstants.h"
-#include "debuggerstringutils.h"
-
-#include "watchhandler.h"
-#include "breakhandler.h"
 #include "qmlengine.h"
-#include "stackhandler.h"
-#include "debuggercore.h"
-#include "debuggeractions.h"
+
+#include <debugger/debuggerstringutils.h>
+#include <debugger/watchhandler.h>
+#include <debugger/breakhandler.h>
+#include <debugger/stackhandler.h>
+#include <debugger/debuggercore.h>
+#include <debugger/debuggeractions.h>
 
 #include <utils/qtcassert.h>
 #include <texteditor/basetexteditor.h>
@@ -1905,7 +1905,7 @@ void QmlV8DebuggerClient::updateBreakpoints(const QVariant &bodyVal)
         const QVariantList actualLocations = breakpointData.value(_("actual_locations")).toList();
         foreach (const QVariant &location, actualLocations) {
             const QVariantMap locationData = location.toMap();
-            br.lineNumber = locationData.value(_("line")).toInt() + 1;;
+            br.lineNumber = locationData.value(_("line")).toInt() + 1;
             br.enabled = breakpointData.value(_("active")).toBool();
             br.hitCount = breakpointData.value(_("hit_count")).toInt();
             br.ignoreCount = breakpointData.value(_("ignoreCount")).toInt();

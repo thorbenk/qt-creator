@@ -246,12 +246,13 @@ QList<LookupItem> LookupContext::lookupByUsing(const Name *name, Scope *scope) c
 {
     QList<LookupItem> candidates;
     // if it is a nameId there can be a using declaration for it
-    if (name->isNameId()) {
+    if (name->isNameId() || name->isTemplateNameId()) {
         for (unsigned i = 0, count = scope->memberCount(); i < count; ++i) {
             if (UsingDeclaration *u = scope->memberAt(i)->asUsingDeclaration()) {
                 if (const Name *usingDeclarationName = u->name()) {
                     if (const QualifiedNameId *q = usingDeclarationName->asQualifiedNameId()) {
-                        if (q->name() && q->name()->isEqualTo(name)) {
+                        if (q->name() && q->identifier() && name->identifier()
+                                && q->name()->identifier()->isEqualTo(name->identifier())) {
                             candidates = bindings()->globalNamespace()->find(q);
 
                             // if it is not a global scope(scope of scope is not equal 0)
@@ -267,6 +268,10 @@ QList<LookupItem> LookupContext::lookupByUsing(const Name *name, Scope *scope) c
                 }
             }
         }
+    } else if (const QualifiedNameId *q = name->asQualifiedNameId()) {
+        ClassOrNamespace *base = lookupType(q->base(), scope);
+        if (base && base->symbols().size() > 0 && base->symbols().first()->asScope())
+            return lookupByUsing(q->name(), base->symbols().first()->asScope());
     }
     return candidates;
 }
@@ -308,7 +313,7 @@ ClassOrNamespace *LookupContext::lookupType(const Name *name, Scope *scope,
                                             ClassOrNamespace* enclosingTemplateInstantiation,
                                             QSet<const Declaration *> typedefsBeingResolved) const
 {
-    if (! scope) {
+    if (! scope || ! name) {
         return 0;
     } else if (Block *block = scope->asBlock()) {
         for (unsigned i = 0; i < block->memberCount(); ++i) {
@@ -1449,7 +1454,7 @@ void CreateBindings::process(Document::Ptr doc)
         if (! _processed.contains(globalNamespace)) {
             _processed.insert(globalNamespace);
 
-            foreach (const Document::Include &i, doc->includes()) {
+            foreach (const Document::Include &i, doc->resolvedIncludes()) {
                 if (Document::Ptr incl = _snapshot.document(i.resolvedFileName()))
                     process(incl);
             }

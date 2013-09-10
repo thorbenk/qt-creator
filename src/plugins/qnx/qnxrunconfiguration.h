@@ -34,6 +34,8 @@
 
 #include <remotelinux/remotelinuxrunconfiguration.h>
 
+namespace Utils { class Environment; }
+
 namespace Qnx {
 namespace Internal {
 
@@ -44,7 +46,7 @@ public:
     QnxRunConfiguration(ProjectExplorer::Target *parent, const Core::Id id,
             const QString &projectFilePath);
 
-    QString environmentPreparationCommand() const;
+    Utils::Environment environment() const;
 
     QWidget *createConfigurationWidget();
 

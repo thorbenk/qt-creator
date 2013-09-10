@@ -274,13 +274,16 @@ void FakeVimPlugin::setup(TestData *data)
 {
     setupTest(&data->title, &data->handler, &data->edit);
     data->reset();
-    data->doCommand("set nopasskeys | set nopasscontrolkey");
+    data->doCommand("| set nopasskeys"
+                    "| set nopasscontrolkey"
+                    "| set smartindent"
+                    "| set autoindent");
 }
 
 
 void FakeVimPlugin::cleanup()
 {
-    Core::EditorManager::instance()->closeAllEditors(false);
+    Core::EditorManager::closeAllEditors(false);
 }
 
 
@@ -3174,6 +3177,10 @@ void FakeVimPlugin::test_macros()
     KEYS("@x", "def" N X "abc");
     KEYS("gg@x", "abc" N X "def");
     data.doCommand("unmap <S-down>");
+
+    data.setText("   abc xyz>." N "   def xyz>." N "   ghi xyz>." N "   jkl xyz>.");
+    KEYS("qq" "^wdf>j" "q", "   abc ." N "   def " X "xyz>." N "   ghi xyz>." N "   jkl xyz>.");
+    KEYS("2@q", "   abc ." N "   def ." N "   ghi ." N "   jkl " X "xyz>.");
 }
 
 void FakeVimPlugin::test_vim_qtcreator()

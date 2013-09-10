@@ -52,6 +52,7 @@
 static const char kHostBins[] = "CurrentProject:QT_HOST_BINS";
 static const char kInstallBins[] = "CurrentProject:QT_INSTALL_BINS";
 
+using namespace Core;
 using namespace QtSupport;
 using namespace QtSupport::Internal;
 
@@ -63,10 +64,10 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
     ProFileEvaluator::initialize();
     new ProFileCacheManager(this);
 
-    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":qtsupport/QtSupport.mimetypes.xml"), errorMessage))
+    if (!MimeDatabase::addMimeTypes(QLatin1String(":qtsupport/QtSupport.mimetypes.xml"), errorMessage))
         return false;
-    QtVersionManager *mgr = new QtVersionManager;
-    addAutoReleasedObject(mgr);
+
+    addAutoReleasedObject(new QtVersionManager);
     addAutoReleasedObject(new UiCodeModelManager);
 
     QtFeatureProvider *featureMgr = new QtFeatureProvider;
@@ -87,27 +88,27 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
 
     addAutoReleasedObject(new CustomExecutableRunConfigurationFactory);
 
-    ProjectExplorer::KitManager::instance()->registerKitInformation(new QtKitInformation);
+    ProjectExplorer::KitManager::registerKitInformation(new QtKitInformation);
 
     return true;
 }
 
 void QtSupportPlugin::extensionsInitialized()
 {
-    Core::VariableManager::registerVariable(kHostBins,
+    VariableManager::registerVariable(kHostBins,
         tr("Full path to the host bin directory of the current project's Qt version."));
-    Core::VariableManager::registerVariable(kInstallBins,
+    VariableManager::registerVariable(kInstallBins,
         tr("Full path to the target bin directory of the current project's Qt version."
            " You probably want %1 instead.").arg(QString::fromLatin1(kHostBins)));
-    connect(Core::VariableManager::instance(), SIGNAL(variableUpdateRequested(QByteArray)),
+    connect(VariableManager::instance(), SIGNAL(variableUpdateRequested(QByteArray)),
             this, SLOT(updateVariable(QByteArray)));
 
-    QtVersionManager::instance()->extensionsInitialized();
+    QtVersionManager::extensionsInitialized();
 }
 
 bool QtSupportPlugin::delayedInitialize()
 {
-    return QtVersionManager::instance()->delayedInitialize();
+    return QtVersionManager::delayedInitialize();
 }
 
 void QtSupportPlugin::updateVariable(const QByteArray &variable)
@@ -117,18 +118,18 @@ void QtSupportPlugin::updateVariable(const QByteArray &variable)
 
     ProjectExplorer::Project *project = ProjectExplorer::ProjectExplorerPlugin::currentProject();
     if (!project || !project->activeTarget()) {
-        Core::VariableManager::instance()->remove(variable);
+        VariableManager::remove(variable);
         return;
     }
 
     const BaseQtVersion *qtVersion = QtKitInformation::qtVersion(project->activeTarget()->kit());
     if (!qtVersion) {
-        Core::VariableManager::instance()->remove(variable);
+        VariableManager::remove(variable);
         return;
     }
 
     QString value = qtVersion->qmakeProperty(variable == kHostBins ? "QT_HOST_BINS" : "QT_INSTALL_BINS");
-    Core::VariableManager::instance()->insert(variable, value);
+    VariableManager::insert(variable, value);
 }
 
 Q_EXPORT_PLUGIN(QtSupportPlugin)

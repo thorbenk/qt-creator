@@ -63,6 +63,7 @@
 
 #include <QDebug>
 
+using namespace Core;
 using namespace QmlJS;
 using namespace QmlJSTools;
 using namespace QmlJSTools::Internal;
@@ -74,28 +75,26 @@ ModelManagerInterface::ProjectInfo QmlJSTools::defaultProjectInfoForProject(
     ModelManagerInterface::ProjectInfo projectInfo(project);
     ProjectExplorer::Target *activeTarget = 0;
     if (project) {
-        Core::MimeDatabase *db = Core::ICore::mimeDatabase();
-        QList<Core::MimeGlobPattern> globs;
-        QList<Core::MimeType> mimeTypes = db->mimeTypes();
-        foreach (const Core::MimeType &mimeType, mimeTypes)
+        QList<MimeGlobPattern> globs;
+        foreach (const MimeType &mimeType, MimeDatabase::mimeTypes())
             if (mimeType.type() == QLatin1String(Constants::QML_MIMETYPE)
                     || mimeType.subClassesOf().contains(QLatin1String(Constants::QML_MIMETYPE)))
                 globs << mimeType.globPatterns();
         if (globs.isEmpty()) {
-            globs.append(Core::MimeGlobPattern(QLatin1String("*.qbs")));
-            globs.append(Core::MimeGlobPattern(QLatin1String("*.qml")));
-            globs.append(Core::MimeGlobPattern(QLatin1String("*.qmltypes")));
-            globs.append(Core::MimeGlobPattern(QLatin1String("*.qmlproject")));
+            globs.append(MimeGlobPattern(QLatin1String("*.qbs")));
+            globs.append(MimeGlobPattern(QLatin1String("*.qml")));
+            globs.append(MimeGlobPattern(QLatin1String("*.qmltypes")));
+            globs.append(MimeGlobPattern(QLatin1String("*.qmlproject")));
         }
         foreach (const QString &filePath
                  , project->files(ProjectExplorer::Project::ExcludeGeneratedFiles))
-            foreach (const Core::MimeGlobPattern &glob, globs)
+            foreach (const MimeGlobPattern &glob, globs)
                 if (glob.matches(filePath))
                     projectInfo.sourceFiles << filePath;
         activeTarget = project->activeTarget();
     }
     ProjectExplorer::Kit *activeKit = activeTarget ? activeTarget->kit() :
-                                           ProjectExplorer::KitManager::instance()->defaultKit();
+                                           ProjectExplorer::KitManager::defaultKit();
     QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(activeKit);
 
     bool preferDebugDump = false;
@@ -143,7 +142,7 @@ void QmlJSTools::setupProjectInfoQmlBundles(ModelManagerInterface::ProjectInfo &
         activeTarget = projectInfo.project->activeTarget();
     }
     ProjectExplorer::Kit *activeKit = activeTarget
-            ? activeTarget->kit() : ProjectExplorer::KitManager::instance()->defaultKit();
+            ? activeTarget->kit() : ProjectExplorer::KitManager::defaultKit();
     QHash<QString, QString> replacements;
     replacements.insert(QLatin1String("$(QT_INSTALL_IMPORTS)"), projectInfo.qtImportsPath);
     replacements.insert(QLatin1String("$(QT_INSTALL_QML)"), projectInfo.qtQmlPath);
@@ -187,17 +186,16 @@ QmlJS::Document::Language QmlJSTools::languageOfFile(const QString &fileName)
     QStringList jsonSuffixes(QLatin1String("json"));
     QStringList qbsSuffixes(QLatin1String("qbs"));
 
-    if (Core::ICore::instance()) {
-        Core::MimeDatabase *db = Core::ICore::mimeDatabase();
-        Core::MimeType jsSourceTy = db->findByType(QLatin1String(Constants::JS_MIMETYPE));
+    if (ICore::instance()) {
+        MimeType jsSourceTy = MimeDatabase::findByType(QLatin1String(Constants::JS_MIMETYPE));
         mergeSuffixes(jsSuffixes, jsSourceTy.suffixes());
-        Core::MimeType qmlSourceTy = db->findByType(QLatin1String(Constants::QML_MIMETYPE));
+        MimeType qmlSourceTy = MimeDatabase::findByType(QLatin1String(Constants::QML_MIMETYPE));
         mergeSuffixes(qmlSuffixes, qmlSourceTy.suffixes());
-        Core::MimeType qbsSourceTy = db->findByType(QLatin1String(Constants::QBS_MIMETYPE));
+        MimeType qbsSourceTy = MimeDatabase::findByType(QLatin1String(Constants::QBS_MIMETYPE));
         mergeSuffixes(qbsSuffixes, qbsSourceTy.suffixes());
-        Core::MimeType qmlProjectSourceTy = db->findByType(QLatin1String(Constants::QMLPROJECT_MIMETYPE));
+        MimeType qmlProjectSourceTy = MimeDatabase::findByType(QLatin1String(Constants::QMLPROJECT_MIMETYPE));
         mergeSuffixes(qmlProjectSuffixes, qmlProjectSourceTy.suffixes());
-        Core::MimeType jsonSourceTy = db->findByType(QLatin1String(Constants::JSON_MIMETYPE));
+        MimeType jsonSourceTy = MimeDatabase::findByType(QLatin1String(Constants::JSON_MIMETYPE));
         mergeSuffixes(jsonSuffixes, jsonSourceTy.suffixes());
     }
 
@@ -217,15 +215,14 @@ QmlJS::Document::Language QmlJSTools::languageOfFile(const QString &fileName)
 QStringList QmlJSTools::qmlAndJsGlobPatterns()
 {
     QStringList pattern;
-    if (Core::ICore::instance()) {
-        Core::MimeDatabase *db = Core::ICore::mimeDatabase();
-        Core::MimeType jsSourceTy = db->findByType(QLatin1String(Constants::JS_MIMETYPE));
-        Core::MimeType qmlSourceTy = db->findByType(QLatin1String(Constants::QML_MIMETYPE));
+    if (ICore::instance()) {
+        MimeType jsSourceTy = MimeDatabase::findByType(QLatin1String(Constants::JS_MIMETYPE));
+        MimeType qmlSourceTy = MimeDatabase::findByType(QLatin1String(Constants::QML_MIMETYPE));
 
         QStringList pattern;
-        foreach (const Core::MimeGlobPattern &glob, jsSourceTy.globPatterns())
+        foreach (const MimeGlobPattern &glob, jsSourceTy.globPatterns())
             pattern << glob.pattern();
-        foreach (const Core::MimeGlobPattern &glob, qmlSourceTy.globPatterns())
+        foreach (const MimeGlobPattern &glob, qmlSourceTy.globPatterns())
             pattern << glob.pattern();
     } else {
         pattern << QLatin1String("*.qml") << QLatin1String("*.js");
@@ -245,7 +242,7 @@ ModelManager::ModelManager(QObject *parent):
     connect(m_updateCppQmlTypesTimer, SIGNAL(timeout()), SLOT(startCppQmlTypeUpdate()));
 
     m_asyncResetTimer = new QTimer(this);
-    m_asyncResetTimer->setInterval(1000);
+    m_asyncResetTimer->setInterval(15000);
     m_asyncResetTimer->setSingleShot(true);
     connect(m_asyncResetTimer, SIGNAL(timeout()), SLOT(resetCodeModel()));
 
@@ -276,16 +273,15 @@ void ModelManager::delayedInitialization()
                 this, SLOT(maybeQueueCppQmlTypeUpdate(CPlusPlus::Document::Ptr)), Qt::DirectConnection);
     }
 
-    ProjectExplorer::SessionManager *sessionManager = ProjectExplorer::ProjectExplorerPlugin::instance()->session();
-    connect(sessionManager, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
+    connect(ProjectExplorer::SessionManager::instance(), SIGNAL(projectRemoved(ProjectExplorer::Project*)),
             this, SLOT(removeProjectInfo(ProjectExplorer::Project*)));
 }
 
 void ModelManager::loadQmlTypeDescriptions()
 {
-    if (Core::ICore::instance()) {
-        loadQmlTypeDescriptions(Core::ICore::resourcePath());
-        loadQmlTypeDescriptions(Core::ICore::userResourcePath());
+    if (ICore::instance()) {
+        loadQmlTypeDescriptions(ICore::resourcePath());
+        loadQmlTypeDescriptions(ICore::userResourcePath());
     }
 }
 
@@ -317,18 +313,17 @@ void ModelManager::loadQmlTypeDescriptions(const QString &resourcePath)
     CppQmlTypesLoader::defaultLibraryObjects.unite(
                 CppQmlTypesLoader::loadQmlTypes(qmlTypesFiles, &errors, &warnings));
 
-    Core::MessageManager *messageManager = Core::MessageManager::instance();
     foreach (const QString &error, errors)
-        messageManager->printToOutputPane(error, Core::MessageManager::Flash);
+        MessageManager::write(error, MessageManager::Flash);
     foreach (const QString &warning, warnings)
-        messageManager->printToOutputPane(warning, Core::MessageManager::Flash);
+        MessageManager::write(warning, MessageManager::Flash);
 }
 
 ModelManagerInterface::WorkingCopy ModelManager::workingCopy() const
 {
     WorkingCopy workingCopy;
-    Core::DocumentModel *documentModel = Core::EditorManager::documentModel();
-    foreach (Core::IDocument *document, documentModel->openedDocuments()) {
+    DocumentModel *documentModel = EditorManager::documentModel();
+    foreach (IDocument *document, documentModel->openedDocuments()) {
         const QString key = document->filePath();
         if (TextEditor::BaseTextDocument *textDocument = qobject_cast<TextEditor::BaseTextDocument *>(document)) {
             // TODO the language should be a property on the document, not the editor
@@ -383,8 +378,7 @@ QFuture<void> ModelManager::refreshSourceFiles(const QStringList &sourceFiles,
     m_synchronizer.addFuture(result);
 
     if (sourceFiles.count() > 1) {
-        Core::ICore::progressManager()->addTask(result, tr("Indexing"),
-                        QLatin1String(Constants::TASK_INDEX));
+        ProgressManager::addTask(result, tr("Indexing"), Constants::TASK_INDEX);
     }
 
     return result;
@@ -889,10 +883,8 @@ void ModelManager::parse(QFutureInterface<void> &future,
 }
 
 // Check whether fileMimeType is the same or extends knownMimeType
-bool ModelManager::matchesMimeType(const Core::MimeType &fileMimeType, const Core::MimeType &knownMimeType)
+bool ModelManager::matchesMimeType(const MimeType &fileMimeType, const MimeType &knownMimeType)
 {
-    Core::MimeDatabase *db = Core::ICore::mimeDatabase();
-
     const QStringList knownTypeNames = QStringList(knownMimeType.type()) + knownMimeType.aliases();
 
     foreach (const QString &knownTypeName, knownTypeNames)
@@ -900,10 +892,9 @@ bool ModelManager::matchesMimeType(const Core::MimeType &fileMimeType, const Cor
             return true;
 
     // recursion to parent types of fileMimeType
-    foreach (const QString &parentMimeType, fileMimeType.subClassesOf()) {
-        if (matchesMimeType(db->findByType(parentMimeType), knownMimeType))
+    foreach (const QString &parentMimeType, fileMimeType.subClassesOf())
+        if (matchesMimeType(MimeDatabase::findByType(parentMimeType), knownMimeType))
             return true;
-    }
 
     return false;
 }
@@ -1118,8 +1109,7 @@ ModelManager::CppDataHash ModelManager::cppData() const
 
 LibraryInfo ModelManager::builtins(const Document::Ptr &doc) const
 {
-    ProjectExplorer::SessionManager *sessionManager = ProjectExplorer::ProjectExplorerPlugin::instance()->session();
-    ProjectExplorer::Project *project = sessionManager->projectForFile(doc->fileName());
+    ProjectExplorer::Project *project = ProjectExplorer::SessionManager::projectForFile(doc->fileName());
     if (!project)
         return LibraryInfo();
 

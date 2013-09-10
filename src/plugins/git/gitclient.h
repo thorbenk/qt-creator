@@ -33,7 +33,6 @@
 #include "gitsettings.h"
 
 #include <coreplugin/editormanager/ieditor.h>
-#include <vcsbase/command.h>
 
 #include <QObject>
 #include <QString>
@@ -52,8 +51,9 @@ namespace Core {
 }
 
 namespace VcsBase {
-    class VcsBaseEditorWidget;
+    class Command;
     class SubmitFileModel;
+    class VcsBaseEditorWidget;
 }
 
 namespace Utils {
@@ -126,6 +126,12 @@ public:
         StashFlag m_flags;
     };
 
+    enum DiffEditorType {
+        DefaultDiffEditor, // value taken from settings
+        SideBySideDiffEditor,
+        SimpleTextDiffEditor
+    };
+
     static const char *stashNamePrefix;
 
     explicit GitClient(GitSettings *settings);
@@ -137,12 +143,17 @@ public:
     QString findRepositoryForDirectory(const QString &dir);
     QString findGitDirForRepository(const QString &repositoryDir) const;
 
-    void diff(const QString &workingDirectory, const QString &fileName);
-    void diff(const QString &workingDirectory, const QStringList &unstagedFileNames,
-              const QStringList &stagedFileNames = QStringList());
+    void diff(const QString &workingDirectory,
+              const QString &fileName,
+              DiffEditorType editorType = DefaultDiffEditor);
+    void diff(const QString &workingDirectory,
+              const QStringList &unstagedFileNames,
+              const QStringList &stagedFileNames = QStringList(),
+              DiffEditorType editorType = DefaultDiffEditor);
     void diffBranch(const QString &workingDirectory,
                     const QStringList &diffArgs,
-                    const QString &branchName);
+                    const QString &branchName,
+                    DiffEditorType editorType = DefaultDiffEditor);
     void merge(const QString &workingDirectory, const QStringList &unmergedFileNames = QStringList());
 
     void status(const QString &workingDirectory);
@@ -236,6 +247,8 @@ public:
     QString synchronousTopRevision(const QString &workingDirectory, QString *errorMessage = 0);
     void synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
                                   QString &precedes, QString &follows);
+    QStringList synchronousBranchesForCommit(const QString &workingDirectory,
+                                             const QString &revision);
     bool isRemoteCommit(const QString &workingDirectory, const QString &commit);
 
     bool cloneRepository(const QString &directory, const QByteArray &url);
@@ -294,11 +307,13 @@ public:
                            QString *errorMessage = 0);
 
     CommandInProgress checkCommandInProgress(const QString &workingDirectory);
-    CommandInProgress checkCommandInProgressInGitDir(const QString &gitDir);
+    QString commandInProgressDescription(const QString &workingDirectory);
 
     void continueCommandIfNeeded(const QString &workingDirectory);
     void continuePreviousGitCommand(const QString &workingDirectory, const QString &msgBoxTitle, QString msgBoxText,
                                     const QString &buttonName, const QString &gitCommand, bool requireChanges = true);
+
+    QString extendedShowDescription(const QString &workingDirectory, const QString &text);
 
     void launchGitK(const QString &workingDirectory, const QString &fileName);
     void launchGitK(const QString &workingDirectory) { launchGitK(workingDirectory, QString()); }
@@ -322,25 +337,24 @@ public:
     static QString msgNoCommits(bool includeRemote);
 
 public slots:
-    void show(const QString &source, const QString &id,
-              const QStringList &args = QStringList(), const QString &name = QString());
+    void show(const QString &source,
+              const QString &id,
+              const QStringList &args = QStringList(),
+              const QString &name = QString(),
+              DiffEditorType editorType = DefaultDiffEditor);
     void saveSettings();
 
 private slots:
     void slotBlameRevisionRequested(const QString &source, QString change, int lineNumber);
-    void appendOutput(const QString &text) const;
-    void appendOutputSilently(const QString &text) const;
     void finishSubmoduleUpdate();
     void fetchFinished(const QVariant &cookie);
 
 private:
     QTextCodec *getSourceCodec(const QString &file) const;
     VcsBase::VcsBaseEditorWidget *findExistingVCSEditor(const char *registerDynamicProperty,
-                                                  const QString &dynamicPropertyValue) const;
-    DiffEditor::DiffEditor *findExistingOrOpenNewDiffEditor(const char *registerDynamicProperty,
-                                               const QString &dynamicPropertyValue,
-                                               const QString &titlePattern,
-                                               const Core::Id editorId) const;
+                                                        const QString &dynamicPropertyValue) const;
+    DiffEditor::DiffEditor *findExistingDiffEditor(const char *registerDynamicProperty,
+                                                   const QString &dynamicPropertyValue) const;
 
     enum CodecType { CodecSource, CodecLogOutput, CodecNone };
     VcsBase::VcsBaseEditorWidget *createVcsEditor(const Core::Id &kind,
@@ -350,6 +364,10 @@ private:
                                             const char *registerDynamicProperty,
                                             const QString &dynamicPropertyValue,
                                             QWidget *configWidget) const;
+    DiffEditor::DiffEditor *createDiffEditor(const char *registerDynamicProperty,
+                                             const QString &dynamicPropertyValue,
+                                             const QString &titlePattern,
+                                             const Core::Id editorId) const;
 
     VcsBase::Command *createCommand(const QString &workingDirectory,
                              VcsBase::VcsBaseEditorWidget* editor = 0,

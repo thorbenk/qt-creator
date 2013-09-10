@@ -52,8 +52,8 @@ namespace Utils { class FileName; }
 namespace CppTools {
 
 class AbstractEditorSupport;
+class ModelManagerSupport;
 class CppCompletionAssistProvider;
-class CppCompletionSupport;
 class CppEditorSupport;
 class CppHighlightingSupport;
 class CppHighlightingSupportFactory;
@@ -86,7 +86,9 @@ public:
         GnuExtensions = 0x1,
         MicrosoftExtensions = 0x2,
         BorlandExtensions = 0x4,
-        OpenMP = 0x8
+        OpenMPExtensions = 0x8,
+
+        AllExtensions = GnuExtensions | MicrosoftExtensions | BorlandExtensions | OpenMPExtensions
     };
     Q_DECLARE_FLAGS(CXXExtensions, CXXExtension)
 
@@ -218,6 +220,7 @@ public:
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const = 0;
     virtual QFuture<void> updateProjectInfo(const ProjectInfo &pinfo) = 0;
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const = 0;
+    virtual ProjectPart::Ptr fallbackProjectPart() const = 0;
 
     virtual QStringList includePaths() = 0;
 
@@ -241,14 +244,13 @@ public:
     virtual void setIfdefedOutBlocks(const QString &fileName,
                                      const QList<TextEditor::BlockRange> &ifdeffedOutBlocks) = 0;
 
-    virtual CppTools::CppCompletionSupport *completionSupport(Core::IEditor *editor) const = 0;
-    virtual void setCppCompletionAssistProvider(CppTools::CppCompletionAssistProvider *completionAssistProvider) = 0;
-
-    virtual CppTools::CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const = 0;
-    virtual void setHighlightingSupportFactory(CppTools::CppHighlightingSupportFactory *highlightingFactory) = 0;
+    virtual void addModelManagerSupport(ModelManagerSupport *modelManagerSupport) = 0;
+    virtual ModelManagerSupport *modelManagerSupportForMimeType(const QString &mimeType) const = 0;
+    virtual CppCompletionAssistProvider *completionAssistProvider(Core::IEditor *editor) const = 0;
+    virtual CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const = 0;
 
     virtual void setIndexingSupport(CppTools::CppIndexingSupport *indexingSupport) = 0;
-    virtual CppTools::CppIndexingSupport *indexingSupport() = 0;
+    virtual CppIndexingSupport *indexingSupport() = 0;
 
 signals:
     /// Project data might be locked while this is emitted.

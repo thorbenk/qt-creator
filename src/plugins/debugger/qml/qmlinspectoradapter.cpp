@@ -29,13 +29,13 @@
 
 #include "qmlinspectoradapter.h"
 
-#include "debuggeractions.h"
-#include "debuggercore.h"
-#include "debuggerstringutils.h"
 #include "qmladapter.h"
-#include "debuggerengine.h"
 #include "qmlinspectoragent.h"
 #include "qmllivetextpreview.h"
+#include <debugger/debuggeractions.h>
+#include <debugger/debuggercore.h>
+#include <debugger/debuggerstringutils.h>
+#include <debugger/debuggerengine.h>
 
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/icore.h>
@@ -438,7 +438,6 @@ void QmlInspectorAdapter::setActiveEngineClient(BaseEngineDebugClient *client)
 
 void QmlInspectorAdapter::initializePreviews()
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
     QmlJS::ModelManagerInterface *modelManager
             = QmlJS::ModelManagerInterface::instance();
     if (modelManager) {
@@ -446,6 +445,7 @@ void QmlInspectorAdapter::initializePreviews()
 
         if (!m_listeningToEditorManager) {
             m_listeningToEditorManager = true;
+            QObject *em = Core::EditorManager::instance();
             connect(em, SIGNAL(editorAboutToClose(Core::IEditor*)),
                     this, SLOT(removePreviewForEditor(Core::IEditor*)));
             connect(em, SIGNAL(editorOpened(Core::IEditor*)),

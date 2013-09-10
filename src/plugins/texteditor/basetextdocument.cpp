@@ -51,6 +51,8 @@
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <utils/qtcassert.h>
 
+using namespace Core;
+
 namespace TextEditor {
 class BaseTextDocumentPrivate
 {
@@ -222,7 +224,7 @@ bool BaseTextDocument::save(QString *errorString, const QString &saveFileName, b
 
     // When saving the current editor, make sure to maintain the cursor and scroll bar
     // positions for undo
-    Core::IEditor *currentEditor = Core::EditorManager::currentEditor();
+    IEditor *currentEditor = EditorManager::currentEditor();
     if (BaseTextEditor *editable = qobject_cast<BaseTextEditor*>(currentEditor)) {
         if (editable->document() == this) {
             editorWidget = editable->editorWidget();
@@ -296,7 +298,7 @@ bool BaseTextDocument::save(QString *errorString, const QString &saveFileName, b
 
 bool BaseTextDocument::setContents(const QByteArray &contents)
 {
-    if (contents.size() > Core::EditorManager::maxTextFileSize()) {
+    if (contents.size() > EditorManager::maxTextFileSize()) {
         document()->setPlainText(BaseTextEditorWidget::msgTextTooLarge(contents.size()));
         document()->setModified(false);
         return false;
@@ -365,8 +367,7 @@ bool BaseTextDocument::open(QString *errorString, const QString &fileName, const
         } else {
             QFutureInterface<void> interface;
             interface.setProgressRange(0, chunks);
-            Core::ICore::progressManager()->addTask(
-                interface.future(), tr("Opening file"), QLatin1String(Constants::TASK_OPEN_FILE));
+            ProgressManager::addTask(interface.future(), tr("Opening file"), Constants::TASK_OPEN_FILE);
             interface.reportStarted();
             d->m_document->setUndoRedoEnabled(false);
             QTextCursor c(d->m_document);
@@ -466,11 +467,7 @@ void BaseTextDocument::cleanWhitespace(QTextCursor &cursor, bool cleanIndentatio
         if (inEntireDocument || block.revision() != documentLayout->lastSaveRevision) {
 
             QString blockText = block.text();
-            if (int trailing = d->m_tabSettings.trailingWhitespaces(blockText)) {
-                cursor.setPosition(block.position() + block.length() - 1);
-                cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor, trailing);
-                cursor.removeSelectedText();
-            }
+            d->m_tabSettings.removeTrailingWhitespace(cursor, block);
             if (cleanIndentation && !d->m_tabSettings.isIndentationClean(block)) {
                 cursor.setPosition(block.position());
                 int firstNonSpace = d->m_tabSettings.firstNonSpace(blockText);

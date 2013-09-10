@@ -2,7 +2,6 @@ import qbs.base 1.0
 import qbs.FileInfo
 
 import "../QtcPlugin.qbs" as QtcPlugin
-import "../../../qbs/defaults.js" as Defaults
 
 QtcPlugin {
     name: "CppTools"
@@ -43,8 +42,6 @@ QtcPlugin {
         "cppcompletionassist.h",
         "cppcompletionassistprovider.cpp",
         "cppcompletionassistprovider.h",
-        "cppcompletionsupport.cpp",
-        "cppcompletionsupport.h",
         "cppcurrentdocumentfilter.cpp",
         "cppcurrentdocumentfilter.h",
         "cppdoxygen.cpp",
@@ -64,10 +61,16 @@ QtcPlugin {
         "cppindexingsupport.h",
         "cpplocalsymbols.cpp",
         "cpplocalsymbols.h",
+        "cpplocatordata.cpp",
+        "cpplocatordata.h",
         "cpplocatorfilter.cpp",
         "cpplocatorfilter.h",
         "cppmodelmanager.cpp",
         "cppmodelmanager.h",
+        "cppmodelmanagersupport.h",
+        "cppmodelmanagersupport.cpp",
+        "cppmodelmanagersupportinternal.h",
+        "cppmodelmanagersupportinternal.cpp",
         "cppmodelmanagerinterface.cpp",
         "cppmodelmanagerinterface.h",
         "cppqtstyleindenter.cpp",
@@ -112,14 +115,18 @@ QtcPlugin {
 
     Group {
         name: "Tests"
-        condition: Defaults.testsEnabled(qbs)
+        condition: project.testsEnabled
         files: [
             "cppcodegen_test.cpp",
             "cppcompletion_test.cpp",
-            "cpppreprocessertesthelper.cpp", "cpppreprocessertesthelper.h",
+            "cppheadersource_test.cpp",
             "cppmodelmanager_test.cpp",
             "modelmanagertesthelper.cpp", "modelmanagertesthelper.h",
-            "cpppointerdeclarationformatter_test.cpp"
+            "cpppointerdeclarationformatter_test.cpp",
+            "cpplocatorfilter_test.cpp",
+            "symbolsearcher_test.cpp",
+            "cpppreprocessor_test.cpp",
+            "cpppreprocessertesthelper.cpp", "cpppreprocessertesthelper.h"
         ]
 
         cpp.defines: outer.concat(['SRCDIR="' + FileInfo.path(filePath) + '"'])
@@ -127,5 +134,6 @@ QtcPlugin {
 
     Export {
         Depends { name: "CPlusPlus" }
+        Depends { name: "Qt.concurrent" }
     }
 }

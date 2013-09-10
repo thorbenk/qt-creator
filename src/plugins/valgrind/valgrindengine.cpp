@@ -85,8 +85,8 @@ bool ValgrindRunControl::startEngine()
 {
     emit starting(this);
 
-    FutureProgress *fp = ICore::progressManager()->addTask(m_progress->future(),
-                                                        progressTitle(), QLatin1String("valgrind"));
+    FutureProgress *fp = ProgressManager::addTask(m_progress->future(),
+                                                        progressTitle(), "valgrind");
     fp->setKeepOnFinish(FutureProgress::HideOnFinish);
     m_progress->setProgressRange(0, progressMaximum);
     m_progress->reportStarted();

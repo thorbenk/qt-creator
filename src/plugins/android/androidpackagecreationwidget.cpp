@@ -55,6 +55,7 @@
 namespace Android {
 namespace Internal {
 
+using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
 
 ///////////////////////////// CheckModel /////////////////////////////
@@ -139,12 +140,15 @@ AndroidPackageCreationWidget::AndroidPackageCreationWidget(AndroidPackageCreatio
     : ProjectExplorer::BuildStepConfigWidget(),
       m_step(step),
       m_ui(new Ui::AndroidPackageCreationWidget),
-      m_fileSystemWatcher(new QFileSystemWatcher(this))
+      m_fileSystemWatcher(new QFileSystemWatcher(this)),
+      m_currentBuildConfiguration(0)
 {
     m_qtLibsModel = new CheckModel(this);
     m_prebundledLibs = new CheckModel(this);
 
     m_ui->setupUi(this);
+    m_ui->signingDebugWarningIcon->hide();
+    m_ui->signingDebugWarningLabel->hide();
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     QTimer::singleShot(50, this, SLOT(initGui()));
     connect(m_step, SIGNAL(updateRequiredLibrariesModels()), SLOT(updateRequiredLibrariesModels()));
@@ -184,6 +188,36 @@ void AndroidPackageCreationWidget::initGui()
     bool use = bc->useSystemEnvironment();
     bc->setUseSystemEnvironment(!use);
     bc->setUseSystemEnvironment(use);
+
+    activeBuildConfigurationChanged();
+    connect(m_step->target(), SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
+            this, SLOT(activeBuildConfigurationChanged()));
+}
+
+void AndroidPackageCreationWidget::updateSigningWarning()
+{
+    Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(m_step->target()->activeBuildConfiguration());
+    bool debug = bc && (bc->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild);
+    if (m_step->signPackage() && debug) {
+        m_ui->signingDebugWarningIcon->setVisible(true);
+        m_ui->signingDebugWarningLabel->setVisible(true);
+    } else {
+        m_ui->signingDebugWarningIcon->setVisible(false);
+        m_ui->signingDebugWarningLabel->setVisible(false);
+    }
+}
+
+void AndroidPackageCreationWidget::activeBuildConfigurationChanged()
+{
+    if (m_currentBuildConfiguration)
+        disconnect(m_currentBuildConfiguration, SIGNAL(qmakeBuildConfigurationChanged()),
+                   this, SLOT(updateSigningWarning()));
+    updateSigningWarning();
+    Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(m_step->target()->activeBuildConfiguration());
+    m_currentBuildConfiguration = bc;
+    if (bc)
+        connect(bc, SIGNAL(qmakeBuildConfigurationChanged()), this, SLOT(updateSigningWarning()));
+                m_currentBuildConfiguration = bc;
 }
 
 void AndroidPackageCreationWidget::updateAndroidProjectInfo()
@@ -198,7 +232,7 @@ void AndroidPackageCreationWidget::updateAndroidProjectInfo()
 
     QStringList targets = AndroidConfigurations::instance().sdkTargets(minApiLevel);
     m_ui->targetSDKComboBox->addItems(targets);
-    m_ui->targetSDKComboBox->setCurrentIndex(targets.indexOf(AndroidManager::targetSDK(target)));
+    m_ui->targetSDKComboBox->setCurrentIndex(targets.indexOf(AndroidManager::buildTargetSDK(target)));
 
     m_qtLibsModel->setAvailableItems(AndroidManager::availableQtLibs(target));
     m_qtLibsModel->setCheckedItems(AndroidManager::qtLibs(target));
@@ -208,7 +242,7 @@ void AndroidPackageCreationWidget::updateAndroidProjectInfo()
 
 void AndroidPackageCreationWidget::setTargetSDK(const QString &sdk)
 {
-    AndroidManager::setTargetSDK(m_step->target(), sdk);
+    AndroidManager::setBuildTargetSDK(m_step->target(), sdk);
     Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(m_step->target()->activeBuildConfiguration());
     if (!bc)
         return;
@@ -218,10 +252,9 @@ void AndroidPackageCreationWidget::setTargetSDK(const QString &sdk)
 
     qs->setForced(true);
 
-    ProjectExplorer::BuildManager *bm = ProjectExplorer::ProjectExplorerPlugin::instance()->buildManager();
-    bm->buildList(bc->stepList(Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)),
-                  ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)));
-    bm->appendStep(qs, ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)));
+    BuildManager::buildList(bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_CLEAN),
+                  ProjectExplorerPlugin::displayNameForStepId(ProjectExplorer::Constants::BUILDSTEPS_CLEAN));
+    BuildManager::appendStep(qs, ProjectExplorerPlugin::displayNameForStepId(ProjectExplorer::Constants::BUILDSTEPS_CLEAN));
     bc->setSubNodeBuild(0);
     // Make the buildconfiguration emit a evironmentChanged() signal
     // TODO find a better way
@@ -304,6 +337,8 @@ void AndroidPackageCreationWidget::setCertificates()
 
 void AndroidPackageCreationWidget::on_signPackageCheckBox_toggled(bool checked)
 {
+    m_step->setSignPackage(checked);
+    updateSigningWarning();
     if (!checked)
         return;
     if (!m_step->keystorePath().isEmpty())

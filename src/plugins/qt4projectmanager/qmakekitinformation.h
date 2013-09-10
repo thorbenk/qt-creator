@@ -43,10 +43,6 @@ class QT4PROJECTMANAGER_EXPORT QmakeKitInformation : public ProjectExplorer::Kit
 public:
     QmakeKitInformation();
 
-    Core::Id dataId() const;
-
-    unsigned int priority() const; // the higher the closer to the top.
-
     QVariant defaultValue(ProjectExplorer::Kit *k) const;
 
     QList<ProjectExplorer::Task> validate(const ProjectExplorer::Kit *k) const;
@@ -61,7 +57,7 @@ public:
     static Utils::FileName effectiveMkspec(const ProjectExplorer::Kit *k);
     static Utils::FileName defaultMkspec(const ProjectExplorer::Kit *k);
 
-    static void makeSticky(ProjectExplorer::Kit *k);
+    static void setSticky(ProjectExplorer::Kit *k, bool b);
 };
 
 } // namespace Qt4ProjectManager

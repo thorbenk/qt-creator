@@ -30,94 +30,47 @@
 #include "cpplocatorfilter.h"
 #include "cppmodelmanager.h"
 
-#ifdef CLANG_INDEXING
-#  include <clangwrapper/symbol.h>
-#endif // CLANG_INDEXING
-
-#include <utils/fileutils.h>
-
 #include <QStringMatcher>
 
 using namespace CppTools::Internal;
-using namespace Utils;
 
 static const int MaxPendingDocuments = 10;
 
-CppLocatorFilter::CppLocatorFilter(CppModelManager *manager)
-    : m_manager(manager)
-    , m_pendingDocumentsMutex(QMutex::Recursive)
+CppLocatorFilter::CppLocatorFilter(CppLocatorData *locatorData)
+    : m_data(locatorData)
 {
     setId("Classes and Methods");
     setDisplayName(tr("C++ Classes and Methods"));
     setShortcutString(QString(QLatin1Char(':')));
     setIncludedByDefault(false);
-
-    m_pendingDocuments.reserve(MaxPendingDocuments);
-
-    connect(manager, SIGNAL(documentUpdated(CPlusPlus::Document::Ptr)),
-            this, SLOT(onDocumentUpdated(CPlusPlus::Document::Ptr)));
-
-    connect(manager, SIGNAL(aboutToRemoveFiles(QStringList)),
-            this, SLOT(onAboutToRemoveFiles(QStringList)));
 }
 
 CppLocatorFilter::~CppLocatorFilter()
-{ }
-
-
-void CppLocatorFilter::flushPendingDocument(bool force)
 {
-    QMutexLocker locker(&m_pendingDocumentsMutex);
-    if (!force && m_pendingDocuments.size() < MaxPendingDocuments)
-        return;
-
-    foreach (CPlusPlus::Document::Ptr doc, m_pendingDocuments) {
-        QList<ModelItemInfo> &results = m_searchList[doc->fileName()];
-        results = search(doc, results.size() + 10);
-    }
-
-    m_pendingDocuments.clear();
-    m_pendingDocuments.reserve(MaxPendingDocuments);
 }
 
-void CppLocatorFilter::onDocumentUpdated(CPlusPlus::Document::Ptr updatedDoc)
+Locator::FilterEntry CppLocatorFilter::filterEntryFromModelItemInfo(const CppTools::ModelItemInfo &info)
 {
-    QMutexLocker locker(&m_pendingDocumentsMutex);
+    const QVariant id = qVariantFromValue(info);
+    Locator::FilterEntry filterEntry(this, info.symbolName, id, info.icon);
+    filterEntry.extraInfo = info.type == ModelItemInfo::Class || info.type == ModelItemInfo::Enum
+        ? info.shortNativeFilePath()
+        : info.symbolType;
 
-    int i = 0, ei = m_pendingDocuments.size();
-    for (; i < ei; ++i) {
-        const CPlusPlus::Document::Ptr &doc = m_pendingDocuments.at(i);
-        if (doc->fileName() == updatedDoc->fileName()
-                && doc->revision() < updatedDoc->revision()) {
-            m_pendingDocuments[i] = updatedDoc;
-            break;
-        }
-    }
-
-    if (i == ei)
-        m_pendingDocuments.append(updatedDoc);
-
-    flushPendingDocument(false);
-}
-
-void CppLocatorFilter::onAboutToRemoveFiles(const QStringList &files)
-{
-    QMutexLocker locker(&m_pendingDocumentsMutex);
-
-    for (int i = 0; i < m_pendingDocuments.size(); ) {
-        if (files.contains(m_pendingDocuments.at(i)->fileName()))
-            m_pendingDocuments.remove(i);
-        else
-            ++i;
-    }
-
-    foreach (const QString &file, files)
-        m_searchList.remove(file);
+    return filterEntry;
 }
 
 void CppLocatorFilter::refresh(QFutureInterface<void> &future)
 {
     Q_UNUSED(future)
+}
+
+QList<QList<CppTools::ModelItemInfo> > CppLocatorFilter::itemsToMatchUserInputAgainst() const
+{
+    return QList<QList<CppTools::ModelItemInfo> >()
+        << m_data->classes()
+        << m_data->functions()
+        << m_data->enums();
 }
 
 static bool compareLexigraphically(const Locator::FilterEntry &a,
@@ -128,8 +81,6 @@ static bool compareLexigraphically(const Locator::FilterEntry &a,
 
 QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locator::FilterEntry> &future, const QString &origEntry)
 {
-    flushPendingDocument(true);
-
     QString entry = trimWildcards(origEntry);
     QList<Locator::FilterEntry> goodEntries;
     QList<Locator::FilterEntry> betterEntries;
@@ -139,94 +90,30 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
     if (!regexp.isValid())
         return goodEntries;
     bool hasWildcard = (entry.contains(asterisk) || entry.contains(QLatin1Char('?')));
+    bool hasColonColon = entry.contains(QLatin1String("::"));
+    const Qt::CaseSensitivity caseSensitivityForPrefix = caseSensitivity(entry);
 
-#ifdef CLANG_INDEXING
-
-    // @TODO: Testing indexing with clang... The locators classes can now be simplified.
-    const QString &shortcut = shortcutString();
-    const QStringList &allFiles = m_manager->indexer()->allFiles();
-    foreach (const QString &file, allFiles) {
-        if (future.isCanceled())
-            break;
-
-        QList<ClangCodeModel::Symbol> symbolList;
-        if (shortcut == QLatin1String("c")) {
-            symbolList.append(m_manager->indexer()->classesFromFile(file));
-        } else if (shortcut == QLatin1String("m")) {
-            symbolList.append(m_manager->indexer()->functionsFromFile(file));
-            symbolList.append(m_manager->indexer()->methodsFromFile(file));
-        } else if (shortcut == QLatin1String(":")) {
-            symbolList.append(m_manager->indexer()->classesFromFile(file));
-            symbolList.append(m_manager->indexer()->methodsFromFile(file));
-        } else if (shortcut == QLatin1String("cd")) {
-            symbolList.append(m_manager->indexer()->constructorsFromFile(file));
-            symbolList.append(m_manager->indexer()->destructorsFromFile(file));
-        }
-        foreach (const ClangCodeModel::Symbol &symbolInfo, symbolList) {
-            ModelItemInfo info(symbolInfo.m_name,
-                               symbolInfo.m_qualification,
-                               ModelItemInfo::ItemType((int)symbolInfo.m_kind),
-                               QStringList(QLatin1String("qual. name")),
-                               symbolInfo.m_location.fileName(),
-                               symbolInfo.m_location.line(),
-                               symbolInfo.m_location.column() - 1, // @TODO: Column position...
-                               QIcon()); // TODO: Icon...
-
-            if ((hasWildcard && regexp.exactMatch(info.symbolName))
-                    || (!hasWildcard && matcher.indexIn(info.symbolName) != -1)) {
-
-                QVariant id = qVariantFromValue(info);
-                Locator::FilterEntry filterEntry(this, info.symbolName, id, info.icon);
-                if (! info.symbolType.isEmpty())
-                    filterEntry.extraInfo = info.symbolType;
-                else
-                    filterEntry.extraInfo = info.fileName;
-
-                if (info.symbolName.startsWith(entry))
-                    betterEntries.append(filterEntry);
-                else
-                    goodEntries.append(filterEntry);
-            }
-        }
-    }
-
-#else // !CLANG_INDEXING
-
-    QHashIterator<QString, QList<ModelItemInfo> > it(m_searchList);
-    while (it.hasNext()) {
-        if (future.isCanceled())
-            break;
-
-        it.next();
-
-        const QList<ModelItemInfo> items = it.value();
+    const QList<QList<CppTools::ModelItemInfo> > itemLists = itemsToMatchUserInputAgainst();
+    foreach (const QList<CppTools::ModelItemInfo> &items, itemLists) {
         foreach (const ModelItemInfo &info, items) {
-            if ((hasWildcard && regexp.exactMatch(info.symbolName))
-                    || (!hasWildcard && matcher.indexIn(info.symbolName) != -1)) {
-
-                QVariant id = qVariantFromValue(info);
-                Locator::FilterEntry filterEntry(this, info.symbolName, id, info.icon);
-                if (!info.symbolType.isEmpty()) {
-                    filterEntry.extraInfo = info.symbolType;
-                } else {
-                    filterEntry.extraInfo = FileUtils::shortNativePath(
-                        FileName::fromString(info.fileName));
-                }
-
-                if (info.symbolName.startsWith(entry))
+            if (future.isCanceled())
+                break;
+            const QString matchString = hasColonColon ? info.scopedSymbolName() : info.symbolName;
+            if ((hasWildcard && regexp.exactMatch(matchString))
+                || (!hasWildcard && matcher.indexIn(matchString) != -1)) {
+                const Locator::FilterEntry filterEntry = filterEntryFromModelItemInfo(info);
+                if (matchString.startsWith(entry, caseSensitivityForPrefix))
                     betterEntries.append(filterEntry);
                 else
                     goodEntries.append(filterEntry);
             }
         }
     }
-
-#endif // CLANG_INDEXING
 
     if (goodEntries.size() < 1000)
-        qSort(goodEntries.begin(), goodEntries.end(), compareLexigraphically);
+        qStableSort(goodEntries.begin(), goodEntries.end(), compareLexigraphically);
     if (betterEntries.size() < 1000)
-        qSort(betterEntries.begin(), betterEntries.end(), compareLexigraphically);
+        qStableSort(betterEntries.begin(), betterEntries.end(), compareLexigraphically);
 
     betterEntries += goodEntries;
     return betterEntries;
@@ -236,10 +123,4 @@ void CppLocatorFilter::accept(Locator::FilterEntry selection) const
 {
     ModelItemInfo info = qvariant_cast<CppTools::ModelItemInfo>(selection.internalData);
     Core::EditorManager::openEditorAt(info.fileName, info.line, info.column);
-}
-
-void CppLocatorFilter::reset()
-{
-    m_searchList.clear();
-    m_previousEntry.clear();
 }

@@ -61,14 +61,14 @@ static quint8 COUNT = 5;
 TextEditorMacroHandler::TextEditorMacroHandler():
     IMacroHandler()
 {
-    const Core::EditorManager *editorManager = Core::EditorManager::instance();
+    const QObject *editorManager = Core::EditorManager::instance();
     connect(editorManager, SIGNAL(currentEditorChanged(Core::IEditor*)),
             this, SLOT(changeEditor(Core::IEditor*)));
     connect(editorManager, SIGNAL(editorAboutToClose(Core::IEditor*)),
             this, SLOT(closeEditor(Core::IEditor*)));
 }
 
-void TextEditorMacroHandler::startRecording(Macros::Macro *macro)
+void TextEditorMacroHandler::startRecording(Macro *macro)
 {
     IMacroHandler::startRecording(macro);
     if (isRecording() && m_currentEditor && m_currentEditor->widget())
@@ -78,7 +78,7 @@ void TextEditorMacroHandler::startRecording(Macros::Macro *macro)
     Core::ActionManager::command(TextEditor::Constants::COMPLETE_THIS)->shortcut()->blockSignals(true);
 }
 
-void TextEditorMacroHandler::endRecordingMacro(Macros::Macro *macro)
+void TextEditorMacroHandler::endRecordingMacro(Macro *macro)
 {
     if (m_currentEditor && m_currentEditor->widget())
         m_currentEditor->widget()->removeEventFilter(this);

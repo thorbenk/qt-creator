@@ -103,7 +103,7 @@ public slots:
 protected:
     TextEditor::BaseTextEditor *createEditor();
     void resizeEvent(QResizeEvent *event);
-
+    bool eventFilter(QObject *obj, QEvent *event);
 private slots:
     void setLDPIIcon();
     void setMDPIIcon();
@@ -115,6 +115,7 @@ private slots:
     void setPackageName();
     void gotoError();
     void updateInfoBar();
+    void updateSdkVersions();
     void startParseCheck();
     void delayedParseCheck();
 private:
@@ -132,6 +133,7 @@ private:
 
     void updateInfoBar(const QString &errorMessage, int line, int column);
     void hideInfoBar();
+    Q_SLOT void updateTargetComboBox();
 
     bool m_dirty; // indicates that we need to call syncToEditor()
     bool m_stayClean;
@@ -144,10 +146,12 @@ private:
     QLabel *m_packageNameWarning;
     QSpinBox *m_versionCode;
     QLineEdit *m_versionNameLinedit;
+    QComboBox *m_androidMinSdkVersion;
+    QComboBox *m_androidTargetSdkVersion;
 
     // Application
     QLineEdit *m_appNameLineEdit;
-    QLineEdit *m_targetLineEdit;
+    QComboBox *m_targetLineEdit;
     QToolButton *m_lIconButton;
     QToolButton *m_mIconButton;
     QToolButton *m_hIconButton;

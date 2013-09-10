@@ -45,7 +45,7 @@ namespace Internal {
 class BaseCheckoutWizardPrivate;
 }
 
-class AbstractCheckoutJob;
+class Command;
 
 class VCSBASE_EXPORT BaseCheckoutWizard : public Core::IWizard
 {
@@ -72,9 +72,10 @@ public:
     static QString openProject(const QString &path, QString *errorMessage);
 
 protected:
+    void setCustomLabels(const QString &progressTitle, const QString &startedStatus);
     virtual QList<QWizardPage *> createParameterPages(const QString &path) = 0;
-    virtual QSharedPointer<AbstractCheckoutJob> createJob(const QList<QWizardPage *> &parameterPages,
-                                                          QString *checkoutPath) = 0;
+    virtual Command *createCommand(const QList<QWizardPage *> &parameterPages,
+                                   QString *checkoutPath) = 0;
 
 public slots:
     void setId(const QString &id);

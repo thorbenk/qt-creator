@@ -29,11 +29,12 @@ Product {
         name: "Conditional"
         qbs.install: true
         qbs.installDir: project.ide_data_path + "/externaltools"
-        prefix: "../src/share/qtcreator/externaltools/"
+        prefix: project.ide_source_tree + "/src/share/qtcreator/externaltools/"
         files: {
             var list = [
                 "lrelease.xml",
                 "lupdate.xml",
+                "qmlscene.xml",
                 "qmlviewer.xml",
                 "sort.xml",
             ]

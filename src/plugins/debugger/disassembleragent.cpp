@@ -124,8 +124,7 @@ DisassemblerAgentPrivate::DisassemblerAgentPrivate()
 
 DisassemblerAgentPrivate::~DisassemblerAgentPrivate()
 {
-    if (editor)
-        EditorManager::instance()->closeEditor(editor);
+    EditorManager::closeEditor(editor);
     editor = 0;
     delete locationMark;
     qDeleteAll(breakpointMarks);
@@ -256,7 +255,7 @@ void DisassemblerAgentPrivate::configureMimeType()
         qobject_cast<TextEditor::PlainTextEditorWidget *>(editor->widget());
     QTC_ASSERT(pe, return);
 
-    MimeType mtype = ICore::mimeDatabase()->findByType(mimeType);
+    MimeType mtype = MimeDatabase::findByType(mimeType);
     if (mtype)
         pe->configure(mtype);
     else

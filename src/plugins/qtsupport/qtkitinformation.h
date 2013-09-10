@@ -46,10 +46,6 @@ class QTSUPPORT_EXPORT QtKitInformation : public ProjectExplorer::KitInformation
 public:
     QtKitInformation();
 
-    Core::Id dataId() const;
-
-    unsigned int priority() const; // the higher the closer to the top.
-
     QVariant defaultValue(ProjectExplorer::Kit *k) const;
 
     QList<ProjectExplorer::Task> validate(const ProjectExplorer::Kit *k) const;
@@ -74,7 +70,7 @@ public:
     static QString dumperLibrary(const ProjectExplorer::Kit *k);
     static QStringList dumperLibraryLocations(const ProjectExplorer::Kit *k);
 
-    static void makeSticky(ProjectExplorer::Kit *k);
+    static void setSticky(ProjectExplorer::Kit *k, bool b);
 
 private slots:
     void qtVersionsChanged(const QList<int> &addedIds,

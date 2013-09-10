@@ -62,7 +62,6 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
-using namespace Macros;
 using namespace Macros::Internal;
 
 /*!
@@ -94,7 +93,7 @@ using namespace Macros::Internal;
     the action id passed to the ActionManager.
 */
 
-class Macros::MacroManager::MacroManagerPrivate
+class MacroManager::MacroManagerPrivate
 {
 public:
     MacroManagerPrivate(MacroManager *qq);
@@ -157,7 +156,7 @@ void MacroManager::MacroManagerPrivate::initialize()
 
 static Core::Id makeId(const QString &name)
 {
-    return Core::Id(Constants::PREFIX_MACRO).withSuffix(name);
+    return Core::Id(Macros::Constants::PREFIX_MACRO).withSuffix(name);
 }
 
 void MacroManager::MacroManagerPrivate::addMacro(Macro *macro)
@@ -291,7 +290,7 @@ void MacroManager::startMacro()
     QString executeShortcut = Core::ActionManager::command(Constants::EXECUTE_LAST_MACRO)->defaultKeySequence().toString();
     QString help = tr("Macro mode. Type \"%1\" to stop recording and \"%2\" to play it")
         .arg(endShortcut).arg(executeShortcut);
-    Core::EditorManager::instance()->showEditorStatusBar(
+    Core::EditorManager::showEditorStatusBar(
                 QLatin1String(Constants::M_STATUS_BUFFER),
                 help,
                 tr("Stop Recording Macro"), this, SLOT(endMacro()));
@@ -299,7 +298,7 @@ void MacroManager::startMacro()
 
 void MacroManager::endMacro()
 {
-    Core::EditorManager::instance()->hideEditorStatusBar(QLatin1String(Constants::M_STATUS_BUFFER));
+    Core::EditorManager::hideEditorStatusBar(QLatin1String(Constants::M_STATUS_BUFFER));
 
     Core::ActionManager::command(Constants::START_MACRO)->action()->setEnabled(true);
     Core::ActionManager::command(Constants::END_MACRO)->action()->setEnabled(false);
@@ -386,13 +385,13 @@ void MacroManager::changeMacro(const QString &name, const QString &description)
         d->changeMacroDescription(macro, description);
 }
 
-void Macros::MacroManager::saveLastMacro()
+void MacroManager::saveLastMacro()
 {
     if (d->currentMacro->events().count())
         d->showSaveDialog();
 }
 
-QString Macros::MacroManager::macrosDirectory()
+QString MacroManager::macrosDirectory()
 {
     const QString &path =
         Core::ICore::userResourcePath() + QLatin1String("/macros");

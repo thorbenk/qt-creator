@@ -4,7 +4,6 @@ dll {
     DEFINES += QTCREATOR_UTILS_STATIC_LIB
 }
 
-INCLUDEPATH += $$PWD
 QT += script network
 
 CONFIG += exceptions # used by portlist.cpp, textfileformat.cpp, and ssh/*
@@ -74,6 +73,7 @@ SOURCES += $$PWD/environment.cpp \
     $$PWD/portlist.cpp \
     $$PWD/tcpportsgatherer.cpp \
     $$PWD/appmainwindow.cpp \
+    $$PWD/sleep.cpp \
     $$PWD/basetreeview.cpp \
     $$PWD/qtcassert.cpp \
     $$PWD/elfreader.cpp \
@@ -84,7 +84,9 @@ SOURCES += $$PWD/environment.cpp \
     $$PWD/tooltip/tooltip.cpp \
     $$PWD/tooltip/tips.cpp \
     $$PWD/tooltip/tipcontents.cpp \
-    $$PWD/unixutils.cpp
+    $$PWD/unixutils.cpp \
+    $$PWD/function.cpp \
+    $$PWD/ansiescapecodehandler.cpp
 
 win32 {
     SOURCES += \
@@ -162,6 +164,7 @@ HEADERS += \
     $$PWD/portlist.h \
     $$PWD/tcpportsgatherer.h \
     $$PWD/appmainwindow.h \
+    $$PWD/sleep.h \
     $$PWD/basetreeview.h \
     $$PWD/elfreader.h \
     $$PWD/bracematcher.h \
@@ -175,7 +178,9 @@ HEADERS += \
     $$PWD/tooltip/reuse.h \
     $$PWD/tooltip/effects.h \
     $$PWD/unixutils.h \
-    $$PWD/qtcoverride.h
+    $$PWD/qtcoverride.h \
+    $$PWD/function.h \
+    $$PWD/ansiescapecodehandler.h
 
 FORMS += $$PWD/filewizardpage.ui \
     $$PWD/projectintropage.ui \

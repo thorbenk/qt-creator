@@ -180,7 +180,7 @@ void MercurialPlugin::createMenu()
     Core::Context context(Core::Constants::C_GLOBAL);
 
     // Create menu item for Mercurial
-    mercurialContainer = Core::ActionManager::createMenu(Core::Id("Mercurial.MercurialMenu"));
+    mercurialContainer = Core::ActionManager::createMenu("Mercurial.MercurialMenu");
     QMenu *menu = mercurialContainer->menu();
     menu->setTitle(tr("Me&rcurial"));
 
@@ -596,7 +596,7 @@ void MercurialPlugin::commitFromEditor()
 {
     // Close the submit editor
     m_submitActionTriggered = true;
-    Core::ICore::editorManager()->closeEditor();
+    Core::EditorManager::closeEditor();
 }
 
 bool MercurialPlugin::submitEditorAboutToClose()

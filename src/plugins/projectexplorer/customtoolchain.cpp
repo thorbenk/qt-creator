@@ -76,13 +76,13 @@ static const char messageCapKeyC[] = "ProjectExplorer.CustomToolChain.MessageCap
 // CustomToolChain
 // --------------------------------------------------------------------------
 
-CustomToolChain::CustomToolChain(bool autodetect) :
-    ToolChain(QLatin1String(Constants::CUSTOM_TOOLCHAIN_ID), autodetect),
+CustomToolChain::CustomToolChain(Detection d) :
+    ToolChain(QLatin1String(Constants::CUSTOM_TOOLCHAIN_ID), d),
     m_outputParser(Gcc)
 { }
 
-CustomToolChain::CustomToolChain(const QString &id, bool autodetect) :
-    ToolChain(id, autodetect)
+CustomToolChain::CustomToolChain(const QString &id, Detection d) :
+    ToolChain(id, d)
 { }
 
 CustomToolChain::CustomToolChain(const CustomToolChain &tc) :
@@ -209,7 +209,7 @@ IOutputParser *CustomToolChain::outputParser() const
     case Gcc: return new GccParser;
     case Clang: return new ClangParser;
     case LinuxIcc: return new LinuxIccParser;
-#if defined(QT_OS_WIN)
+#if defined(Q_OS_WIN)
     case Msvc: return new MsvcParser;
 #endif
     case Custom: return new CustomParser(m_customParserSettings);
@@ -416,7 +416,7 @@ bool CustomToolChainFactory::canRestore(const QVariantMap &data)
 
 ToolChain *CustomToolChainFactory::restore(const QVariantMap &data)
 {
-    CustomToolChain *tc = new CustomToolChain(false);
+    CustomToolChain *tc = new CustomToolChain(ToolChain::ManualDetection);
     if (tc->fromMap(data))
         return tc;
 
@@ -426,7 +426,7 @@ ToolChain *CustomToolChainFactory::restore(const QVariantMap &data)
 
 CustomToolChain *CustomToolChainFactory::createToolChain(bool autoDetect)
 {
-    return new CustomToolChain(autoDetect);
+    return new CustomToolChain(autoDetect ? ToolChain::AutoDetection : ToolChain::ManualDetection);
 }
 
 // --------------------------------------------------------------------------
@@ -519,9 +519,13 @@ CustomToolChainConfigWidget::CustomToolChainConfigWidget(CustomToolChain *tc) :
     m_predefinedDetails->updateSummaryText();
     m_headerDetails->updateSummaryText();
 
+    connect(m_compilerCommand, SIGNAL(changed(QString)), this, SIGNAL(dirty()));
+    connect(m_makeCommand, SIGNAL(changed(QString)), this, SIGNAL(dirty()));
     connect(m_abiWidget, SIGNAL(abiChanged()), this, SIGNAL(dirty()));
     connect(m_predefinedMacros, SIGNAL(textChanged()), this, SLOT(updateSummaries()));
     connect(m_headerPaths, SIGNAL(textChanged()), this, SLOT(updateSummaries()));
+    connect(m_cxx11Flags, SIGNAL(textChanged(QString)), this, SIGNAL(dirty()));
+    connect(m_mkspecs, SIGNAL(textChanged(QString)), this, SIGNAL(dirty()));
     connect(m_errorParserComboBox, SIGNAL(currentIndexChanged(int)),
             this, SLOT(errorParserChanged(int)));
     connect(m_customParserSettingsButton, SIGNAL(clicked()),
@@ -535,6 +539,7 @@ void CustomToolChainConfigWidget::updateSummaries()
         m_predefinedDetails->updateSummaryText();
     else
         m_headerDetails->updateSummaryText();
+    emit dirty();
 }
 
 void CustomToolChainConfigWidget::errorParserChanged(int index)

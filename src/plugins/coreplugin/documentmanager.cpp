@@ -29,17 +29,17 @@
 
 #include "documentmanager.h"
 
-#include "editormanager.h"
 #include "icore.h"
-#include "ieditor.h"
-#include "ieditorfactory.h"
-#include "iexternaleditor.h"
 #include "idocument.h"
 #include "mimedatabase.h"
-#include "saveitemsdialog.h"
 #include "coreconstants.h"
 
-#include "dialogs/readonlyfilesdialog.h"
+#include <coreplugin/dialogs/readonlyfilesdialog.h>
+#include <coreplugin/dialogs/saveitemsdialog.h>
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/editormanager/ieditor.h>
+#include <coreplugin/editormanager/ieditorfactory.h>
+#include <coreplugin/editormanager/iexternaleditor.h>
 
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
@@ -228,7 +228,7 @@ DocumentManager::~DocumentManager()
     delete d;
 }
 
-DocumentManager *DocumentManager::instance()
+QObject *DocumentManager::instance()
 {
     return m_instance;
 }
@@ -646,7 +646,7 @@ static QList<IDocument *> saveModifiedFilesHelper(const QList<IDocument *> &docu
             }
         }
         foreach (IDocument *document, documentsToSave) {
-            if (!EditorManager::instance()->saveDocument(document)) {
+            if (!EditorManager::saveDocument(document)) {
                 if (cancelled)
                     *cancelled = true;
                 notSaved.append(document);
@@ -759,7 +759,7 @@ QString DocumentManager::getSaveAsFileName(const IDocument *document, const QStr
 
     QString filterString;
     if (filter.isEmpty()) {
-        if (const MimeType &mt = Core::ICore::mimeDatabase()->findByFile(fi))
+        if (const MimeType &mt = MimeDatabase::findByFile(fi))
             filterString = mt.filterString();
         selectedFilter = &filterString;
     } else {
@@ -823,8 +823,9 @@ void DocumentManager::checkForReload()
 
     d->m_blockActivated = true;
 
-    IDocument::ReloadSetting defaultBehavior = EditorManager::instance()->reloadSetting();
-    Utils::ReloadPromptAnswer previousAnswer = Utils::ReloadCurrent;
+    IDocument::ReloadSetting defaultBehavior = EditorManager::reloadSetting();
+    Utils::ReloadPromptAnswer previousReloadAnswer = Utils::ReloadCurrent;
+    Utils::FileDeletedPromptAnswer previousDeletedAnswer = Utils::FileDeletedSave;
 
     QList<IDocument *> documentsToClose;
     QMap<IDocument*, QString> documentsToSave;
@@ -949,16 +950,16 @@ void DocumentManager::checkForReload()
             // IDocument wants us to ask
             } else if (type == IDocument::TypeContents) {
                 // content change, IDocument wants to ask user
-                if (previousAnswer == Utils::ReloadNone) {
+                if (previousReloadAnswer == Utils::ReloadNone) {
                     // answer already given, ignore
                     success = document->reload(&errorString, IDocument::FlagIgnore, IDocument::TypeContents);
-                } else if (previousAnswer == Utils::ReloadAll) {
+                } else if (previousReloadAnswer == Utils::ReloadAll) {
                     // answer already given, reload
                     success = document->reload(&errorString, IDocument::FlagReload, IDocument::TypeContents);
                 } else {
                     // Ask about content change
-                    previousAnswer = Utils::reloadPrompt(document->filePath(), document->isModified(), QApplication::activeWindow());
-                    switch (previousAnswer) {
+                    previousReloadAnswer = Utils::reloadPrompt(document->filePath(), document->isModified(), QApplication::activeWindow());
+                    switch (previousReloadAnswer) {
                     case Utils::ReloadAll:
                     case Utils::ReloadCurrent:
                         success = document->reload(&errorString, IDocument::FlagReload, IDocument::TypeContents);
@@ -977,7 +978,13 @@ void DocumentManager::checkForReload()
                 // Ask about removed file
                 bool unhandled = true;
                 while (unhandled) {
-                    switch (Utils::fileDeletedPrompt(document->filePath(), trigger == IDocument::TriggerExternal, QApplication::activeWindow())) {
+                    if (previousDeletedAnswer != Utils::FileDeletedCloseAll) {
+                        previousDeletedAnswer =
+                                Utils::fileDeletedPrompt(document->filePath(),
+                                                         trigger == IDocument::TriggerExternal,
+                                                         QApplication::activeWindow());
+                    }
+                    switch (previousDeletedAnswer) {
                     case Utils::FileDeletedSave:
                         documentsToSave.insert(document, document->filePath());
                         unhandled = false;
@@ -992,6 +999,7 @@ void DocumentManager::checkForReload()
                         break;
                     }
                     case Utils::FileDeletedClose:
+                    case Utils::FileDeletedCloseAll:
                         documentsToClose << document;
                         unhandled = false;
                         break;
@@ -1298,7 +1306,7 @@ void DocumentManager::populateOpenWithMenu(QMenu *menu, const QString &fileName)
 
     bool anyMatches = false;
 
-    if (const MimeType mt = ICore::mimeDatabase()->findByFile(QFileInfo(fileName))) {
+    if (const MimeType mt = MimeDatabase::findByFile(QFileInfo(fileName))) {
         const EditorFactoryList factories = EditorManager::editorFactories(mt, false);
         const ExternalEditorList externalEditors = EditorManager::externalEditors(mt, false);
         anyMatches = !factories.empty() || !externalEditors.empty();
@@ -1340,7 +1348,7 @@ void DocumentManager::executeOpenWithMenuAction(QAction *action)
                 if (entry.editorFactory->id() == openEditor->id())
                     editorsOpenForFile.removeAll(openEditor);
             }
-            if (!EditorManager::instance()->closeEditors(editorsOpenForFile)) // don't open if cancel was pressed
+            if (!EditorManager::closeEditors(editorsOpenForFile)) // don't open if cancel was pressed
                 return;
         }
 

@@ -577,7 +577,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
     InternalNode contents;
 
     ProjectExplorer::Target *t = m_project->activeTarget();
-    ProjectExplorer::Kit *k = t ? t->kit() : ProjectExplorer::KitManager::instance()->defaultKit();
+    ProjectExplorer::Kit *k = t ? t->kit() : ProjectExplorer::KitManager::defaultKit();
     QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
 
     // Figure out DEPLOYMENT and INSTALL folders
@@ -599,6 +599,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
             folders[i] = QDir::cleanPath(projectDir + QLatin1Char('/') + folders.at(i));
     }
 
+    folders.removeDuplicates();
 
     m_recursiveEnumerateFiles.clear();
     // Remove non existing items and non folders
@@ -620,7 +621,6 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
         }
     }
 
-    folders.removeDuplicates();
     watchFolders(folders.toSet());
 
     foreach (const QString &folder, folders) {
@@ -638,6 +638,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
     const QVector<Qt4NodeStaticData::FileTypeData> &fileTypes = qt4NodeStaticData()->fileTypeData;
 
     // update files
+    QFileInfo tmpFi;
     for (int i = 0; i < fileTypes.size(); ++i) {
         FileType type = fileTypes.at(i).type;
         QStringList qmakeVariables = varNames(type);
@@ -647,20 +648,27 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
             if (includeFileExact) {
                 QStringList vPathsExact = fullVPaths(baseVPathsExact, readerExact, qmakeVariable, projectDir);
                 QStringList tmp = readerExact->absoluteFileValues(qmakeVariable, projectDir, vPathsExact, includeFileExact);
-                foreach (const QString &t, tmp)
-                    newFilePaths += Utils::FileName::fromString(t);
+                foreach (const QString &t, tmp) {
+                    tmpFi.setFile(t);
+                    if (tmpFi.isFile())
+                        newFilePaths += Utils::FileName::fromString(t);
+                }
             }
             if (includeFileCumlative) {
                 QStringList vPathsCumulative = fullVPaths(baseVPathsCumulative, readerCumulative, qmakeVariable, projectDir);
                 QStringList tmp = readerCumulative->absoluteFileValues(qmakeVariable, projectDir, vPathsCumulative, includeFileCumlative);
-                foreach (const QString &t, tmp)
-                    newFilePaths += Utils::FileName::fromString(t);
+                foreach (const QString &t, tmp) {
+                    tmpFi.setFile(t);
+                    if (tmpFi.isFile())
+                        newFilePaths += Utils::FileName::fromString(t);
+                }
             }
         }
 
         foundFiles[type] = newFilePaths;
         m_recursiveEnumerateFiles.subtract(newFilePaths);
     }
+
 
     for (int i = 0; i < fileTypes.size(); ++i) {
         FileType type = fileTypes.at(i).type;
@@ -944,9 +952,8 @@ bool Qt4PriFileNode::addFiles(const QStringList &filePaths, QStringList *notAdde
     typedef QMap<QString, QStringList> TypeFileMap;
     // Split into lists by file type and bulk-add them.
     TypeFileMap typeFileMap;
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     foreach (const QString file, filePaths) {
-        const Core::MimeType mt = mdb->findByFile(file);
+        const Core::MimeType mt = Core::MimeDatabase::findByFile(file);
         typeFileMap[mt.type()] << file;
     }
 
@@ -992,9 +999,8 @@ bool Qt4PriFileNode::removeFiles(const QStringList &filePaths,
     typedef QMap<QString, QStringList> TypeFileMap;
     // Split into lists by file type and bulk-add them.
     TypeFileMap typeFileMap;
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     foreach (const QString file, filePaths) {
-        const Core::MimeType mt = mdb->findByFile(file);
+        const Core::MimeType mt = Core::MimeDatabase::findByFile(file);
         typeFileMap[mt.type()] << file;
     }
     foreach (const QString &type, typeFileMap.keys()) {
@@ -1012,9 +1018,8 @@ bool Qt4PriFileNode::deleteFiles(const QStringList &filePaths)
     typedef QMap<QString, QStringList> TypeFileMap;
     // Split into lists by file type and bulk-add them.
     TypeFileMap typeFileMap;
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     foreach (const QString file, filePaths) {
-        const Core::MimeType mt = mdb->findByFile(file);
+        const Core::MimeType mt = Core::MimeDatabase::findByFile(file);
         typeFileMap[mt.type()] << file;
     }
     foreach (const QString &type, typeFileMap.keys()) {
@@ -1030,8 +1035,7 @@ bool Qt4PriFileNode::renameFile(const QString &filePath, const QString &newFileP
         return false;
 
     bool changeProFileOptional = deploysFolder(QFileInfo(filePath).absolutePath());
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
-    const Core::MimeType mt = mdb->findByFile(newFilePath);
+    const Core::MimeType mt = Core::MimeDatabase::findByFile(newFilePath);
     QStringList dummy;
 
     changeFiles(mt.type(), QStringList() << filePath, &dummy, RemoveFromProFile);
@@ -1121,8 +1125,7 @@ void Qt4PriFileNode::changeFiles(const QString &mimeType,
     QFileInfo fi(m_projectFilePath);
     if (!fi.isWritable()) {
         // Try via vcs manager
-        Core::VcsManager *vcsManager = Core::ICore::vcsManager();
-        Core::IVersionControl *versionControl = vcsManager->findVersionControlForDirectory(fi.absolutePath());
+        Core::IVersionControl *versionControl = Core::VcsManager::findVersionControlForDirectory(fi.absolutePath());
         if (!versionControl || versionControl->vcsOpen(m_projectFilePath)) {
             bool makeWritable = QFile::setPermissions(m_projectFilePath, fi.permissions() | QFile::WriteUser);
             if (!makeWritable) {
@@ -1319,7 +1322,7 @@ QStringList Qt4PriFileNode::dynamicVarNames(QtSupport::ProFileReader *readerExac
             result << (var + files);
         }
     }
-
+    result.removeDuplicates();
     return result;
 }
 
@@ -2246,7 +2249,7 @@ QString Qt4ProFileNode::buildDir(Qt4BuildConfiguration *bc) const
         bc = static_cast<Qt4BuildConfiguration *>(m_project->activeTarget()->activeBuildConfiguration());
     if (!bc)
         return QString();
-    return QDir::cleanPath(QDir(bc->buildDirectory()).absoluteFilePath(relativeDir));
+    return QDir::cleanPath(QDir(bc->buildDirectory().toString()).absoluteFilePath(relativeDir));
 }
 
 QString Qt4ProFileNode::uiDirectory() const

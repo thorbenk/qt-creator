@@ -55,6 +55,7 @@
 #include "winceqtversionfactory.h"
 #include "unconfiguredprojectpanel.h"
 #include "qmakekitinformation.h"
+#include "profilehighlighterfactory.h"
 
 #include <coreplugin/icore.h>
 #include <projectexplorer/buildmanager.h>
@@ -80,7 +81,7 @@
 
 using namespace Qt4ProjectManager::Internal;
 using namespace Qt4ProjectManager;
-using ProjectExplorer::Project;
+using namespace ProjectExplorer;
 
 Qt4ProjectManagerPlugin::Qt4ProjectManagerPlugin()
     : m_previousStartupProject(0), m_previousTarget(0)
@@ -105,7 +106,7 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     const Core::Context projectContext(Qt4ProjectManager::Constants::PROJECT_ID);
     Core::Context projecTreeContext(ProjectExplorer::Constants::C_PROJECT_TREE);
 
-    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":qt4projectmanager/Qt4ProjectManager.mimetypes.xml"), errorMessage))
+    if (!Core::MimeDatabase::addMimeTypes(QLatin1String(":qt4projectmanager/Qt4ProjectManager.mimetypes.xml"), errorMessage))
         return false;
 
     m_projectExplorer = ProjectExplorer::ProjectExplorerPlugin::instance();
@@ -121,7 +122,7 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
 
     m_proFileEditorFactory = new ProFileEditorFactory(m_qt4ProjectManager, editorHandler);
 
-    ProjectExplorer::KitManager::instance()->registerKitInformation(new QmakeKitInformation);
+    ProjectExplorer::KitManager::registerKitInformation(new QmakeKitInformation);
 
     addObject(m_proFileEditorFactory);
 
@@ -156,6 +157,7 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     addAutoReleasedObject(new ProFileCompletionAssistProvider);
     addAutoReleasedObject(new ProFileHoverHandler(this));
     addAutoReleasedObject(new UnconfiguredProjectPanel);
+    addAutoReleasedObject(new ProFileHighlighterFactory);
 
     //menus
     Core::ActionContainer *mbuild =
@@ -255,9 +257,9 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_BUILD);
     connect(m_buildFileAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(buildFile()));
 
-    connect(m_projectExplorer->buildManager(), SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
+    connect(BuildManager::instance(), SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
             this, SLOT(buildStateChanged(ProjectExplorer::Project*)));
-    connect(m_projectExplorer->session(), SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
+    connect(SessionManager::instance(), SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
             this, SLOT(startupProjectChanged()));
     connect(m_projectExplorer, SIGNAL(currentNodeChanged(ProjectExplorer::Node*,ProjectExplorer::Project*)),
             this, SLOT(updateContextActions(ProjectExplorer::Node*,ProjectExplorer::Project*)));
@@ -304,7 +306,7 @@ void Qt4ProjectManagerPlugin::startupProjectChanged()
         disconnect(m_previousStartupProject, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
                    this, SLOT(activeTargetChanged()));
 
-    m_previousStartupProject = qobject_cast<Qt4Project *>(m_projectExplorer->session()->startupProject());
+    m_previousStartupProject = qobject_cast<Qt4Project *>(SessionManager::startupProject());
 
     if (m_previousStartupProject)
         connect(m_previousStartupProject, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
@@ -331,7 +333,7 @@ void Qt4ProjectManagerPlugin::activeTargetChanged()
 void Qt4ProjectManagerPlugin::updateRunQMakeAction()
 {
     bool enable = true;
-    if (m_projectExplorer->buildManager()->isBuilding(m_projectExplorer->currentProject()))
+    if (BuildManager::isBuilding(m_projectExplorer->currentProject()))
         enable = false;
     Qt4Project *pro = qobject_cast<Qt4Project *>(m_projectExplorer->currentProject());
     if (!pro
@@ -372,7 +374,7 @@ void Qt4ProjectManagerPlugin::updateContextActions(ProjectExplorer::Node *node, 
     Qt4BuildConfiguration *buildConfiguration = (qt4Project && qt4Project->activeTarget()) ?
                 static_cast<Qt4BuildConfiguration *>(qt4Project->activeTarget()->activeBuildConfiguration()) : 0;
     bool isProjectNode = qt4Project && proFileNode && buildConfiguration;
-    bool isBuilding = m_projectExplorer->buildManager()->isBuilding(project);
+    bool isBuilding = BuildManager::isBuilding(project);
     bool enabled = subProjectActionsVisible && !isBuilding;
 
     m_buildSubProjectAction->setVisible(subProjectActionsVisible);
@@ -413,18 +415,16 @@ void Qt4ProjectManagerPlugin::updateBuildFileAction()
     bool visible = false;
     bool enabled = false;
 
-    QString file;
     if (Core::IDocument *currentDocument= Core::EditorManager::currentDocument()) {
-        file = currentDocument->filePath();
-        ProjectExplorer::SessionManager *session = m_projectExplorer->session();
-        ProjectExplorer::Node *node  = session->nodeForFile(file);
-        ProjectExplorer::Project *project = session->projectForFile(file);
+        QString file = currentDocument->filePath();
+        Node *node  = SessionManager::nodeForFile(file);
+        Project *project = SessionManager::projectForFile(file);
         m_buildFileAction->setParameter(QFileInfo(file).fileName());
         visible = qobject_cast<Qt4Project *>(project)
                 && node
                 && qobject_cast<Qt4ProFileNode *>(node->projectNode());
 
-        enabled = !m_projectExplorer->buildManager()->isBuilding(project);
+        enabled = !BuildManager::isBuilding(project);
     }
     m_buildFileAction->setVisible(visible);
     m_buildFileAction->setEnabled(enabled);

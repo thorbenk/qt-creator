@@ -10,13 +10,6 @@ QtcPlugin {
     Depends { name: "Find" }
     Depends { name: "Locator" }
 
-    cpp.includePaths: base.concat([
-        "generichighlighter",
-        "snippets",
-        "codeassist",
-        "."
-    ])
-
     files: [
         "autocompleter.cpp",
         "autocompleter.h",
@@ -89,6 +82,7 @@ QtcPlugin {
         "icodestylepreferences.h",
         "icodestylepreferencesfactory.cpp",
         "icodestylepreferencesfactory.h",
+        "ihighlighterfactory.h",
         "indenter.cpp",
         "indenter.h",
         "ioutlinewidget.h",
@@ -222,6 +216,8 @@ QtcPlugin {
             "highlightersettingspage.cpp",
             "highlightersettingspage.h",
             "highlightersettingspage.ui",
+            "highlighterutils.cpp",
+            "highlighterutils.h",
             "includerulesinstruction.cpp",
             "includerulesinstruction.h",
             "itemdata.cpp",

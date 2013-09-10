@@ -80,8 +80,9 @@ public:
     Core::Id id() const;
 
     QIcon icon() const;
-    QString iconPath() const;
-    void setIconPath(const QString &path);
+    static QIcon icon(const Utils::FileName &path);
+    Utils::FileName iconPath() const;
+    void setIconPath(const Utils::FileName &path);
 
     QVariant value(Core::Id key, const QVariant &unset = QVariant()) const;
     bool hasValue(Core::Id key) const;
@@ -101,7 +102,8 @@ public:
 
     void setAutoDetected(bool detected);
     void makeSticky();
-    void makeSticky(Core::Id id);
+    void setSticky(Core::Id id, bool b);
+    void makeUnSticky();
 
 private:
     void setSdkProvided(bool sdkProvided);

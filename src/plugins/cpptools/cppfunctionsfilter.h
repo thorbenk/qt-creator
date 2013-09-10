@@ -30,6 +30,7 @@
 #ifndef CPPFUNCTIONSFILTER_H
 #define CPPFUNCTIONSFILTER_H
 
+#include "cpplocatordata.h"
 #include "cpplocatorfilter.h"
 
 namespace CppTools {
@@ -40,8 +41,12 @@ class CppFunctionsFilter : public CppLocatorFilter
     Q_OBJECT
 
 public:
-    CppFunctionsFilter(CppModelManager *manager);
+    CppFunctionsFilter(CppLocatorData *locatorData);
     ~CppFunctionsFilter();
+
+private:
+    QList<QList<ModelItemInfo> > itemsToMatchUserInputAgainst() const;
+    Locator::FilterEntry filterEntryFromModelItemInfo(const ModelItemInfo &info);
 };
 
 } // namespace Internal

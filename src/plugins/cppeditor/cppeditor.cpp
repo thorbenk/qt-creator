@@ -43,7 +43,7 @@
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppchecksymbols.h>
 #include <cpptools/cppcodeformatter.h>
-#include <cpptools/cppcompletionsupport.h>
+#include <cpptools/cppcompletionassistprovider.h>
 #include <cpptools/cpphighlightingsupport.h>
 #include <cpptools/cpplocalsymbols.h>
 #include <cpptools/cppqtstyleindenter.h>
@@ -510,7 +510,6 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
     , m_commentsSettings(CppTools::CppToolsSettings::instance()->commentsSettings())
-    , m_completionSupport(0)
 {
     qRegisterMetaType<SemanticInfo>("CppTools::SemanticInfo");
 
@@ -531,8 +530,6 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
                 this, SLOT(updateSemanticInfo(CppTools::SemanticInfo)));
         connect(editorSupport, SIGNAL(highlighterStarted(QFuture<TextEditor::HighlightingResult>*,uint)),
                 this, SLOT(highlighterStarted(QFuture<TextEditor::HighlightingResult>*,uint)));
-
-        m_completionSupport = m_modelManager->completionSupport(editor());
     }
 
     m_highlightRevision = 0;
@@ -562,8 +559,6 @@ CPPEditorWidget::~CPPEditorWidget()
 {
     if (m_modelManager)
         m_modelManager->deleteCppEditorSupport(editor());
-
-    delete m_completionSupport;
 }
 
 TextEditor::BaseTextEditor *CPPEditorWidget::createEditor()
@@ -635,7 +630,6 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
 
     // set up slots to document changes
     updateContentsChangedSignal();
-    connect(editorDocument(), SIGNAL(changed()), this, SLOT(updateFileName()));
 
     // set up function declaration - definition link
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(updateFunctionDeclDefLink()));
@@ -991,9 +985,6 @@ void CPPEditorWidget::onContentsChanged(int position, int charsRemoved, int char
     if (charsRemoved > 0)
         updateUses();
 }
-
-void CPPEditorWidget::updateFileName()
-{}
 
 void CPPEditorWidget::jumpToOutlineElement(int index)
 {
@@ -1390,7 +1381,7 @@ CPPEditorWidget::Link CPPEditorWidget::findMacroLink(const QByteArray &name,
             }
         }
 
-        const QList<Document::Include> includes = doc->includes();
+        const QList<Document::Include> includes = doc->resolvedIncludes();
         for (int index = includes.size() - 1; index != -1; --index) {
             const Document::Include &i = includes.at(index);
             Link link = findMacroLink(name, snapshot.document(i.resolvedFileName()), snapshot,
@@ -1522,7 +1513,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor, boo
         // Handle include directives
         if (tk.is(T_STRING_LITERAL) || tk.is(T_ANGLE_STRING_LITERAL)) {
             const unsigned lineno = cursor.blockNumber() + 1;
-            foreach (const Document::Include &incl, doc->includes()) {
+            foreach (const Document::Include &incl, doc->resolvedIncludes()) {
                 if (incl.line() == lineno) {
                     link.targetFileName = incl.resolvedFileName();
                     link.linkTextStart = beginOfToken + 1;
@@ -1870,15 +1861,14 @@ Core::IEditor *CPPEditor::duplicate(QWidget *parent)
 
 Core::Id CPPEditor::id() const
 {
-    return Core::Id(CppEditor::Constants::CPPEDITOR_ID);
+    return CppEditor::Constants::CPPEDITOR_ID;
 }
 
 bool CPPEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     if (!TextEditor::BaseTextEditor::open(errorString, fileName, realFileName))
         return false;
-    editorWidget()->setMimeType(
-                Core::ICore::mimeDatabase()->findByFile(QFileInfo(fileName)).type());
+    editorWidget()->setMimeType(Core::MimeDatabase::findByFile(QFileInfo(fileName)).type());
     return true;
 }
 
@@ -1887,16 +1877,17 @@ const Utils::CommentDefinition *CPPEditor::commentDefinition() const
     return &m_commentDefinition;
 }
 
+TextEditor::CompletionAssistProvider *CPPEditor::completionAssistProvider()
+{
+    return CppModelManagerInterface::instance()->cppEditorSupport(this)->completionAssistProvider();
+}
+
 void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
 {
     TextEditor::BaseTextEditorWidget::setFontSettings(fs);
-    CppHighlighter *highlighter
-            = qobject_cast<CppHighlighter*>(baseTextDocument()->syntaxHighlighter());
+    TextEditor::SyntaxHighlighter *highlighter = baseTextDocument()->syntaxHighlighter();
     if (!highlighter)
         return;
-
-    const QVector<QTextCharFormat> formats = fs.toTextCharFormats(highlighterFormatCategories());
-    highlighter->setFormats(formats.constBegin(), formats.constEnd());
 
     m_occurrencesFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES);
     m_occurrencesUnusedFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_UNUSED);
@@ -2119,10 +2110,12 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     TextEditor::AssistReason reason) const
 {
     if (kind == TextEditor::Completion) {
-        if (m_completionSupport)
-            return m_completionSupport->createAssistInterface(
+        CppEditorSupport *ces = CppModelManagerInterface::instance()->cppEditorSupport(editor());
+        CppCompletionAssistProvider *cap = ces->completionAssistProvider();
+        if (cap)
+            return cap->createAssistInterface(
                         ProjectExplorer::ProjectExplorerPlugin::currentProject(),
-                        document(), position(), reason);
+                        editor()->document()->filePath(), document(), position(), reason);
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || isOutdated())
             return 0;

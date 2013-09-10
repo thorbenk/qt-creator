@@ -55,7 +55,7 @@ class LinuxIccToolChainFactory;
 class PROJECTEXPLORER_EXPORT GccToolChain : public ToolChain
 {
 public:
-    GccToolChain(const QString &id, bool autodetect);
+    GccToolChain(const QString &id, Detection d);
     QString type() const;
     QString typeDisplayName() const;
     Abi targetAbi() const;
@@ -91,6 +91,8 @@ public:
 
     ToolChain *clone() const;
 
+    static void addCommandPathToEnvironment(const Utils::FileName &command, Utils::Environment &env);
+
 protected:
     typedef QList<QPair<QStringList, QByteArray> > GccCache;
 
@@ -122,7 +124,7 @@ protected:
     };
 
 private:
-    GccToolChain(bool autodetect);
+    explicit GccToolChain(Detection d);
 
     void updateSupportedAbis() const;
 
@@ -164,7 +166,7 @@ protected:
     virtual CompilerFlags defaultCompilerFlags() const;
 
 private:
-    ClangToolChain(bool autodetect);
+    explicit ClangToolChain(Detection d);
 
     friend class Internal::ClangToolChainFactory;
     friend class ToolChainFactory;
@@ -186,7 +188,7 @@ public:
     QList<Utils::FileName> suggestedMkspecList() const;
 
 private:
-    MingwToolChain(bool autodetect);
+    explicit MingwToolChain(Detection d);
 
     friend class Internal::MingwToolChainFactory;
     friend class ToolChainFactory;
@@ -210,7 +212,7 @@ public:
     QList<Utils::FileName> suggestedMkspecList() const;
 
 private:
-    LinuxIccToolChain(bool autodetect);
+    explicit LinuxIccToolChain(Detection d);
 
     friend class Internal::LinuxIccToolChainFactory;
     friend class ToolChainFactory;

@@ -67,7 +67,6 @@ public:
 
 public slots:
     virtual void unCommentSelection();
-    virtual void setFontSettings(const FontSettings &fs);
     virtual void setTabSettings(const TextEditor::TabSettings &);
 
 private slots:
@@ -81,8 +80,6 @@ protected:
     virtual BaseTextEditor *createEditor() { return new PlainTextEditor(this); }
 
 private:
-    QString findDefinitionId(const Core::MimeType &mimeType, bool considerParents) const;
-
     bool m_isMissingSyntaxDefinition;
     Utils::CommentDefinition m_commentDefinition;
 };

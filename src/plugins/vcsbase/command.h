@@ -32,15 +32,40 @@
 
 #include "vcsbase_global.h"
 
+#include <utils/synchronousprocess.h>
+
 #include <QObject>
 
-QT_FORWARD_DECLARE_CLASS(QStringList)
-QT_FORWARD_DECLARE_CLASS(QVariant)
-QT_FORWARD_DECLARE_CLASS(QProcessEnvironment)
+QT_BEGIN_NAMESPACE
+class QMutex;
+class QStringList;
+class QVariant;
+class QProcessEnvironment;
+template <typename T>
+class QFutureInterface;
+QT_END_NAMESPACE
 
 namespace VcsBase {
 
 namespace Internal { class CommandPrivate; }
+
+class VCSBASE_EXPORT ProgressParser
+{
+public:
+    ProgressParser();
+    virtual ~ProgressParser();
+
+protected:
+    virtual void parseProgress(const QString &text) = 0;
+    void setProgressAndMaximum(int value, int maximum);
+
+private:
+    void setFuture(QFutureInterface<void> *future);
+
+    QFutureInterface<void> *m_future;
+    QMutex *m_futureMutex;
+    friend class Command;
+};
 
 class VCSBASE_EXPORT Command : public QObject
 {
@@ -55,6 +80,7 @@ public:
     void addJob(const QStringList &arguments);
     void addJob(const QStringList &arguments, int timeout);
     void execute();
+    void terminate();
     bool lastExecutionSuccess() const;
     int lastExecutionExitCode() const;
 
@@ -65,14 +91,8 @@ public:
     int defaultTimeout() const;
     void setDefaultTimeout(int timeout);
 
-    // Disable Terminal on UNIX (see VCS SSH handling)
-    bool unixTerminalDisabled() const;
-    void setUnixTerminalDisabled(bool);
-
-    bool expectChanges() const;
-    void setExpectChanges(bool);
-
-    static QString msgTimeout(int seconds);
+    unsigned flags() const;
+    void addFlags(unsigned f);
 
     const QVariant &cookie() const;
     void setCookie(const QVariant &cookie);
@@ -80,14 +100,28 @@ public:
     QTextCodec *codec() const;
     void setCodec(QTextCodec *codec);
 
+    void setProgressParser(ProgressParser *parser);
+    void setProgressiveOutput(bool progressive);
+
+    Utils::SynchronousProcessResponse runVcs(const QStringList &arguments, int timeoutMS);
+    // Make sure to not pass through the event loop at all:
+    bool runFullySynchronous(const QStringList &arguments, int timeoutMS,
+                             QByteArray *outputData, QByteArray *errorData);
+
 private:
-    void run();
+    void run(QFutureInterface<void> &future);
+    Utils::SynchronousProcessResponse runSynchronous(const QStringList &arguments, int timeoutMS);
+
+private slots:
+    void bufferedOutput(const QString &text);
+    void bufferedError(const QString &text);
 
 signals:
     void output(const QString &);
     void errorText(const QString &);
     void finished(bool ok, int exitCode, const QVariant &cookie);
     void success(const QVariant &cookie);
+    void doTerminate();
 
 private:
     class Internal::CommandPrivate *const d;

@@ -48,6 +48,8 @@ static const char PASTEBIN_ARCHIVE[]="archive";
 
 static const char API_KEY[]="api_dev_key=516686fc461fb7f9341fd7cf2af6f829&"; // user: qtcreator_apikey
 
+static const char PROTOCOL_NAME[] = "Pastebin.Com";
+
 namespace CodePaster {
 PasteBinDotComProtocol::PasteBinDotComProtocol() :
     m_fetchReply(0),
@@ -61,12 +63,12 @@ PasteBinDotComProtocol::PasteBinDotComProtocol() :
 
 QString PasteBinDotComProtocol::protocolName()
 {
-    return QLatin1String("Pastebin.Com");
+    return QLatin1String(PROTOCOL_NAME);
 }
 
 unsigned PasteBinDotComProtocol::capabilities() const
 {
-    return ListCapability;
+    return ListCapability | PostDescriptionCapability;
 }
 
 static inline QByteArray format(Protocol::ContentType ct)
@@ -112,7 +114,7 @@ static inline QByteArray expirySpecification(int expiryDays)
 
 void PasteBinDotComProtocol::paste(const QString &text,
                                    ContentType ct, int expiryDays,
-                                   const QString &username,
+                                   const QString & /* username */, // Not used unless registered user
                                    const QString &comment,
                                    const QString &description)
 {
@@ -127,8 +129,8 @@ void PasteBinDotComProtocol::paste(const QString &text,
     pasteData += expirySpecification(expiryDays);
     pasteData += '&';
     pasteData += format(ct);
-    pasteData += "api_paste_name=";
-    pasteData += QUrl::toPercentEncoding(username);
+    pasteData += "api_paste_name="; // Title or name.
+    pasteData += QUrl::toPercentEncoding(description);
     pasteData += "&api_paste_code=";
     pasteData += QUrl::toPercentEncoding(fixNewLines(text));
     // fire request
@@ -141,7 +143,7 @@ void PasteBinDotComProtocol::paste(const QString &text,
 void PasteBinDotComProtocol::pasteFinished()
 {
     if (m_pasteReply->error())
-        qWarning("Pastebin.com protocol error: %s", qPrintable(m_pasteReply->errorString()));
+        qWarning("%s protocol error: %s", PROTOCOL_NAME, qPrintable(m_pasteReply->errorString()));
     else
         emit pasteDone(QString::fromLatin1(m_pasteReply->readAll()));
 
@@ -178,7 +180,7 @@ void PasteBinDotComProtocol::fetchFinished()
         if (debug)
             qDebug() << "fetchFinished: error" << m_fetchId << content;
     } else {
-        title = QString::fromLatin1("Pastebin.com: %1").arg(m_fetchId);
+        title = QLatin1String(PROTOCOL_NAME) + QLatin1String(": ") + m_fetchId;
         content = QString::fromLatin1(m_fetchReply->readAll());
         // Cut out from '<pre>' formatting
         const int preEnd = content.lastIndexOf(QLatin1String("</pre>"));

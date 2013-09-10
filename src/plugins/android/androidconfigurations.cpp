@@ -47,6 +47,7 @@
 #include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtversionmanager.h>
 #include <utils/environment.h>
+#include <utils/sleep.h>
 
 #include <QDateTime>
 #include <QSettings>
@@ -58,14 +59,6 @@
 
 #include <QStringListModel>
 #include <QMessageBox>
-
-#if defined(_WIN32)
-#include <iostream>
-#include <windows.h>
-#define sleep(_n) Sleep(1000 * (_n))
-#else
-#include <unistd.h>
-#endif
 
 using namespace ProjectExplorer;
 using namespace Utils;
@@ -104,7 +97,15 @@ namespace {
 
     bool androidDevicesLessThan(const AndroidDeviceInfo &dev1, const AndroidDeviceInfo &dev2)
     {
-        return dev1.sdk < dev2.sdk;
+        if (dev1.serialNumber.contains(QLatin1String("????")) == dev2.serialNumber.contains(QLatin1String("????")))
+            return !dev1.serialNumber.contains(QLatin1String("????"));
+        bool dev1IsEmulator = dev1.serialNumber.startsWith(QLatin1String("emulator"));
+        bool dev2IsEmulator = dev2.serialNumber.startsWith(QLatin1String("emulator"));
+        if (dev1IsEmulator != dev2IsEmulator)
+            return !dev1IsEmulator;
+        if (dev1.sdk != dev2.sdk)
+            return dev1.sdk < dev2.sdk;
+        return dev1.serialNumber < dev2.serialNumber;
     }
 }
 
@@ -375,7 +376,7 @@ FileName AndroidConfigurations::jarsignerPath() const
 
 FileName AndroidConfigurations::zipalignPath() const
 {
-    Utils::FileName path = m_config.sdkLocation;
+    FileName path = m_config.sdkLocation;
     return path.appendPath(QLatin1String("tools/zipalign" QTC_HOST_EXE_SUFFIX));
 }
 
@@ -384,7 +385,12 @@ QString AndroidConfigurations::getDeployDeviceSerialNumber(int *apiLevel, const 
     QVector<AndroidDeviceInfo> devices = connectedDevices(error);
 
     foreach (AndroidDeviceInfo device, devices) {
-        if (!device.cpuAbi.contains(abi)) {
+        if (device.unauthorized) {
+            if (error) {
+                *error += tr("Skipping %1: Unauthorized. Please check the confirmation dialog on your device..").arg(device.serialNumber);
+                *error += QLatin1Char('\n');
+            }
+        } else if (!device.cpuAbi.contains(abi)) {
             if (error) {
                 *error += tr("Skipping %1: ABI is incompatible, device supports ABIs: %2.")
                     .arg(getProductModel(device.serialNumber))
@@ -421,28 +427,20 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::connectedDevices(QString *erro
     }
     QList<QByteArray> adbDevs = adbProc.readAll().trimmed().split('\n');
     adbDevs.removeFirst();
-    AndroidDeviceInfo dev;
 
     // workaround for '????????????' serial numbers:
     // can use "adb -d" when only one usb device attached
-    int usbDevicesNum = 0;
-    QStringList serialNumbers;
     foreach (const QByteArray &device, adbDevs) {
-        const QString serialNo = QString::fromLatin1(device.left(device.indexOf('\t')).trimmed());;
-        if (!serialNo.startsWith(QLatin1String("emulator")))
-            ++usbDevicesNum;
-        serialNumbers << serialNo;
-    }
-
-    foreach (const QString &serialNo, serialNumbers) {
-        if (serialNo.contains(QLatin1String("????")) && usbDevicesNum > 1)
-            continue;
-
+        const QString serialNo = QString::fromLatin1(device.left(device.indexOf('\t')).trimmed());
+        const QString deviceType = QString::fromLatin1(device.mid(device.indexOf('\t'))).trimmed();
+        AndroidDeviceInfo dev;
         dev.serialNumber = serialNo;
         dev.sdk = getSDKVersion(dev.serialNumber);
         dev.cpuAbi = getAbis(dev.serialNumber);
+        dev.unauthorized = (deviceType == QLatin1String("unauthorized"));
         devices.push_back(dev);
     }
+
     qSort(devices.begin(), devices.end(), androidDevicesLessThan);
     if (devices.isEmpty() && error)
         *error = tr("No devices found in output of: %1").arg(adbToolPath().toString() + QLatin1String(" devices"));
@@ -547,6 +545,7 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::androidVirtualDevices() const
         // armeabi-v7a devices can also run armeabi code
         if (dev.cpuAbi == QStringList(QLatin1String("armeabi-v7a")))
             dev.cpuAbi << QLatin1String("armeabi");
+        dev.unauthorized = false;
         devices.push_back(dev);
     }
     qSort(devices.begin(), devices.end(), androidDevicesLessThan);
@@ -604,7 +603,7 @@ QString AndroidConfigurations::waitForAvd(int apiLevel, const QString &cpuAbi) c
                 continue;
             if (!device.cpuAbi.contains(cpuAbi))
                 continue;
-            if (!device.sdk == apiLevel)
+            if (device.sdk != apiLevel)
                 continue;
             serialNumber = device.serialNumber;
             // found a serial number, now wait until it's done booting...
@@ -612,11 +611,11 @@ QString AndroidConfigurations::waitForAvd(int apiLevel, const QString &cpuAbi) c
                 if (hasFinishedBooting(serialNumber))
                     return serialNumber;
                 else
-                    sleep(8);
+                    Utils::sleep(8000);
             }
             return QString();
         }
-        sleep(8);
+        Utils::sleep(8000);
     }
     return QString();
 }
@@ -721,7 +720,7 @@ QStringList AndroidConfigurations::makeExtraSearchDirectories() const
     return m_config.makeExtraSearchDirectories;
 }
 
-bool equalKits(Kit *a, Kit *b)
+static bool equalKits(Kit *a, Kit *b)
 {
     return ToolChainKitInformation::toolChain(a) == ToolChainKitInformation::toolChain(b)
             && QtSupport::QtKitInformation::qtVersion(a) == QtSupport::QtKitInformation::qtVersion(b);
@@ -733,7 +732,7 @@ void AndroidConfigurations::updateAutomaticKitList()
     if (AndroidConfigurations::instance().config().automaticKitCreation) {
         // having a empty toolchains list will remove all autodetected kits for android
         // exactly what we want in that case
-        foreach (ProjectExplorer::ToolChain *tc, ProjectExplorer::ToolChainManager::instance()->toolChains()) {
+        foreach (ToolChain *tc, ToolChainManager::toolChains()) {
             if (!tc->isAutoDetected())
                 continue;
             if (tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE))
@@ -744,8 +743,8 @@ void AndroidConfigurations::updateAutomaticKitList()
 
     QList<Kit *> existingKits;
 
-    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::instance()->kits()) {
-        if (ProjectExplorer::DeviceKitInformation::deviceId(k) != Core::Id(Constants::ANDROID_DEVICE_ID))
+    foreach (Kit *k, KitManager::kits()) {
+        if (DeviceKitInformation::deviceId(k) != Core::Id(Constants::ANDROID_DEVICE_ID))
             continue;
         if (!k->isAutoDetected())
             continue;
@@ -755,17 +754,17 @@ void AndroidConfigurations::updateAutomaticKitList()
         existingKits << k;
     }
 
-    QMap<ProjectExplorer::Abi::Architecture, QList<QtSupport::BaseQtVersion *> > qtVersionsForArch;
-    foreach (QtSupport::BaseQtVersion *qtVersion, QtSupport::QtVersionManager::instance()->versions()) {
+    QMap<Abi::Architecture, QList<QtSupport::BaseQtVersion *> > qtVersionsForArch;
+    foreach (QtSupport::BaseQtVersion *qtVersion, QtSupport::QtVersionManager::versions()) {
         if (qtVersion->type() != QLatin1String(Constants::ANDROIDQT))
             continue;
-        QList<ProjectExplorer::Abi> qtAbis = qtVersion->qtAbis();
+        QList<Abi> qtAbis = qtVersion->qtAbis();
         if (qtAbis.empty())
             continue;
         qtVersionsForArch[qtAbis.first().architecture()].append(qtVersion);
     }
 
-    ProjectExplorer::DeviceManager *dm = ProjectExplorer::DeviceManager::instance();
+    DeviceManager *dm = DeviceManager::instance();
     IDevice::ConstPtr device = dm->find(Core::Id(Constants::ANDROID_DEVICE_ID)); // should always exist
 
     // register new kits
@@ -773,17 +772,17 @@ void AndroidConfigurations::updateAutomaticKitList()
     foreach (AndroidToolChain *tc, toolchains) {
         QList<QtSupport::BaseQtVersion *> qtVersions = qtVersionsForArch.value(tc->targetAbi().architecture());
         foreach (QtSupport::BaseQtVersion *qt, qtVersions) {
+            if (tc->secondaryToolChain())
+                continue;
             Kit *newKit = new Kit;
             newKit->setAutoDetected(true);
-            newKit->setIconPath(QLatin1String(Constants::ANDROID_SETTINGS_CATEGORY_ICON));
+            newKit->setIconPath(Utils::FileName::fromString(QLatin1String(Constants::ANDROID_SETTINGS_CATEGORY_ICON)));
             DeviceTypeKitInformation::setDeviceTypeId(newKit, Core::Id(Constants::ANDROID_DEVICE_TYPE));
             ToolChainKitInformation::setToolChain(newKit, tc);
             QtSupport::QtKitInformation::setQtVersion(newKit, qt);
             DeviceKitInformation::setDevice(newKit, device);
-            Debugger::DebuggerKitInformation::DebuggerItem item;
-            item.engineType = Debugger::GdbEngineType;
-            item.binary = tc->suggestedDebugger();
-            Debugger::DebuggerKitInformation::setDebuggerItem(newKit, item);
+            Debugger::DebuggerKitInformation::setDebugger(newKit,
+                Debugger::GdbEngineType, tc->suggestedDebugger());
             AndroidGdbServerKitInformation::setGdbSever(newKit, tc->suggestedGdbServer());
             newKit->makeSticky();
             newKits << newKit;
@@ -797,6 +796,7 @@ void AndroidConfigurations::updateAutomaticKitList()
             if (equalKits(existingKit, newKit)) {
                 // Kit is already registered, nothing to do
                 newKits.removeAt(j);
+                existingKits.at(i)->makeSticky();
                 existingKits.removeAt(i);
                 KitManager::deleteKit(newKit);
                 j = newKits.count();
@@ -804,8 +804,15 @@ void AndroidConfigurations::updateAutomaticKitList()
         }
     }
 
-    foreach (Kit *k, existingKits)
-        KitManager::instance()->deregisterKit(k);
+    foreach (Kit *k, existingKits) {
+        ProjectExplorer::ToolChain *tc = ToolChainKitInformation::toolChain(k);
+        if (tc && tc->type() == QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE)) {
+            k->makeUnSticky();
+            k->setAutoDetected(false);
+        } else {
+            KitManager::deregisterKit(k);
+        }
+    }
 
     foreach (Kit *kit, newKits) {
         AndroidToolChain *tc = static_cast<AndroidToolChain *>(ToolChainKitInformation::toolChain(kit));
@@ -814,7 +821,7 @@ void AndroidConfigurations::updateAutomaticKitList()
                             .arg(qt->targetArch())
                             .arg(tc->ndkToolChainVersion())
                             .arg(qt->qtVersionString()));
-        KitManager::instance()->registerKit(kit);
+        KitManager::registerKit(kit);
     }
 }
 
@@ -859,25 +866,25 @@ void AndroidConfigurations::load()
     m_config = AndroidConfig(*settings);
 
     if (m_config.antLocation.isEmpty()) {
-        Utils::Environment env = Utils::Environment::systemEnvironment();
+        Environment env = Environment::systemEnvironment();
         QString location = env.searchInPath(QLatin1String("ant"));
         QFileInfo fi(location);
         if (fi.exists() && fi.isExecutable() && !fi.isDir()) {
-            m_config.antLocation = Utils::FileName::fromString(location);
+            m_config.antLocation = FileName::fromString(location);
             saveSettings = true;
         }
     }
 
     if (m_config.openJDKLocation.isEmpty()) {
-        Utils::Environment env = Utils::Environment::systemEnvironment();
+        Environment env = Environment::systemEnvironment();
         QString location = env.searchInPath(QLatin1String("javac"));
         QFileInfo fi(location);
         if (fi.exists() && fi.isExecutable() && !fi.isDir()) {
             QDir parentDirectory = fi.canonicalPath();
             parentDirectory.cdUp(); // one up from bin
-            m_config.openJDKLocation = Utils::FileName::fromString(parentDirectory.absolutePath());
+            m_config.openJDKLocation = FileName::fromString(parentDirectory.absolutePath());
             saveSettings = true;
-        } else if (Utils::HostOsInfo::isWindowsHost()) {
+        } else if (HostOsInfo::isWindowsHost()) {
             QSettings settings(QLatin1String("HKEY_LOCAL_MACHINE\\SOFTWARE\\Javasoft\\Java Development Kit"), QSettings::NativeFormat);
             QStringList allVersions = settings.childGroups();
             QString javaHome;
@@ -907,7 +914,7 @@ void AndroidConfigurations::load()
                 }
             }
             if (!javaHome.isEmpty()) {
-                m_config.openJDKLocation = Utils::FileName::fromString(javaHome);
+                m_config.openJDKLocation = FileName::fromString(javaHome);
                 saveSettings = true;
             }
         }
@@ -921,9 +928,9 @@ void AndroidConfigurations::load()
 
 void AndroidConfigurations::updateAndroidDevice()
 {
-    ProjectExplorer::DeviceManager * const devMgr = ProjectExplorer::DeviceManager::instance();
+    DeviceManager * const devMgr = DeviceManager::instance();
     if (adbToolPath().toFileInfo().exists())
-        devMgr->addDevice(ProjectExplorer::IDevice::Ptr(new Internal::AndroidDevice));
+        devMgr->addDevice(IDevice::Ptr(new Internal::AndroidDevice));
     else if (devMgr->find(Constants::ANDROID_DEVICE_ID))
         devMgr->removeDevice(Core::Id(Constants::ANDROID_DEVICE_ID));
 }

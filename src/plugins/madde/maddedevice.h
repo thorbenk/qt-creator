@@ -59,6 +59,7 @@ public:
     static QSize packageManagerIconSize(Core::Id type);
 
     ProjectExplorer::DeviceTester *createDeviceTester() const;
+    ProjectExplorer::DeviceProcess *createProcess(QObject *parent) const;
 
 private:
     MaddeDevice();

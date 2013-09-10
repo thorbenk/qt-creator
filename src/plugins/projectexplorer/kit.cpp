@@ -31,8 +31,12 @@
 
 #include "kitmanager.h"
 #include "ioutputparser.h"
+#include "osparser.h"
+
+#include <utils/fileutils.h>
 
 #include <QApplication>
+#include <QFileInfo>
 #include <QIcon>
 #include <QStyle>
 #include <QTextStream>
@@ -52,22 +56,6 @@ const char ICON_KEY[] = "PE.Profile.Icon";
 } // namespace
 
 namespace ProjectExplorer {
-
-// --------------------------------------------------------------------
-// Helper:
-// --------------------------------------------------------------------
-
-static QString cleanName(const QString &name)
-{
-    QString result = name;
-    result.replace(QRegExp(QLatin1String("\\W")), QLatin1String("_"));
-    result.replace(QRegExp(QLatin1String("_+")), QLatin1String("_")); // compact _
-    result.remove(QRegExp(QLatin1String("^_*"))); // remove leading _
-    result.remove(QRegExp(QLatin1String("_+$"))); // remove trailing _
-    if (result.isEmpty())
-        result = QLatin1String("unknown");
-    return result;
-}
 
 // -------------------------------------------------------------------------
 // KitPrivate
@@ -99,7 +87,7 @@ public:
     bool m_isValid;
     bool m_hasWarning;
     QIcon m_icon;
-    QString m_iconPath;
+    Utils::FileName m_iconPath;
     int m_nestedBlockingLevel;
     bool m_mustNotify;
     bool m_mustNotifyAboutDisplayName;
@@ -117,13 +105,12 @@ public:
 Kit::Kit(Core::Id id) :
     d(new Internal::KitPrivate(id))
 {
-    KitManager *stm = KitManager::instance();
     KitGuard g(this);
-    foreach (KitInformation *sti, stm->kitInformation())
+    foreach (KitInformation *sti, KitManager::kitInformation())
         setValue(sti->dataId(), sti->defaultValue(this));
 
     setDisplayName(QCoreApplication::translate("ProjectExplorer::Kit", "Unnamed"));
-    setIconPath(QLatin1String(":///DESKTOP///"));
+    setIconPath(Utils::FileName::fromString(QLatin1String(":///DESKTOP///")));
 }
 
 Kit::~Kit()
@@ -192,7 +179,7 @@ bool Kit::hasWarning() const
 QList<Task> Kit::validate() const
 {
     QList<Task> result;
-    QList<KitInformation *> infoList = KitManager::instance()->kitInformation();
+    QList<KitInformation *> infoList = KitManager::kitInformation();
     d->m_isValid = true;
     d->m_hasWarning = false;
     foreach (KitInformation *i, infoList) {
@@ -212,7 +199,7 @@ QList<Task> Kit::validate() const
 void Kit::fix()
 {
     KitGuard g(this);
-    foreach (KitInformation *i, KitManager::instance()->kitInformation())
+    foreach (KitInformation *i, KitManager::kitInformation())
         i->fix(this);
 }
 
@@ -221,7 +208,7 @@ void Kit::setup()
     KitGuard g(this);
     // Process the KitInfos in reverse order: They may only be based on other information lower in
     // the stack.
-    QList<KitInformation *> info = KitManager::instance()->kitInformation();
+    QList<KitInformation *> info = KitManager::kitInformation();
     for (int i = info.count() - 1; i >= 0; --i)
         info.at(i)->setup(this);
 }
@@ -254,7 +241,7 @@ QStringList Kit::candidateNameList(const QString &base) const
 {
     QStringList result;
     result << base;
-    foreach (KitInformation *ki, KitManager::instance()->kitInformation()) {
+    foreach (KitInformation *ki, KitManager::kitInformation()) {
         const QString postfix = ki->displayNamePostfix(this);
         if (!postfix.isEmpty())
             result << candidateName(base, postfix);
@@ -264,14 +251,14 @@ QStringList Kit::candidateNameList(const QString &base) const
 
 QString Kit::fileSystemFriendlyName() const
 {
-    QString name = cleanName(displayName());
-    foreach (Kit *i, KitManager::instance()->kits()) {
+    QString name = Utils::FileUtils::fileSystemFriendlyName(displayName());
+    foreach (Kit *i, KitManager::kits()) {
         if (i == this)
             continue;
-        if (name == cleanName(i->displayName())) {
+        if (name == Utils::FileUtils::fileSystemFriendlyName(i->displayName())) {
             // append part of the kit id: That should be unique enough;-)
             // Leading { will be turned into _ which should be fine.
-            name = cleanName(name + QLatin1Char('_') + (id().toString().left(7)));
+            name = Utils::FileUtils::fileSystemFriendlyName(name + QLatin1Char('_') + (id().toString().left(7)));
             break;
         }
     }
@@ -298,22 +285,30 @@ QIcon Kit::icon() const
     return d->m_icon;
 }
 
-QString Kit::iconPath() const
+QIcon Kit::icon(const Utils::FileName &path)
+{
+    if (path.isEmpty())
+        return QIcon();
+    if (path == Utils::FileName::fromString(QLatin1String(":///DESKTOP///")))
+        return qApp->style()->standardIcon(QStyle::SP_ComputerIcon);
+
+    QFileInfo fi(path.toString());
+    if (fi.isFile() && fi.isReadable())
+        return QIcon(path.toString());
+    return QIcon();
+}
+
+Utils::FileName Kit::iconPath() const
 {
     return d->m_iconPath;
 }
 
-void Kit::setIconPath(const QString &path)
+void Kit::setIconPath(const Utils::FileName &path)
 {
     if (d->m_iconPath == path)
         return;
     d->m_iconPath = path;
-    if (path.isNull())
-        d->m_icon = QIcon();
-    else if (path == QLatin1String(":///DESKTOP///"))
-        d->m_icon = qApp->style()->standardIcon(QStyle::SP_ComputerIcon);
-    else
-        d->m_icon = QIcon(path);
+    d->m_icon = icon(path);
     kitUpdated();
 }
 
@@ -370,7 +365,7 @@ QVariantMap Kit::toMap() const
     data.insert(QLatin1String(DISPLAYNAME_KEY), d->m_displayName);
     data.insert(QLatin1String(AUTODETECTED_KEY), d->m_autodetected);
     data.insert(QLatin1String(SDK_PROVIDED_KEY), d->m_sdkProvided);
-    data.insert(QLatin1String(ICON_KEY), d->m_iconPath);
+    data.insert(QLatin1String(ICON_KEY), d->m_iconPath.toString());
 
     QVariantMap extra;
 
@@ -384,22 +379,17 @@ QVariantMap Kit::toMap() const
 
 void Kit::addToEnvironment(Utils::Environment &env) const
 {
-    QList<KitInformation *> infoList = KitManager::instance()->kitInformation();
+    QList<KitInformation *> infoList = KitManager::kitInformation();
     foreach (KitInformation *ki, infoList)
         ki->addToEnvironment(this, env);
 }
 
 IOutputParser *Kit::createOutputParser() const
 {
-    IOutputParser *first = 0;
-    QList<KitInformation *> infoList = KitManager::instance()->kitInformation();
-    foreach (KitInformation *ki, infoList) {
-        IOutputParser *next = ki->createOutputParser(this);
-        if (!first)
-            first = next;
-        else
-            first->appendOutputParser(next);
-    }
+    IOutputParser *first = new OsParser;
+    QList<KitInformation *> infoList = KitManager::kitInformation();
+    foreach (KitInformation *ki, infoList)
+        first->appendOutputParser(ki->createOutputParser(this));
     return first;
 }
 
@@ -432,7 +422,7 @@ QString Kit::toHtml() const
         str << "</p>";
     }
 
-    QList<KitInformation *> infoList = KitManager::instance()->kitInformation();
+    QList<KitInformation *> infoList = KitManager::kitInformation();
     foreach (KitInformation *ki, infoList) {
         KitInformation::ItemList list = ki->toUserOutput(this);
         foreach (const KitInformation::Item &j, list)
@@ -457,7 +447,7 @@ bool Kit::fromMap(const QVariantMap &data)
     else
         d->m_sdkProvided = d->m_autodetected;
     setDisplayName(data.value(QLatin1String(DISPLAYNAME_KEY)).toString());
-    setIconPath(data.value(QLatin1String(ICON_KEY)).toString());
+    setIconPath(Utils::FileName::fromString(data.value(QLatin1String(ICON_KEY)).toString()));
 
     QVariantMap extra = data.value(QLatin1String(DATA_KEY)).toMap();
     d->m_data.clear(); // remove default values
@@ -480,15 +470,23 @@ void Kit::setSdkProvided(bool sdkProvided)
 
 void Kit::makeSticky()
 {
-    foreach (KitInformation *ki, KitManager::instance()->kitInformation()) {
+    foreach (KitInformation *ki, KitManager::kitInformation()) {
         if (hasValue(ki->dataId()))
-            makeSticky(ki->dataId());
+            setSticky(ki->dataId(), true);
     }
 }
 
-void Kit::makeSticky(Core::Id id)
+void Kit::setSticky(Core::Id id, bool b)
 {
-    d->m_sticky.insert(id);
+    if (b)
+        d->m_sticky.insert(id);
+    else
+        d->m_sticky.remove(id);
+}
+
+void Kit::makeUnSticky()
+{
+    d->m_sticky.clear();
 }
 
 void Kit::kitUpdated()
@@ -498,7 +496,7 @@ void Kit::kitUpdated()
         return;
     }
     validate();
-    KitManager::instance()->notifyAboutUpdate(this);
+    KitManager::notifyAboutUpdate(this);
 }
 
 void Kit::kitDisplayNameChanged()
@@ -509,7 +507,7 @@ void Kit::kitDisplayNameChanged()
         return;
     }
     validate();
-    KitManager::instance()->notifyAboutDisplayNameChange(this);
+    KitManager::notifyAboutDisplayNameChange(this);
 }
 
 } // namespace ProjectExplorer

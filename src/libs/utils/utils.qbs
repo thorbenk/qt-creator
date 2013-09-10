@@ -25,6 +25,8 @@ QtcLibrary {
     files: [
         "annotateditemdelegate.cpp",
         "annotateditemdelegate.h",
+        "ansiescapecodehandler.cpp",
+        "ansiescapecodehandler.h",
         "appmainwindow.cpp",
         "appmainwindow.h",
         "basetreeview.cpp",
@@ -87,6 +89,8 @@ QtcLibrary {
         "filterlineedit.h",
         "flowlayout.cpp",
         "flowlayout.h",
+        "function.cpp",
+        "function.h",
         "historycompleter.cpp",
         "historycompleter.h",
         "hostosinfo.h",
@@ -147,6 +151,8 @@ QtcLibrary {
         "settingsselector.cpp",
         "settingsselector.h",
         "settingsutils.h",
+        "sleep.cpp",
+        "sleep.h",
         "statuslabel.cpp",
         "statuslabel.h",
         "stringutils.cpp",
@@ -215,7 +221,6 @@ QtcLibrary {
     }
 
     Export {
-        cpp.includePaths: [ ".." ]
         Depends { name: "Qt"; submodules: ["concurrent", "widgets" ] }
     }
 }

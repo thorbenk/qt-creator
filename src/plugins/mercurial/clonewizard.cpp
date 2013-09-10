@@ -33,7 +33,7 @@
 #include "mercurialsettings.h"
 
 #include <coreplugin/iversioncontrol.h>
-#include <vcsbase/checkoutjobs.h>
+#include <vcsbase/command.h>
 #include <vcsbase/vcsbaseconstants.h>
 #include <vcsbase/vcsconfigurationpage.h>
 
@@ -45,6 +45,7 @@ CloneWizard::CloneWizard(QObject *parent)
     m_icon(QIcon(QLatin1String(":/mercurial/images/hg.png")))
 {
     setId(QLatin1String(Constants::VCS_ID_MERCURIAL));
+    setCustomLabels(tr("Cloning"), tr("Cloning started..."));
 }
 
 QIcon CloneWizard::icon() const
@@ -74,13 +75,13 @@ QList<QWizardPage *> CloneWizard::createParameterPages(const QString &path)
     return wizardPageList;
 }
 
-QSharedPointer<AbstractCheckoutJob> CloneWizard::createJob(const QList<QWizardPage *> &parameterPages,
-                                                           QString *checkoutPath)
+Command *CloneWizard::createCommand(const QList<QWizardPage *> &parameterPages,
+                                    QString *checkoutPath)
 {
     const CloneWizardPage *page = qobject_cast<const CloneWizardPage *>(parameterPages.front());
 
     if (!page)
-        return QSharedPointer<AbstractCheckoutJob>();
+        return 0;
 
     const MercurialSettings &settings = MercurialPlugin::settings();
 
@@ -90,7 +91,8 @@ QSharedPointer<AbstractCheckoutJob> CloneWizard::createJob(const QList<QWizardPa
     QStringList args;
     args << QLatin1String("clone") << page->repository() << directory;
     *checkoutPath = path + QLatin1Char('/') + directory;
-    ProcessCheckoutJob *job = new ProcessCheckoutJob;
-    job->addStep(settings.binaryPath(), args, path);
-    return QSharedPointer<AbstractCheckoutJob>(job);
+    VcsBase::Command *command = new VcsBase::Command(settings.binaryPath(), path,
+                                                     QProcessEnvironment::systemEnvironment());
+    command->addJob(args, -1);
+    return command;
 }

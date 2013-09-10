@@ -44,7 +44,7 @@ using namespace TextEditor::Internal;
 FindInCurrentFile::FindInCurrentFile()
   : m_currentDocument(0)
 {
-    connect(Core::ICore::editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(currentEditorChanged(Core::IEditor*)),
             this, SLOT(handleFileChange(Core::IEditor*)));
     handleFileChange(Core::EditorManager::currentEditor());
 }
@@ -67,7 +67,7 @@ Utils::FileIterator *FindInCurrentFile::files(const QStringList &nameFilters,
     QMap<QString, QTextCodec *> openEditorEncodings = ITextEditor::openedTextDocumentEncodings();
     QTextCodec *codec = openEditorEncodings.value(fileName);
     if (!codec)
-        codec = Core::EditorManager::instance()->defaultTextCodec();
+        codec = Core::EditorManager::defaultTextCodec();
     return new Utils::FileIterator(QStringList() << fileName, QList<QTextCodec *>() << codec);
 }
 

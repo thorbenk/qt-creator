@@ -12,10 +12,6 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 include(../../qtcreatorplugin.pri)
 include(../../shared/scriptwrapper/scriptwrapper.pri)
 win32-msvc*:QMAKE_CXXFLAGS += -wd4251 -wd4290 -wd4250
-INCLUDEPATH += dialogs \
-    actionmanager \
-    editormanager \
-    progressmanager
 SOURCES += mainwindow.cpp \
     editmode.cpp \
     tabpositionindicator.cpp \
@@ -238,3 +234,8 @@ else:unix {
     }
 }
 OTHER_FILES += editormanager/BinFiles.mimetypes.xml
+
+equals(TEST, 1) {
+    SOURCES += testdatadir.cpp
+    HEADERS += testdatadir.h
+}

@@ -107,10 +107,9 @@ QString GitEditor::changeUnderCursor(const QTextCursor &c) const
     return QString();
 }
 
-VcsBase::BaseAnnotationHighlighter *GitEditor::createAnnotationHighlighter(const QSet<QString> &changes,
-                                                                           const QColor &bg) const
+VcsBase::BaseAnnotationHighlighter *GitEditor::createAnnotationHighlighter(const QSet<QString> &changes) const
 {
-    return new GitAnnotationHighlighter(changes, bg);
+    return new GitAnnotationHighlighter(changes);
 }
 
 /* Remove the date specification from annotation, which is tabular:
@@ -184,18 +183,12 @@ void GitEditor::setPlainTextFiltered(const QString &text)
         break;
     }
     case VcsBase::DiffOutput: {
-        if (modText.isEmpty())
+        if (modText.isEmpty()) {
             modText = QLatin1String("No difference to HEAD");
-        const QFileInfo fi(source());
-        const QString workingDirectory = fi.isDir() ? fi.absoluteFilePath() : fi.absolutePath();
-        QString precedes, follows;
-        if (modText.startsWith(QLatin1String("commit "))) { // show
-            int lastHeaderLine = modText.indexOf(QLatin1String("\n\n")) + 1;
-            plugin->gitClient()->synchronousTagsForCommit(workingDirectory, modText.mid(7, 8), precedes, follows);
-            if (!precedes.isEmpty())
-                modText.insert(lastHeaderLine, QLatin1String("Precedes: ") + precedes + QLatin1Char('\n'));
-            if (!follows.isEmpty())
-                modText.insert(lastHeaderLine, QLatin1String("Follows: ") + follows + QLatin1Char('\n'));
+        } else {
+            const QFileInfo fi(source());
+            const QString workingDirectory = fi.isDir() ? fi.absoluteFilePath() : fi.absolutePath();
+            modText = plugin->gitClient()->extendedShowDescription(workingDirectory, modText);
         }
         break;
     }

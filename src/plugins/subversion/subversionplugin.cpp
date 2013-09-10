@@ -248,7 +248,7 @@ bool SubversionPlugin::initialize(const QStringList & /*arguments */, QString *e
 
     m_subversionPluginInstance = this;
 
-    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/trolltech.subversion/Subversion.mimetypes.xml"), errorMessage))
+    if (!Core::MimeDatabase::addMimeTypes(QLatin1String(":/trolltech.subversion/Subversion.mimetypes.xml"), errorMessage))
         return false;
 
     m_settings.readSettings(Core::ICore::settings());
@@ -1074,7 +1074,7 @@ void SubversionPlugin::slotDescribe()
 void SubversionPlugin::submitCurrentLog()
 {
     m_submitActionTriggered = true;
-    Core::EditorManager::instance()->closeEditors(QList<Core::IEditor*>()
+    Core::EditorManager::closeEditors(QList<Core::IEditor*>()
         << Core::EditorManager::currentEditor());
 }
 
@@ -1120,7 +1120,7 @@ SubversionPlugin::Version SubversionPlugin::svnVersion()
         args << QLatin1String("--version") << QLatin1String("-q");
         const Utils::SynchronousProcessResponse response =
                 VcsBase::VcsBasePlugin::runVcs(QDir().absolutePath(), m_settings.binaryPath(),
-                                               args, m_settings.timeOutMs(), 0);
+                                               args, m_settings.timeOutMs());
         if (response.result == Utils::SynchronousProcessResponse::Finished &&
                 response.exitCode == 0) {
             m_svnVersionBinary = m_settings.binaryPath();
@@ -1154,8 +1154,8 @@ SubversionResponse SubversionPlugin::runSvn(const QString &workingDir,
 
     const QStringList completeArguments = SubversionPlugin::addAuthenticationOptions(arguments, userName, password);
     const Utils::SynchronousProcessResponse sp_resp =
-            VcsBase::VcsBasePlugin::runVcs(workingDir, executable,
-                                           completeArguments, timeOut, flags, outputCodec);
+            VcsBase::VcsBasePlugin::runVcs(workingDir, executable, completeArguments, timeOut,
+                                           flags, outputCodec);
 
     response.error = sp_resp.result != Utils::SynchronousProcessResponse::Finished;
     if (response.error)

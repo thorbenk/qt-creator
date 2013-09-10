@@ -29,28 +29,29 @@
 
 #include "cdbengine.h"
 
-#include "breakhandler.h"
 #include "bytearrayinputstream.h"
 #include "cdboptionspage.h"
 #include "cdbparsehelpers.h"
-#include "debuggeractions.h"
-#include "debuggercore.h"
-#include "debuggerprotocol.h"
-#include "debuggermainwindow.h"
-#include "debuggerstartparameters.h"
-#include "debuggertooltipmanager.h"
-#include "disassembleragent.h"
-#include "disassemblerlines.h"
-#include "memoryagent.h"
-#include "moduleshandler.h"
-#include "registerhandler.h"
-#include "stackhandler.h"
-#include "threadshandler.h"
-#include "watchhandler.h"
-#include "shared/cdbsymbolpathlisteditor.h"
-#include "shared/hostutils.h"
-#include "procinterrupt.h"
-#include "sourceutils.h"
+
+#include <debugger/breakhandler.h>
+#include <debugger/debuggeractions.h>
+#include <debugger/debuggercore.h>
+#include <debugger/debuggerprotocol.h>
+#include <debugger/debuggermainwindow.h>
+#include <debugger/debuggerstartparameters.h>
+#include <debugger/debuggertooltipmanager.h>
+#include <debugger/disassembleragent.h>
+#include <debugger/disassemblerlines.h>
+#include <debugger/memoryagent.h>
+#include <debugger/moduleshandler.h>
+#include <debugger/registerhandler.h>
+#include <debugger/stackhandler.h>
+#include <debugger/threadshandler.h>
+#include <debugger/watchhandler.h>
+#include <debugger/procinterrupt.h>
+#include <debugger/sourceutils.h>
+#include <debugger/shared/cdbsymbolpathlisteditor.h>
+#include <debugger/shared/hostutils.h>
 
 #include <coreplugin/icore.h>
 #include <projectexplorer/taskhub.h>
@@ -150,6 +151,7 @@ enum HandleLocalsFlags
 */
 
 using namespace ProjectExplorer;
+using namespace Utils;
 
 namespace Debugger {
 namespace Internal {
@@ -315,7 +317,7 @@ static inline bool validMode(DebuggerStartMode sm)
 // Accessed by RunControlFactory
 DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp, QString *errorMessage)
 {
-    if (Utils::HostOsInfo::isWindowsHost()) {
+    if (HostOsInfo::isWindowsHost()) {
         if (validMode(sp.startMode))
             return new CdbEngine(sp);
         *errorMessage = QLatin1String("Internal error: Invalid start parameters passed for thee CDB engine.");
@@ -327,7 +329,7 @@ DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp, QString *erro
 
 void addCdbOptionPages(QList<Core::IOptionsPage *> *opts)
 {
-    if (Utils::HostOsInfo::isWindowsHost()) {
+    if (HostOsInfo::isWindowsHost()) {
         opts->push_back(new CdbOptionsPage);
         opts->push_back(new CdbPathsPage);
     }
@@ -413,7 +415,7 @@ void CdbEngine::init()
     }
     // update source path maps from debugger start params
     mergeStartParametersSourcePathMap();
-    QTC_ASSERT(m_process.state() != QProcess::Running, Utils::SynchronousProcess::stopProcess(m_process));
+    QTC_ASSERT(m_process.state() != QProcess::Running, SynchronousProcess::stopProcess(m_process));
 }
 
 CdbEngine::~CdbEngine()
@@ -538,8 +540,8 @@ bool CdbEngine::startConsole(const DebuggerStartParameters &sp, QString *errorMe
 {
     if (debug)
         qDebug("startConsole %s", qPrintable(sp.executable));
-    m_consoleStub.reset(new Utils::ConsoleProcess);
-    m_consoleStub->setMode(Utils::ConsoleProcess::Suspend);
+    m_consoleStub.reset(new ConsoleProcess);
+    m_consoleStub->setMode(ConsoleProcess::Suspend);
     connect(m_consoleStub.data(), SIGNAL(processError(QString)),
             SLOT(consoleStubError(QString)));
     connect(m_consoleStub.data(), SIGNAL(processStarted()),
@@ -701,8 +703,7 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
     case StartExternal:
         if (!nativeArguments.isEmpty())
             nativeArguments.push_back(blank);
-        Utils::QtcProcess::addArgs(&nativeArguments,
-                                   QStringList(QDir::toNativeSeparators(sp.executable)));
+        QtcProcess::addArgs(&nativeArguments, QStringList(QDir::toNativeSeparators(sp.executable)));
         break;
     case AttachToRemoteServer:
         break;
@@ -941,7 +942,7 @@ void CdbEngine::shutdownEngine()
     } else {
         // Remote process. No can do, currently
         m_notifyEngineShutdownOnTermination = true;
-        Utils::SynchronousProcess::stopProcess(m_process);
+        SynchronousProcess::stopProcess(m_process);
         return;
     }
     // Lost debuggee, debugger should quit anytime now
@@ -1156,19 +1157,20 @@ void CdbEngine::interruptInferior()
     if (debug)
         qDebug() << "CdbEngine::interruptInferior()" << stateName(state());
 
-    bool ok = false;
-    if (!canInterruptInferior())
+    if (!canInterruptInferior()) {
+        // Restore running state if inferior can't be stoped.
         showMessage(tr("Interrupting is not possible in remote sessions."), LogError);
-    else
-        ok = doInterruptInferior(NoSpecialStop);
-    // Restore running state if stop failed.
-    if (!ok) {
         STATE_DEBUG(state(), Q_FUNC_INFO, __LINE__, "notifyInferiorStopOk")
         notifyInferiorStopOk();
         STATE_DEBUG(state(), Q_FUNC_INFO, __LINE__, "notifyInferiorRunRequested")
         notifyInferiorRunRequested();
         STATE_DEBUG(state(), Q_FUNC_INFO, __LINE__, "notifyInferiorRunOk")
         notifyInferiorRunOk();
+        return;
+    }
+    if (!doInterruptInferior(NoSpecialStop)) {
+        STATE_DEBUG(state(), Q_FUNC_INFO, __LINE__, "notifyInferiorStopFailed")
+        notifyInferiorStopFailed();
     }
 }
 
@@ -2469,13 +2471,12 @@ void CdbEngine::handleExtensionMessage(char t, int token, const QByteArray &what
                 && exception.exceptionCode != winExceptionSetThreadName) {
             const Task::TaskType type =
                     isFatalWinException(exception.exceptionCode) ? Task::Error : Task::Warning;
-            const Utils::FileName fileName = exception.file.isEmpty() ?
-                        Utils::FileName() :
-                        Utils::FileName::fromUserInput(QString::fromLocal8Bit(exception.file));
-            const Task task(type, exception.toString(false).trimmed(),
-                            fileName, exception.lineNumber,
-                            Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME));
-            TaskHub::addTask(task);
+            const FileName fileName = exception.file.isEmpty() ?
+                        FileName() :
+                        FileName::fromUserInput(QString::fromLocal8Bit(exception.file));
+            TaskHub::addTask(type, exception.toString(false).trimmed(),
+                             Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME,
+                             fileName, exception.lineNumber);
         }
         return;
     }
@@ -2705,7 +2706,7 @@ static CPlusPlus::Document::Ptr getParsedDocument(const QString &fileName,
     if (workingCopy.contains(fileName)) {
         src = workingCopy.source(fileName);
     } else {
-        Utils::FileReader reader;
+        FileReader reader;
         if (reader.fetch(fileName)) // ### FIXME error reporting
             src = QString::fromLocal8Bit(reader.data()); // ### FIXME encoding
     }

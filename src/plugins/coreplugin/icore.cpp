@@ -96,48 +96,11 @@
 
 
 /*!
-    \fn ActionManager *ICore::actionManager()
-    \obsolete
-
-    Use Core::ActionManager directly.
-*/
-
-/*!
-    \fn DocumentManager *ICore::documentManager()
-    \obsolete
-
-    Use Core::DocumentManager directly.
-*/
-
-/*!
-    \fn MessageManager *ICore::messageManager()
-    \obsolete
-
-    Use Core::MessageManager directly.
-*/
-
-/*!
-    \fn EditorManager *ICore::editorManager()
-    \brief Returns the application's editor manager.
-
-    The editor manager handles all editor related tasks like opening
-    documents, the stack of currently open documents and the currently
-    active document.
-*/
-
-/*!
     \fn ProgressManager *ICore::progressManager()
     \brief Returns the application's progress manager.
 
     Use the progress manager to register a concurrent task to
     show a progress bar the way Qt Creator does it.
-*/
-
-/*!
-    \fn VariableManager *ICore::variableManager()
-    \obsolete
-
-    Use \c VariableManager::variableManager() directly.
 */
 
 /*!
@@ -149,27 +112,6 @@
     The actual functionality for a specific version control system
     must be implemented in a IVersionControl object and registered in
     the plugin manager's object pool.
-*/
-
-/*!
-    \fn ModeManager *ICore::modeManager()
-    \obsolete
-
-    Use \c ModeManager::modeManager() directly.
-*/
-
-/*!
-    \fn MimeDatabase *ICore::mimeDatabase()
-    \brief Returns the application's mime database.
-
-    Use the mime database to manage mime types.
-*/
-
-/*!
-    \fn HelpManager *ICore::helpManager()
-    \brief Returns the application's help manager.
-
-    Use the help manager to register documentation sets.
 */
 
 /*!
@@ -407,56 +349,6 @@ bool ICore::showWarningWithOptions(const QString &title, const QString &text,
                                                 settingsId, parent);
 }
 
-ActionManager *ICore::actionManager()
-{
-    return m_mainwindow->actionManager();
-}
-
-DocumentManager *ICore::documentManager()
-{
-    return DocumentManager::instance();
-}
-
-MessageManager *ICore::messageManager()
-{
-    return m_mainwindow->messageManager();
-}
-
-EditorManager *ICore::editorManager()
-{
-    return m_mainwindow->editorManager();
-}
-
-ProgressManager *ICore::progressManager()
-{
-    return m_mainwindow->progressManager();
-}
-
-VariableManager *ICore::variableManager()
-{
-    return m_mainwindow->variableManager();
-}
-
-VcsManager *ICore::vcsManager()
-{
-    return m_mainwindow->vcsManager();
-}
-
-ModeManager *ICore::modeManager()
-{
-    return m_mainwindow->modeManager();
-}
-
-MimeDatabase *ICore::mimeDatabase()
-{
-    return m_mainwindow->mimeDatabase();
-}
-
-HelpManager *ICore::helpManager()
-{
-    return m_mainwindow->helpManager();
-}
-
 QSettings *ICore::settings(QSettings::Scope scope)
 {
     return m_mainwindow->settings(scope);
@@ -549,11 +441,6 @@ IContext *ICore::currentContextObject()
 
 
 QWidget *ICore::mainWindow()
-{
-    return m_mainwindow;
-}
-
-Utils::AppMainWindow *ICore::appMainWindow()
 {
     return m_mainwindow;
 }

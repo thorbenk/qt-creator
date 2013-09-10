@@ -85,6 +85,9 @@ public:
     bool instanceIsInLayoutable() const;
     bool instanceHasRotationTransform() const;
 
+    bool modelIsMovable() const;
+    bool modelIsResizable() const;
+
     QRectF instanceBoundingRect() const;
     QRectF instancePaintedBoundingRect() const;
     QRectF instanceContentItemBoundingRect() const;

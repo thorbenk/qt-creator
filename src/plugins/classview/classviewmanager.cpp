@@ -38,7 +38,6 @@
 #include <projectexplorer/session.h>
 #include <cpptools/cppmodelmanagerinterface.h>
 #include <cpptools/cpptoolsconstants.h>
-#include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
@@ -47,6 +46,8 @@
 #include <QThread>
 #include <QMutex>
 #include <QMutexLocker>
+
+using namespace Core;
 
 namespace ClassView {
 namespace Internal {
@@ -226,18 +227,17 @@ void Manager::initialize()
     connect(this, SIGNAL(stateChanged(bool)), SLOT(onStateChanged(bool)), Qt::QueuedConnection);
 
     // connections to enable/disable navi widget factory
-    ProjectExplorer::SessionManager *sessionManager =
-        ProjectExplorer::ProjectExplorerPlugin::instance()->session();
+    QObject *sessionManager = ProjectExplorer::SessionManager::instance();
     connect(sessionManager, SIGNAL(projectAdded(ProjectExplorer::Project*)),
             SLOT(onProjectListChanged()), Qt::QueuedConnection);
     connect(sessionManager, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
             SLOT(onProjectListChanged()), Qt::QueuedConnection);
 
     // connect to the progress manager for signals about Parsing tasks
-    connect(Core::ICore::progressManager(), SIGNAL(taskStarted(QString)),
-            SLOT(onTaskStarted(QString)), Qt::QueuedConnection);
-    connect(Core::ICore::progressManager(), SIGNAL(allTasksFinished(QString)),
-            SLOT(onAllTasksFinished(QString)), Qt::QueuedConnection);
+    connect(ProgressManager::instance(), SIGNAL(taskStarted(Core::Id)),
+            SLOT(onTaskStarted(Core::Id)), Qt::QueuedConnection);
+    connect(ProgressManager::instance(), SIGNAL(allTasksFinished(Core::Id)),
+            SLOT(onAllTasksFinished(Core::Id)), Qt::QueuedConnection);
 
     // when we signals that really document is updated - sent it to the parser
     connect(this, SIGNAL(requestDocumentUpdated(CPlusPlus::Document::Ptr)),
@@ -378,9 +378,9 @@ void Manager::onProjectListChanged()
    \sa CppTools::Constants::TASK_INDEX
 */
 
-void Manager::onTaskStarted(const QString &type)
+void Manager::onTaskStarted(Core::Id type)
 {
-    if (type != QLatin1String(CppTools::Constants::TASK_INDEX))
+    if (type != CppTools::Constants::TASK_INDEX)
         return;
 
     // disable tree updates to speed up
@@ -394,9 +394,9 @@ void Manager::onTaskStarted(const QString &type)
    \sa CppTools::Constants::TASK_INDEX
 */
 
-void Manager::onAllTasksFinished(const QString &type)
+void Manager::onAllTasksFinished(Core::Id type)
 {
-    if (type != QLatin1String(CppTools::Constants::TASK_INDEX))
+    if (type != CppTools::Constants::TASK_INDEX)
         return;
 
     // parsing is finished, enable tree updates
@@ -440,7 +440,7 @@ void Manager::onDocumentUpdated(CPlusPlus::Document::Ptr doc)
 
 void Manager::gotoLocation(const QString &fileName, int line, int column)
 {
-    Core::EditorManager::openEditorAt(fileName, line, column);
+    EditorManager::openEditorAt(fileName, line, column);
 }
 
 /*!
@@ -462,9 +462,9 @@ void Manager::gotoLocations(const QList<QVariant> &list)
     bool currentPositionAvailable = false;
 
     // what is open now?
-    if (Core::IEditor *editor = Core::EditorManager::currentEditor()) {
+    if (IEditor *editor = EditorManager::currentEditor()) {
         // get current file name
-        if (Core::IDocument *document = editor->document())
+        if (IDocument *document = editor->document())
             fileName = document->filePath();
 
         // if text file - what is current position?

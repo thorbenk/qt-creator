@@ -29,7 +29,6 @@
 
 #include "basecheckoutwizard.h"
 #include "checkoutwizarddialog.h"
-#include "checkoutjobs.h"
 
 #include <coreplugin/featureprovider.h>
 
@@ -73,6 +72,8 @@ public:
     QList<QWizardPage *> parameterPages;
     QString checkoutPath;
     QString id;
+    QString progressTitle;
+    QString startedStatus;
 };
 
 void BaseCheckoutWizardPrivate::clear()
@@ -131,6 +132,10 @@ void BaseCheckoutWizard::runWizard(const QString &path, QWidget *parent, const Q
     // Create dialog and launch
     d->parameterPages = createParameterPages(path);
     Internal::CheckoutWizardDialog dialog(d->parameterPages, parent);
+    if (!d->progressTitle.isEmpty())
+        dialog.setTitle(d->progressTitle);
+    if (!d->startedStatus.isEmpty())
+        dialog.setStartedStatus(d->startedStatus);
     d->dialog = &dialog;
     connect(&dialog, SIGNAL(progressPageShown()), this, SLOT(slotProgressPageShown()));
     dialog.setWindowTitle(displayName());
@@ -184,7 +189,7 @@ static QFileInfoList findProjectFiles(const QDir &projectDir, QString *errorMess
         *errorMessage = msgNoProjectFiles(srcDir, projectFilePatterns);
         return QFileInfoList();
     }
-    return projectFiles;;
+    return projectFiles;
 }
 
 QString BaseCheckoutWizard::openProject(const QString &path, QString *errorMessage)
@@ -213,10 +218,16 @@ QString BaseCheckoutWizard::openProject(const QString &path, QString *errorMessa
     return projectFile;
 }
 
+void BaseCheckoutWizard::setCustomLabels(const QString &progressTitle, const QString &startedStatus)
+{
+    d->progressTitle = progressTitle;
+    d->startedStatus = startedStatus;
+}
+
 void BaseCheckoutWizard::slotProgressPageShown()
 {
-    const QSharedPointer<AbstractCheckoutJob> job = createJob(d->parameterPages, &(d->checkoutPath));
-    d->dialog->start(job);
+    Command *command = createCommand(d->parameterPages, &(d->checkoutPath));
+    d->dialog->start(command);
 }
 
 } // namespace VcsBase

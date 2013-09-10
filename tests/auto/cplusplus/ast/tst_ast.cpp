@@ -94,6 +94,7 @@ public:
 
 private slots:
     void initTestCase();
+    void cleanup();
 
     // line/column positions
     void line_and_column_1();
@@ -162,6 +163,7 @@ private slots:
     void objc_try_statement_1();
     void objc_try_statement_2();
     void objc_try_statement_3();
+    void objc_throw_statement();
 
     // expressions with (square) brackets
     void normal_array_access();
@@ -1437,6 +1439,22 @@ void tst_AST::objc_try_statement_3()
     QCOMPARE(diag.errorCount, 0);
 }
 
+void tst_AST::objc_throw_statement()
+{
+    QSharedPointer<TranslationUnit> unit(
+                parseDeclaration(
+                    "void tst() {\n"
+                    "    NSException *up = [NSException exceptionWithName:@\"NoException\"\n"
+                    "                                              reason:@\"No Reason :-)\"\n"
+                    "                                            userInfo:nil];\n"
+                    "    @throw up;\n"
+                    "}\n"
+                    ));
+    AST *ast = unit->ast();
+    QVERIFY(ast);
+    QCOMPARE(diag.errorCount, 0);
+}
+
 void tst_AST::normal_array_access()
 {
     QSharedPointer<TranslationUnit> unit(parseDeclaration("\n"
@@ -1668,6 +1686,11 @@ void tst_AST::q_enum_1()
 void tst_AST::initTestCase()
 {
     control.setDiagnosticClient(&diag);
+}
+
+void tst_AST::cleanup()
+{
+    diag.errorCount = 0;
 }
 
 void tst_AST::line_and_column_1()

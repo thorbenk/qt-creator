@@ -1,8 +1,11 @@
 include(../../qtcreatorplugin.pri)
 
-# Look for qbs in the environment (again)
-QBS_SOURCE_DIR = $$PWD/../../shared/qbs
-QBS_BUILD_DIR = $$IDE_BUILD_TREE/src/shared/qbs
+# Look for qbs in the environment
+isEmpty(QBS_SOURCE_DIR): QBS_SOURCE_DIR = $$(QBS_SOURCE_DIR)
+isEmpty(QBS_BUILD_DIR): QBS_BUILD_DIR = $$(QBS_BUILD_DIR)
+# Fallback to the submodule
+isEmpty(QBS_SOURCE_DIR): QBS_SOURCE_DIR = $$PWD/../../shared/qbs
+isEmpty(QBS_BUILD_DIR): QBS_BUILD_DIR = $$IDE_BUILD_TREE/src/shared/qbs
 
 include($$QBS_SOURCE_DIR/src/lib/use.pri)
 # Mac: fix rpath for qbscore soname
@@ -33,7 +36,8 @@ HEADERS = \
     qbsprojectmanagerplugin.h \
     qbspropertylineedit.h \
     qbsrunconfiguration.h \
-    qbsstep.h
+    qbsstep.h \
+    qbsconstants.h
 
 SOURCES = \
     defaultpropertyprovider.cpp \

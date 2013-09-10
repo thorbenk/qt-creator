@@ -29,7 +29,6 @@
 
 #include "checkoutwizarddialog.h"
 #include "basecheckoutwizard.h"
-#include "checkoutjobs.h"
 #include "checkoutprogresswizardpage.h"
 
 #include <coreplugin/basefilewizard.h>
@@ -62,6 +61,16 @@ CheckoutWizardDialog::CheckoutWizardDialog(const QList<QWizardPage *> &parameter
     Core::BaseFileWizard::setupWizard(this);
 }
 
+void CheckoutWizardDialog::setTitle(const QString &title)
+{
+    m_progressPage->setTitle(title);
+}
+
+void CheckoutWizardDialog::setStartedStatus(const QString &title)
+{
+    m_progressPage->setStartedStatus(title);
+}
+
 void CheckoutWizardDialog::slotPageChanged(int id)
 {
     if (id == m_progressPageId)
@@ -75,11 +84,11 @@ void CheckoutWizardDialog::slotTerminated(bool success)
         button(QWizard::BackButton)->setEnabled(true);
 }
 
-void CheckoutWizardDialog::start(const QSharedPointer<AbstractCheckoutJob> &job)
+void CheckoutWizardDialog::start(Command *command)
 {
     // No "back" available while running.
     button(QWizard::BackButton)->setEnabled(false);
-    m_progressPage->start(job);
+    m_progressPage->start(command);
 }
 
 void CheckoutWizardDialog::reject()

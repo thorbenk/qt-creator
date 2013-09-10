@@ -389,6 +389,18 @@ bool QmlItemNode::instanceHasRotationTransform() const
     return nodeInstance().transform().type() > QTransform::TxScale;
 }
 
+bool QmlItemNode::modelIsMovable() const
+{
+    return !modelNode().hasBindingProperty("x")
+            && !modelNode().hasBindingProperty("y");
+}
+
+bool QmlItemNode::modelIsResizable() const
+{
+    return !modelNode().hasBindingProperty("width")
+            && !modelNode().hasBindingProperty("height");
+}
+
 QRectF  QmlItemNode::instanceBoundingRect() const
 {
     return QRectF(QPointF(0, 0), nodeInstance().size());

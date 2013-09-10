@@ -74,6 +74,7 @@ public:
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const;
     virtual QFuture<void> updateProjectInfo(const ProjectInfo &newProjectInfo);
     virtual QList<CppTools::ProjectPart::Ptr> projectPart(const QString &fileName) const;
+    virtual ProjectPart::Ptr fallbackProjectPart() const;
 
     virtual CPlusPlus::Snapshot snapshot() const;
     virtual Document::Ptr document(const QString &fileName) const;
@@ -104,11 +105,10 @@ public:
 
     void finishedRefreshingSourceFiles(const QStringList &files);
 
-    virtual CppCompletionSupport *completionSupport(Core::IEditor *editor) const;
-    virtual void setCppCompletionAssistProvider(CppCompletionAssistProvider *completionAssistProvider);
-
+    virtual void addModelManagerSupport(ModelManagerSupport *codeModelSupport);
+    virtual ModelManagerSupport *modelManagerSupportForMimeType(const QString &mimeType) const;
+    virtual CppCompletionAssistProvider *completionAssistProvider(Core::IEditor *editor) const;
     virtual CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const;
-    virtual void setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory);
 
     virtual void setIndexingSupport(CppIndexingSupport *indexingSupport);
     virtual CppIndexingSupport *indexingSupport();
@@ -201,13 +201,10 @@ private:
     QMap<TextEditor::BaseTextEditor *, CppEditorSupport *> m_cppEditorSupports;
     QSet<AbstractEditorSupport *> m_extraEditorSupports;
 
-    // Completion
-    CppCompletionAssistProvider *m_completionAssistProvider;
-    CppCompletionAssistProvider *m_completionFallback;
-
-    // Highlighting
-    CppHighlightingSupportFactory *m_highlightingFactory;
-    CppHighlightingSupportFactory *m_highlightingFallback;
+    // Completion & highlighting
+    QList<ModelManagerSupport *> m_codeModelSupporters;
+    QScopedPointer<ModelManagerSupport> m_modelManagerSupportFallback;
+    QHash<QString, ModelManagerSupport *> m_mimeTypeToCodeModelSupport;
 
     // Indexing
     CppIndexingSupport *m_indexingSupporter;

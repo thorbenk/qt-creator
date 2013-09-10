@@ -55,6 +55,7 @@ public:
     bool duplicateSupported() const { return true; }
     Core::IEditor *duplicate(QWidget *parent);
     Core::Id id() const;
+    TextEditor::CompletionAssistProvider *completionAssistProvider();
 };
 
 class ProFileEditorWidget : public TextEditor::BaseTextEditorWidget
@@ -74,9 +75,6 @@ protected:
     virtual Link findLinkAt(const QTextCursor &, bool resolveTarget = true);
     TextEditor::BaseTextEditor *createEditor();
     void contextMenuEvent(QContextMenuEvent *);
-
-public slots:
-    virtual void setFontSettings(const TextEditor::FontSettings &);
 
 private:
     ProFileEditorFactory *m_factory;

@@ -545,8 +545,9 @@ Hex2EncodedUInt2, \
 Hex2EncodedUInt4, \
 Hex2EncodedUInt8, \
 Hex2EncodedFloat4, \
-Hex2EncodedFloat8 \
-    = range(27)
+Hex2EncodedFloat8, \
+IPv6AddressAndHexScopeId \
+    = range(28)
 
 # Display modes. Keep that synchronized with DebuggerDisplay in watchutils.h
 StopDisplay, \
@@ -1577,6 +1578,9 @@ class Dumper:
     def extractInt(self, addr):
         return long(gdb.Value(addr).cast(self.intPtrType()).dereference())
 
+    def extractByte(self, addr):
+        return long(gdb.Value(addr).cast(self.charPtrType()).dereference()) & 0xFF
+
     # Do not use value.address here as this might not have one,
     # i.e. be the result of an inferior call
     def dereferenceValue(self, value):
@@ -2146,6 +2150,13 @@ class Dumper:
             with Children(self, 1):
                 self.listAnonymous(value, "#%d" % self.anonNumber, type)
             return
+
+        if type.code == StringCode:
+            # FORTRAN strings
+            size = type.sizeof
+            data = self.readRawMemory(value.address, size)
+            self.putValue(data, Hex2EncodedLatin1, 1)
+            self.putType(type)
 
         if type.code != StructCode and type.code != UnionCode:
             warn("WRONG ASSUMPTION HERE: %s " % type.code)

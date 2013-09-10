@@ -29,34 +29,34 @@
 
 #include "editormanager.h"
 #include "editorview.h"
-#include "findplaceholder.h"
 #include "openeditorswindow.h"
 #include "openeditorsview.h"
 #include "documentmodel.h"
-#include "openwithdialog.h"
-#include "outputpane.h"
-#include "outputpanemanager.h"
-#include "rightpane.h"
-#include "documentmanager.h"
-#include "icore.h"
 #include "ieditor.h"
-#include "iversioncontrol.h"
-#include "mimedatabase.h"
-#include "vcsmanager.h"
 
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/coreconstants.h>
+#include <coreplugin/dialogs/openwithdialog.h>
+#include <coreplugin/dialogs/readonlyfilesdialog.h>
+#include <coreplugin/documentmanager.h>
 #include <coreplugin/editormanager/ieditorfactory.h>
 #include <coreplugin/editormanager/iexternaleditor.h>
 #include <coreplugin/editortoolbar.h>
 #include <coreplugin/fileutils.h>
+#include <coreplugin/findplaceholder.h>
+#include <coreplugin/icore.h>
 #include <coreplugin/icorelistener.h>
 #include <coreplugin/infobar.h>
+#include <coreplugin/iversioncontrol.h>
+#include <coreplugin/mimedatabase.h>
 #include <coreplugin/modemanager.h>
+#include <coreplugin/outputpane.h>
+#include <coreplugin/outputpanemanager.h>
+#include <coreplugin/rightpane.h>
 #include <coreplugin/settingsdatabase.h>
 #include <coreplugin/variablemanager.h>
-#include <coreplugin/dialogs/readonlyfilesdialog.h>
+#include <coreplugin/vcsmanager.h>
 
 #include <extensionsystem/pluginmanager.h>
 
@@ -96,30 +96,14 @@ namespace Internal {
 class EditorClosingCoreListener : public ICoreListener
 {
 public:
-    EditorClosingCoreListener(EditorManager *em);
-    bool editorAboutToClose(IEditor *editor);
-    bool coreAboutToClose();
-
-private:
-    EditorManager *m_em;
+    bool editorAboutToClose(IEditor *) { return true; }
+    bool coreAboutToClose()
+    {
+        // Do not ask for files to save.
+        // MainWindow::closeEvent has already done that.
+        return EditorManager::closeAllEditors(false);
+    }
 };
-
-EditorClosingCoreListener::EditorClosingCoreListener(EditorManager *em)
-        : m_em(em)
-{
-}
-
-bool EditorClosingCoreListener::editorAboutToClose(IEditor *)
-{
-    return true;
-}
-
-bool EditorClosingCoreListener::coreAboutToClose()
-{
-    // Do not ask for files to save.
-    // MainWindow::closeEvent has already done that.
-    return m_em->closeAllEditors(false);
-}
 
 } // namespace Internal
 } // namespace Core
@@ -269,7 +253,7 @@ EditorManagerPrivate::~EditorManagerPrivate()
 static EditorManager *m_instance = 0;
 static EditorManagerPrivate *d;
 
-EditorManager *EditorManager::instance() { return m_instance; }
+QWidget *EditorManager::instance() { return m_instance; }
 
 EditorManager::EditorManager(QWidget *parent) :
     QWidget(parent)
@@ -477,7 +461,7 @@ EditorManager::~EditorManager()
 
 void EditorManager::init()
 {
-    d->m_coreListener = new EditorClosingCoreListener(this);
+    d->m_coreListener = new EditorClosingCoreListener();
     ExtensionSystem::PluginManager::addObject(d->m_coreListener);
 
     d->m_openEditorsFactory = new OpenEditorsViewFactory();
@@ -489,7 +473,7 @@ void EditorManager::init()
     VariableManager::registerVariable(kCurrentDocumentYPos,
         tr("Y-coordinate of the current editor's upper left corner, relative to screen."));
     connect(VariableManager::instance(), SIGNAL(variableUpdateRequested(QByteArray)),
-            this, SLOT(updateVariable(QByteArray)));
+            m_instance, SLOT(updateVariable(QByteArray)));
 }
 
 void EditorManager::updateAutoSave()
@@ -530,7 +514,7 @@ void EditorManager::handleContextChange(const QList<Core::IContext *> &context)
         // the locator line edit) first activates the window and sets focus to its focus widget.
         // Only afterwards the focus is shifted to the widget that received the click.
         d->m_scheduledCurrentEditor = editor;
-        QTimer::singleShot(0, this, SLOT(setCurrentEditorFromContextChange()));
+        QTimer::singleShot(0, m_instance, SLOT(setCurrentEditorFromContextChange()));
     } else {
         updateActions();
     }
@@ -555,7 +539,7 @@ void EditorManager::setCurrentEditor(IEditor *editor, bool ignoreNavigationHisto
     }
     updateActions();
     updateWindowTitle();
-    emit currentEditorChanged(editor);
+    emit m_instance->currentEditorChanged(editor);
 }
 
 
@@ -578,7 +562,7 @@ void EditorManager::setCurrentView(Internal::EditorView *view)
     }
 }
 
-Internal::EditorView *EditorManager::currentEditorView() const
+Internal::EditorView *EditorManager::currentEditorView()
 {
     EditorView *view = d->m_currentView;
     if (!view) {
@@ -656,12 +640,12 @@ void EditorManager::emptyView(Core::Internal::EditorView *view)
             view->removeEditor(editor);
             continue; // don't close the editor
         }
-        emit editorAboutToClose(editor);
+        emit m_instance->editorAboutToClose(editor);
         removeEditor(editor);
         view->removeEditor(editor);
     }
     if (!editors.isEmpty()) {
-        emit editorsClosed(editors);
+        emit m_instance->editorsClosed(editors);
         foreach (IEditor *editor, editors) {
             delete editor;
         }
@@ -1078,7 +1062,7 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
 
     // remove the editors
     foreach (IEditor *editor, acceptedEditors) {
-        emit editorAboutToClose(editor);
+        emit m_instance->editorAboutToClose(editor);
         if (!editor->document()->filePath().isEmpty()
                 && !editor->document()->isTemporary()) {
             QByteArray state = editor->saveState();
@@ -1127,7 +1111,7 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
         }
     }
 
-    emit editorsClosed(acceptedEditors.toList());
+    emit m_instance->editorsClosed(acceptedEditors.toList());
 
     foreach (IEditor *editor, acceptedEditors) {
         delete editor;
@@ -1141,7 +1125,7 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
     }
 
     if (!currentEditor()) {
-        emit currentEditorChanged(0);
+        emit m_instance->currentEditorChanged(0);
         updateActions();
         updateWindowTitle();
     }
@@ -1149,7 +1133,7 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
     return !closingFailed;
 }
 
-Core::IEditor *EditorManager::pickUnusedEditor(EditorView **foundView) const
+Core::IEditor *EditorManager::pickUnusedEditor(EditorView **foundView)
 {
     foreach (IEditor *editor,
              d->m_documentModel->editorsForDocuments(d->m_documentModel->openedDocuments())) {
@@ -1296,8 +1280,7 @@ Core::IEditor *EditorManager::activateEditorForDocument(Core::Internal::EditorVi
  * or IExternalEditor), find the one best matching the mimetype passed in.
  *  Recurse over the parent classes of the mimetype to find them. */
 template <class EditorFactoryLike>
-static void mimeTypeFactoryRecursion(const MimeDatabase *db,
-                                     const MimeType &mimeType,
+static void mimeTypeFactoryRecursion(const MimeType &mimeType,
                                      const QList<EditorFactoryLike*> &allFactories,
                                      bool firstMatchOnly,
                                      QList<EditorFactoryLike*> *list)
@@ -1321,8 +1304,8 @@ static void mimeTypeFactoryRecursion(const MimeDatabase *db,
         return;
     const QStringList::const_iterator pcend = parentTypes .constEnd();
     for (QStringList::const_iterator pit = parentTypes .constBegin(); pit != pcend; ++pit) {
-        if (const MimeType parent = db->findByType(*pit))
-            mimeTypeFactoryRecursion(db, parent, allFactories, firstMatchOnly, list);
+        if (const MimeType parent = MimeDatabase::findByType(*pit))
+            mimeTypeFactoryRecursion(parent, allFactories, firstMatchOnly, list);
     }
 }
 
@@ -1331,7 +1314,7 @@ EditorManager::EditorFactoryList
 {
     EditorFactoryList rc;
     const EditorFactoryList allFactories = ExtensionSystem::PluginManager::getObjects<IEditorFactory>();
-    mimeTypeFactoryRecursion(ICore::mimeDatabase(), mimeType, allFactories, bestMatchOnly, &rc);
+    mimeTypeFactoryRecursion(mimeType, allFactories, bestMatchOnly, &rc);
     if (debugEditorManager)
         qDebug() << Q_FUNC_INFO << mimeType.type() << " returns " << rc;
     return rc;
@@ -1342,7 +1325,7 @@ EditorManager::ExternalEditorList
 {
     ExternalEditorList rc;
     const ExternalEditorList allEditors = ExtensionSystem::PluginManager::getObjects<IExternalEditor>();
-    mimeTypeFactoryRecursion(ICore::mimeDatabase(), mimeType, allEditors, bestMatchOnly, &rc);
+    mimeTypeFactoryRecursion(mimeType, allEditors, bestMatchOnly, &rc);
     if (debugEditorManager)
         qDebug() << Q_FUNC_INFO << mimeType.type() << " returns " << rc;
     return rc;
@@ -1369,15 +1352,15 @@ IEditor *EditorManager::createEditor(const Id &editorId, const QString &fileName
     if (!editorId.isValid()) {
         const QFileInfo fileInfo(fileName);
         // Find by mime type
-        MimeType mimeType = ICore::mimeDatabase()->findByFile(fileInfo);
+        MimeType mimeType = MimeDatabase::findByFile(fileInfo);
         if (!mimeType) {
             qWarning("%s unable to determine mime type of %s/%s. Falling back to text/plain",
                      Q_FUNC_INFO, fileName.toUtf8().constData(), editorId.name().constData());
-            mimeType = ICore::mimeDatabase()->findByType(QLatin1String("text/plain"));
+            mimeType = MimeDatabase::findByType(QLatin1String("text/plain"));
         }
         // open text files > 48 MB in binary editor
         if (fileInfo.size() >  maxTextFileSize() && mimeType.type().startsWith(QLatin1String("text")))
-            mimeType = ICore::mimeDatabase()->findByType(QLatin1String("application/octet-stream"));
+            mimeType = MimeDatabase::findByType(QLatin1String("application/octet-stream"));
         factories = editorFactories(mimeType, true);
     } else {
         // Find by editor id
@@ -1413,19 +1396,19 @@ void EditorManager::addEditor(IEditor *editor)
         if (!isTemporary)
             DocumentManager::addToRecentFiles(editor->document()->filePath(), editor->id());
     }
-    emit editorOpened(editor);
+    emit m_instance->editorOpened(editor);
 }
 
 // Run the OpenWithDialog and return the editor id
 // selected by the user.
 Core::Id EditorManager::getOpenWithEditorId(const QString &fileName,
-                                           bool *isExternalEditor) const
+                                           bool *isExternalEditor)
 {
     // Collect editors that can open the file
-    MimeType mt = ICore::mimeDatabase()->findByFile(fileName);
+    MimeType mt = MimeDatabase::findByFile(fileName);
     //Unable to determine mime type of fileName. Falling back to text/plain",
     if (!mt)
-        mt = ICore::mimeDatabase()->findByType(QLatin1String("text/plain"));
+        mt = MimeDatabase::findByType(QLatin1String("text/plain"));
     QList<Id> allEditorIds;
     QStringList allEditorDisplayNames;
     QList<Id> externalEditorIds;
@@ -1619,10 +1602,10 @@ bool EditorManager::openExternalEditor(const QString &fileName, const Core::Id &
     return ok;
 }
 
-QStringList EditorManager::getOpenFileNames() const
+QStringList EditorManager::getOpenFileNames()
 {
     QString selectedFilter;
-    const QString &fileFilters = ICore::mimeDatabase()->allFiltersString(&selectedFilter);
+    const QString &fileFilters = MimeDatabase::allFiltersString(&selectedFilter);
     return DocumentManager::getOpenFileNames(fileFilters, QString(), &selectedFilter);
 }
 
@@ -1785,9 +1768,9 @@ bool EditorManager::saveDocumentAs(IDocument *documentParam)
     if (!document)
         return false;
 
-    const QString &filter = ICore::mimeDatabase()->allFiltersString();
+    const QString filter = MimeDatabase::allFiltersString();
     QString selectedFilter =
-        ICore::mimeDatabase()->findByFile(QFileInfo(document->filePath())).filterString();
+        MimeDatabase::findByFile(QFileInfo(document->filePath())).filterString();
     const QString &absoluteFilePath =
         DocumentManager::getSaveAsFileName(document, filter, &selectedFilter);
 
@@ -1867,7 +1850,7 @@ void EditorManager::vcsOpenCurrentEditor()
         return;
 
     const QString directory = QFileInfo(document->filePath()).absolutePath();
-    IVersionControl *versionControl = ICore::vcsManager()->findVersionControlForDirectory(directory);
+    IVersionControl *versionControl = VcsManager::findVersionControlForDirectory(directory);
     if (!versionControl || versionControl->openSupportMode() == IVersionControl::NoOpen)
         return;
 
@@ -1881,15 +1864,21 @@ void EditorManager::updateWindowTitle()
 {
     QString windowTitle = tr("Qt Creator");
     const QString dashSep = QLatin1String(" - ");
-    if (!d->m_titleVcsTopic.isEmpty())
-        windowTitle.prepend(d->m_titleVcsTopic + dashSep);
-    if (!d->m_titleAddition.isEmpty())
-        windowTitle.prepend(d->m_titleAddition + dashSep);
+    QString vcsTopic;
     IDocument *document = currentDocument();
+
+    if (!d->m_titleVcsTopic.isEmpty())
+        vcsTopic = QLatin1String(" [") + d->m_titleVcsTopic + QLatin1Char(']');
+    if (!d->m_titleAddition.isEmpty()) {
+        windowTitle.prepend(dashSep);
+        if (!document)
+            windowTitle.prepend(vcsTopic);
+        windowTitle.prepend(d->m_titleAddition);
+    }
     if (document) {
-        QString editorName = document->displayName();
-        if (!editorName.isEmpty())
-            windowTitle.prepend(editorName + dashSep);
+        const QString documentName = document->displayName();
+        if (!documentName.isEmpty())
+            windowTitle.prepend(documentName + vcsTopic + dashSep);
         QString filePath = QFileInfo(document->filePath()).absoluteFilePath();
         if (!filePath.isEmpty())
             ICore::mainWindow()->setWindowFilePath(filePath);
@@ -1923,7 +1912,7 @@ void EditorManager::updateMakeWritableWarning()
         // if we do not really show a warning.
         bool promptVCS = false;
         const QString directory = QFileInfo(document->filePath()).absolutePath();
-        IVersionControl *versionControl = ICore::vcsManager()->findVersionControlForDirectory(directory);
+        IVersionControl *versionControl = VcsManager::findVersionControlForDirectory(directory);
         if (versionControl && versionControl->openSupportMode() != IVersionControl::NoOpen) {
             if (versionControl->settingsFlags() & IVersionControl::AutoOpen) {
                 vcsOpenCurrentEditor();
@@ -1939,12 +1928,12 @@ void EditorManager::updateMakeWritableWarning()
                 InfoBarEntry info(Id(kMakeWritableWarning),
                                   tr("<b>Warning:</b> This file was not opened in %1 yet.")
                                   .arg(versionControl->displayName()));
-                info.setCustomButtonInfo(tr("Open"), this, SLOT(vcsOpenCurrentEditor()));
+                info.setCustomButtonInfo(tr("Open"), m_instance, SLOT(vcsOpenCurrentEditor()));
                 document->infoBar()->addInfo(info);
             } else {
                 InfoBarEntry info(Id(kMakeWritableWarning),
                                   tr("<b>Warning:</b> You are changing a read-only file."));
-                info.setCustomButtonInfo(tr("Make Writable"), this, SLOT(makeCurrentEditorWritable()));
+                info.setCustomButtonInfo(tr("Make Writable"), m_instance, SLOT(makeCurrentEditorWritable()));
                 document->infoBar()->addInfo(info);
             }
         } else {
@@ -1978,10 +1967,10 @@ void EditorManager::updateActions()
 
     if (curDocument) {
         if (HostOsInfo::isMacHost())
-            window()->setWindowModified(curDocument->isModified());
+            m_instance->window()->setWindowModified(curDocument->isModified());
         updateMakeWritableWarning();
     } else /* curEditor */ if (HostOsInfo::isMacHost()) {
-        window()->setWindowModified(false);
+        m_instance->window()->setWindowModified(false);
     }
 
     foreach (SplitterOrView *root, d->m_root)
@@ -2025,7 +2014,7 @@ void EditorManager::setCloseSplitEnabled(SplitterOrView *splitterOrView, bool en
     }
 }
 
-bool EditorManager::hasSplitter() const
+bool EditorManager::hasSplitter()
 {
     EditorView *view = currentEditorView();
     QTC_ASSERT(view, return false);
@@ -2034,7 +2023,7 @@ bool EditorManager::hasSplitter() const
     return root->isSplitter();
 }
 
-QList<IEditor*> EditorManager::visibleEditors() const
+QList<IEditor*> EditorManager::visibleEditors()
 {
     QList<IEditor *> editors;
     foreach (SplitterOrView *root, d->m_root) {
@@ -2092,12 +2081,12 @@ void EditorManager::goForwardInNavigationHistory()
     updateActions();
 }
 
-OpenEditorsWindow *EditorManager::windowPopup() const
+OpenEditorsWindow *EditorManager::windowPopup()
 {
     return d->m_windowPopup;
 }
 
-void EditorManager::showPopupOrSelectDocument() const
+void EditorManager::showPopupOrSelectDocument()
 {
     if (QApplication::keyboardModifiers() == Qt::NoModifier) {
         windowPopup()->selectAndHide();
@@ -2128,7 +2117,7 @@ void EditorManager::showPopupOrSelectDocument() const
 }
 
 // Save state of all non-teporary editors.
-QByteArray EditorManager::saveState() const
+QByteArray EditorManager::saveState()
 {
     QByteArray bytes;
     QDataStream stream(&bytes, QIODevice::WriteOnly);
@@ -2317,7 +2306,7 @@ void EditorManager::setReloadSetting(IDocument::ReloadSetting behavior)
     d->m_reloadSetting = behavior;
 }
 
-IDocument::ReloadSetting EditorManager::reloadSetting() const
+IDocument::ReloadSetting EditorManager::reloadSetting()
 {
     return d->m_reloadSetting;
 }
@@ -2328,7 +2317,7 @@ void EditorManager::setAutoSaveEnabled(bool enabled)
     updateAutoSave();
 }
 
-bool EditorManager::autoSaveEnabled() const
+bool EditorManager::autoSaveEnabled()
 {
     return d->m_autoSaveEnabled;
 }
@@ -2339,12 +2328,12 @@ void EditorManager::setAutoSaveInterval(int interval)
     updateAutoSave();
 }
 
-int EditorManager::autoSaveInterval() const
+int EditorManager::autoSaveInterval()
 {
     return d->m_autoSaveInterval;
 }
 
-QTextCodec *EditorManager::defaultTextCodec() const
+QTextCodec *EditorManager::defaultTextCodec()
 {
     QSettings *settings = Core::ICore::settings();
     if (QTextCodec *candidate = QTextCodec::codecForName(
@@ -2362,7 +2351,7 @@ Core::IEditor *EditorManager::duplicateEditor(Core::IEditor *editor)
 
     IEditor *duplicate = editor->duplicate(0);
     duplicate->restoreState(editor->saveState());
-    emit editorCreated(duplicate, duplicate->document()->filePath());
+    emit m_instance->editorCreated(duplicate, duplicate->document()->filePath());
     addEditor(duplicate);
     return duplicate;
 }
@@ -2496,7 +2485,7 @@ void EditorManager::setWindowTitleAddition(const QString &addition)
     updateWindowTitle();
 }
 
-QString EditorManager::windowTitleAddition() const
+QString EditorManager::windowTitleAddition()
 {
     return d->m_titleAddition;
 }
@@ -2514,7 +2503,7 @@ QString EditorManager::windowTitleVcsTopic()
 
 void EditorManager::updateVariable(const QByteArray &variable)
 {
-    if (VariableManager::instance()->isFileVariable(variable, kCurrentDocumentPrefix)) {
+    if (VariableManager::isFileVariable(variable, kCurrentDocumentPrefix)) {
         QString value;
         IDocument *document = currentDocument();
         if (document) {

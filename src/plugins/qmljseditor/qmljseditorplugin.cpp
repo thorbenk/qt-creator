@@ -43,6 +43,7 @@
 #include "quicktoolbarsettingspage.h"
 #include "qmljscompletionassist.h"
 #include "qmljsquickfixassist.h"
+#include "qmljshighlighterfactory.h"
 
 #include <qmljs/qmljsicons.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
@@ -115,6 +116,7 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
 {
     m_modelManager = QmlJS::ModelManagerInterface::instance();
     addAutoReleasedObject(new QmlJSSnippetProvider);
+    addAutoReleasedObject(new QmlJSHighlighterFactory);
 
     // QML task updating manager
     m_qmlTaskManager = new QmlTaskManager;
@@ -240,7 +242,7 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
     addAutoReleasedObject(new QuickToolBar);
     addAutoReleasedObject(new Internal::QuickToolBarSettingsPage);
 
-    connect(Core::ICore::editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)), SLOT(currentEditorChanged(Core::IEditor*)));
+    connect(Core::EditorManager::instance(), SIGNAL(currentEditorChanged(Core::IEditor*)), SLOT(currentEditorChanged(Core::IEditor*)));
 
     return true;
 }

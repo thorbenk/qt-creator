@@ -27,6 +27,7 @@
 **
 ****************************************************************************/
 
+#include "cppcompletionassistprovider.h"
 #include "cpptoolseditorsupport.h"
 #include "cppmodelmanager.h"
 #include "cpplocalsymbols.h"
@@ -229,6 +230,11 @@ void CppEditorSupport::recalculateSemanticInfoDetached(bool force)
         startHighlighting();
 }
 
+CppCompletionAssistProvider *CppEditorSupport::completionAssistProvider() const
+{
+    return m_completionAssistProvider;
+}
+
 void CppEditorSupport::updateDocument()
 {
     m_revision = editorRevision();
@@ -305,7 +311,7 @@ void CppEditorSupport::startHighlighting()
 
     // Start highlighting only if the editor is or would be visible
     // (in case another mode is active) in the edit mode.
-    if (!Core::EditorManager::instance()->visibleEditors().contains(m_textEditor))
+    if (!Core::EditorManager::visibleEditors().contains(m_textEditor))
         return;
 
     if (m_highlightingSupport->requiresSemanticInfo()) {
@@ -519,6 +525,8 @@ void CppEditorSupport::onMimeTypeChanged()
     if (m_highlightingSupport && m_highlightingSupport->requiresSemanticInfo())
         connect(this, SIGNAL(semanticInfoUpdated(CppTools::SemanticInfo)),
                 this, SLOT(startHighlighting()));
+
+    m_completionAssistProvider = m_modelManager->completionAssistProvider(m_textEditor);
 
     updateDocumentNow();
 }

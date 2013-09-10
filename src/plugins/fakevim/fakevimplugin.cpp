@@ -1026,7 +1026,6 @@ FakeVimPluginPrivate::~FakeVimPluginPrivate()
     q->removeObject(m_fakeVimOptionsPage);
     delete m_fakeVimOptionsPage;
     m_fakeVimOptionsPage = 0;
-    delete theFakeVimSettings();
 
     q->removeObject(m_fakeVimExCommandsPage);
     delete m_fakeVimExCommandsPage;
@@ -1035,12 +1034,14 @@ FakeVimPluginPrivate::~FakeVimPluginPrivate()
     q->removeObject(m_fakeVimUserCommandsPage);
     delete m_fakeVimUserCommandsPage;
     m_fakeVimUserCommandsPage = 0;
+
+    theFakeVimSettings()->deleteLater();
 }
 
 void FakeVimPluginPrivate::onCoreAboutToClose()
 {
     // Don't attach to editors anymore.
-    disconnect(ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor*)),
+    disconnect(EditorManager::instance(), SIGNAL(editorOpened(Core::IEditor*)),
         this, SLOT(editorOpened(Core::IEditor*)));
 }
 
@@ -1050,8 +1051,6 @@ void FakeVimPluginPrivate::aboutToShutdown()
 
 bool FakeVimPluginPrivate::initialize()
 {
-    EditorManager *editorManager = ICore::editorManager();
-
     //m_wordCompletion = new WordCompletion;
     //q->addAutoReleasedObject(m_wordCompletion);
     m_wordProvider = new FakeVimCompletionAssistProvider;
@@ -1088,7 +1087,7 @@ bool FakeVimPluginPrivate::initialize()
         ActionManager::actionContainer(Core::Constants::M_EDIT_ADVANCED);
     advancedMenu->addAction(cmd, Core::Constants::G_EDIT_EDITOR);
 
-    const Id base = Id("FakeVim.UserAction");
+    const Id base = "FakeVim.UserAction";
     for (int i = 1; i < 10; ++i) {
         QAction *act = new QAction(this);
         act->setText(tr("Execute User Action #%1").arg(i));
@@ -1101,9 +1100,9 @@ bool FakeVimPluginPrivate::initialize()
     connect(ICore::instance(), SIGNAL(coreAboutToClose()), this, SLOT(onCoreAboutToClose()));
 
     // EditorManager
-    connect(editorManager, SIGNAL(editorAboutToClose(Core::IEditor*)),
+    connect(EditorManager::instance(), SIGNAL(editorAboutToClose(Core::IEditor*)),
         this, SLOT(editorAboutToClose(Core::IEditor*)));
-    connect(editorManager, SIGNAL(editorOpened(Core::IEditor*)),
+    connect(EditorManager::instance(), SIGNAL(editorOpened(Core::IEditor*)),
         this, SLOT(editorOpened(Core::IEditor*)));
 
     connect(theFakeVimSetting(ConfigUseFakeVim), SIGNAL(valueChanged(QVariant)),
@@ -1355,7 +1354,7 @@ void FakeVimPluginPrivate::moveSomewhere(DistFunction f, int count)
     IEditor *bestEditor = 0;
     int repeat = count;
 
-    QList<IEditor *> editors = EditorManager::instance()->visibleEditors();
+    QList<IEditor *> editors = EditorManager::visibleEditors();
     while (repeat < 0 || repeat-- > 0) {
         editors.removeOne(currentEditor);
         int bestValue = -1;
@@ -1388,7 +1387,7 @@ void FakeVimPluginPrivate::moveSomewhere(DistFunction f, int count)
 void FakeVimPluginPrivate::keepOnlyWindow()
 {
     IEditor *currentEditor = EditorManager::currentEditor();
-    QList<IEditor *> editors = EditorManager::instance()->visibleEditors();
+    QList<IEditor *> editors = EditorManager::visibleEditors();
     editors.removeOne(currentEditor);
 
     foreach (IEditor *editor, editors) {
@@ -1402,8 +1401,8 @@ void FakeVimPluginPrivate::find(bool reverse)
     if (Find::FindPlugin *plugin = Find::FindPlugin::instance()) {
         plugin->setUseFakeVim(true);
         plugin->openFindToolBar(reverse
-                ? Find::FindPlugin::FindBackward
-                : Find::FindPlugin::FindForward);
+                ? Find::FindPlugin::FindBackwardDirection
+                : Find::FindPlugin::FindForwardDirection);
     }
 }
 
@@ -1866,17 +1865,16 @@ void FakeVimPluginPrivate::handleDelayedQuit(bool forced, IEditor *editor)
 {
     // This tries to simulate vim behaviour. But the models of vim and
     // Qt Creator core do not match well...
-    EditorManager *editorManager = ICore::editorManager();
-    if (editorManager->hasSplitter())
+    if (EditorManager::hasSplitter())
         triggerAction(Core::Constants::REMOVE_CURRENT_SPLIT);
     else
-        editorManager->closeEditor(editor, !forced);
+        EditorManager::closeEditor(editor, !forced);
 }
 
 void FakeVimPluginPrivate::handleDelayedQuitAll(bool forced)
 {
     triggerAction(Core::Constants::REMOVE_ALL_SPLITS);
-    ICore::editorManager()->closeAllEditors(!forced);
+    EditorManager::closeAllEditors(!forced);
 }
 
 void FakeVimPluginPrivate::moveToMatchingParenthesis(bool *moved, bool *forward,
@@ -1987,7 +1985,7 @@ void FakeVimPluginPrivate::changeSelection(const QList<QTextEdit::ExtraSelection
 
 void FakeVimPluginPrivate::highlightMatches(const QString &needle)
 {
-    foreach (IEditor *editor, EditorManager::instance()->visibleEditors()) {
+    foreach (IEditor *editor, EditorManager::visibleEditors()) {
         QWidget *w = editor->widget();
         Find::IFindSupport *find = Aggregation::query<Find::IFindSupport>(w);
         if (find != 0)
@@ -2010,7 +2008,7 @@ void FakeVimPluginPrivate::switchToFile(int n)
     n = n % size;
     if (n < 0)
         n += size;
-    EditorManager::instance()->activateEditorForEntry(EditorManager::documentModel()->documents().at(n));
+    EditorManager::activateEditorForEntry(EditorManager::documentModel()->documents().at(n));
 }
 
 ExCommandMap &FakeVimExCommandsPage::exCommandMap()

@@ -93,6 +93,7 @@ enum {
     UPDATE_OUTLINE_INTERVAL = 500 // msecs after new semantic info has been arrived / cursor has moved
 };
 
+using namespace Core;
 using namespace QmlJS;
 using namespace QmlJS::AST;
 using namespace QmlJSTools;
@@ -578,7 +579,7 @@ QModelIndex QmlJSTextEditorWidget::outlineModelIndex()
     return m_outlineModelIndex;
 }
 
-Core::IEditor *QmlJSEditor::duplicate(QWidget *parent)
+IEditor *QmlJSEditor::duplicate(QWidget *parent)
 {
     QmlJSTextEditorWidget *newEditor = new QmlJSTextEditorWidget(parent);
     newEditor->duplicateFrom(editorWidget());
@@ -586,15 +587,15 @@ Core::IEditor *QmlJSEditor::duplicate(QWidget *parent)
     return newEditor->editor();
 }
 
-Core::Id QmlJSEditor::id() const
+Id QmlJSEditor::id() const
 {
-    return Core::Id(Constants::C_QMLJSEDITOR_ID);
+    return Constants::C_QMLJSEDITOR_ID;
 }
 
 bool QmlJSEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     bool b = TextEditor::BaseTextEditor::open(errorString, fileName, realFileName);
-    editorWidget()->setMimeType(Core::ICore::mimeDatabase()->findByFile(QFileInfo(fileName)).type());
+    editorWidget()->setMimeType(MimeDatabase::findByFile(QFileInfo(fileName)).type());
     return b;
 }
 
@@ -692,9 +693,8 @@ void QmlJSTextEditorWidget::jumpToOutlineElement(int /*index*/)
     if (!location.isValid())
         return;
 
-    Core::EditorManager *editorManager = Core::EditorManager::instance();
-    editorManager->cutForwardNavigationHistory();
-    editorManager->addCurrentPositionToNavigationHistory();
+    EditorManager::cutForwardNavigationHistory();
+    EditorManager::addCurrentPositionToNavigationHistory();
 
     QTextCursor cursor = textCursor();
     cursor.setPosition(location.offset);
@@ -980,12 +980,6 @@ void QmlJSTextEditorWidget::updateFileName()
 void QmlJSTextEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
 {
     TextEditor::BaseTextEditorWidget::setFontSettings(fs);
-    Highlighter *highlighter = qobject_cast<Highlighter*>(baseTextDocument()->syntaxHighlighter());
-    if (!highlighter)
-        return;
-
-    highlighter->setFormats(fs.toTextCharFormats(highlighterFormatCategories()));
-    highlighter->rehighlight();
 
     m_occurrencesFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES);
     m_occurrencesUnusedFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_UNUSED);
@@ -1214,7 +1208,7 @@ void QmlJSTextEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 
     refactoringMenu->setEnabled(!refactoringMenu->isEmpty());
 
-    if (Core::ActionContainer *mcontext = Core::ActionManager::actionContainer(Constants::M_CONTEXT)) {
+    if (ActionContainer *mcontext = ActionManager::actionContainer(Constants::M_CONTEXT)) {
         QMenu *contextMenu = mcontext->menu();
         foreach (QAction *action, contextMenu->actions()) {
             menu->addAction(action);
@@ -1300,7 +1294,7 @@ void QmlJSTextEditorWidget::updateSemanticInfo()
         return;
 
     // Save time by not doing it for non-active editors.
-    if (Core::EditorManager::currentEditor() != editor())
+    if (EditorManager::currentEditor() != editor())
         return;
 
     m_updateSemanticInfoTimer->start();
@@ -1349,7 +1343,7 @@ void QmlJSTextEditorWidget::acceptNewSemanticInfo(const SemanticInfo &semanticIn
     // update outline
     m_updateOutlineTimer->start();
 
-    if (Core::EditorManager::currentEditor() == editor())
+    if (EditorManager::currentEditor() == editor())
         m_semanticHighlighter->rerun(m_semanticInfo);
 
     emit semanticInfoUpdated();

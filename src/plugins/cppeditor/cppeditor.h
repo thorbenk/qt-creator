@@ -82,6 +82,8 @@ public:
     bool open(QString *errorString, const QString &fileName, const QString &realFileName);
 
     const Utils::CommentDefinition *commentDefinition() const;
+    TextEditor::CompletionAssistProvider *completionAssistProvider();
+
 private:
     Utils::CommentDefinition m_commentDefinition;
 };
@@ -158,7 +160,6 @@ protected Q_SLOTS:
     void slotCodeStyleSettingsChanged(const QVariant &);
 
 private Q_SLOTS:
-    void updateFileName();
     void jumpToOutlineElement(int index);
     void updateOutlineNow();
     void updateOutlineIndex();
@@ -261,8 +262,6 @@ private:
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
     CppTools::CommentsSettings m_commentsSettings;
-
-    CppTools::CppCompletionSupport *m_completionSupport;
 };
 
 } // namespace Internal

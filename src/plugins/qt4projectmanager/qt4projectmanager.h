@@ -40,14 +40,8 @@ namespace ExtensionSystem { class PluginManager; }
 
 namespace ProjectExplorer {
 class Project;
-class ProjectExplorerPlugin;
 class Node;
 class ToolChain;
-}
-
-namespace QtSupport {
-class QtVersionManager;
-class BaseQtVersion;
 }
 
 namespace Qt4ProjectManager {
@@ -71,8 +65,6 @@ public:
     void registerProject(Qt4Project *project);
     void unregisterProject(Qt4Project *project);
     void notifyChanged(const QString &name);
-
-    ProjectExplorer::ProjectExplorerPlugin *projectExplorer() const;
 
     virtual QString mimeType() const;
     ProjectExplorer::Project *openProject(const QString &fileName, QString *errorString);

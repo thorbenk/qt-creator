@@ -32,20 +32,18 @@
 #include "texteditorplugin.h"
 #include "texteditorsettings.h"
 #include "basetextdocument.h"
-#include "highlightdefinition.h"
-#include "highlighter.h"
-#include "highlightersettings.h"
-#include "manager.h"
-#include "context.h"
 #include "normalindenter.h"
-#include "fontsettings.h"
+#include "generichighlighter/highlighterutils.h"
+#include <texteditor/generichighlighter/context.h>
+#include <texteditor/generichighlighter/highlightdefinition.h>
+#include <texteditor/generichighlighter/highlighter.h>
+#include <texteditor/generichighlighter/highlightersettings.h>
+#include <texteditor/generichighlighter/manager.h>
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icore.h>
 
 #include <QSharedPointer>
-
-#include <QDebug>
 
 using namespace Core;
 using namespace TextEditor::Internal;
@@ -76,7 +74,7 @@ PlainTextEditorWidget::PlainTextEditorWidget(QWidget *parent)
     connect(Manager::instance(), SIGNAL(mimeTypesRegistered()), this, SLOT(configure()));
 }
 
-Core::IEditor *PlainTextEditor::duplicate(QWidget *parent)
+IEditor *PlainTextEditor::duplicate(QWidget *parent)
 {
     PlainTextEditorWidget *newWidget = new PlainTextEditorWidget(parent);
     newWidget->duplicateFrom(editorWidget());
@@ -84,38 +82,14 @@ Core::IEditor *PlainTextEditor::duplicate(QWidget *parent)
     return newWidget->editor();
 }
 
-Core::Id PlainTextEditor::id() const
+Id PlainTextEditor::id() const
 {
-    return Core::Id(Core::Constants::K_DEFAULT_TEXT_EDITOR_ID);
+    return Core::Constants::K_DEFAULT_TEXT_EDITOR_ID;
 }
 
 void PlainTextEditorWidget::unCommentSelection()
 {
     Utils::unCommentSelection(this, m_commentDefinition);
-}
-
-void PlainTextEditorWidget::setFontSettings(const FontSettings &fs)
-{
-    BaseTextEditorWidget::setFontSettings(fs);
-
-    if (baseTextDocument()->syntaxHighlighter()) {
-        Highlighter *highlighter =
-            static_cast<Highlighter *>(baseTextDocument()->syntaxHighlighter());
-
-        highlighter->configureFormat(Highlighter::VisualWhitespace, fs.toTextCharFormat(C_VISUAL_WHITESPACE));
-        highlighter->configureFormat(Highlighter::Keyword, fs.toTextCharFormat(C_KEYWORD));
-        highlighter->configureFormat(Highlighter::DataType, fs.toTextCharFormat(C_TYPE));
-        highlighter->configureFormat(Highlighter::Comment, fs.toTextCharFormat(C_COMMENT));
-        // Using C_NUMBER for all kinds of numbers.
-        highlighter->configureFormat(Highlighter::Decimal, fs.toTextCharFormat(C_NUMBER));
-        highlighter->configureFormat(Highlighter::BaseN, fs.toTextCharFormat(C_NUMBER));
-        highlighter->configureFormat(Highlighter::Float, fs.toTextCharFormat(C_NUMBER));
-        // Using C_STRING for strings and chars.
-        highlighter->configureFormat(Highlighter::Char, fs.toTextCharFormat(C_STRING));
-        highlighter->configureFormat(Highlighter::String, fs.toTextCharFormat(C_STRING));
-
-        highlighter->rehighlight();
-    }
 }
 
 void PlainTextEditorWidget::setTabSettings(const TextEditor::TabSettings &ts)
@@ -131,18 +105,18 @@ void PlainTextEditorWidget::setTabSettings(const TextEditor::TabSettings &ts)
 
 void PlainTextEditorWidget::configure()
 {
-    Core::MimeType mimeType;
+    MimeType mimeType;
     if (editorDocument())
-        mimeType = Core::ICore::mimeDatabase()->findByFile(editorDocument()->filePath());
+        mimeType = MimeDatabase::findByFile(editorDocument()->filePath());
     configure(mimeType);
 }
 
 void PlainTextEditorWidget::configure(const QString &mimeType)
 {
-    configure(Core::ICore::mimeDatabase()->findByType(mimeType));
+    configure(MimeDatabase::findByType(mimeType));
 }
 
-void PlainTextEditorWidget::configure(const Core::MimeType &mimeType)
+void PlainTextEditorWidget::configure(const MimeType &mimeType)
 {
     Highlighter *highlighter = new Highlighter();
     baseTextDocument()->setSyntaxHighlighter(highlighter);
@@ -152,6 +126,7 @@ void PlainTextEditorWidget::configure(const Core::MimeType &mimeType)
     if (!mimeType.isNull()) {
         m_isMissingSyntaxDefinition = true;
 
+        setMimeTypeForHighlighter(highlighter, mimeType);
         const QString &type = mimeType.type();
         setMimeType(type);
 
@@ -164,8 +139,6 @@ void PlainTextEditorWidget::configure(const Core::MimeType &mimeType)
             const QSharedPointer<HighlightDefinition> &definition =
                 Manager::instance()->definition(definitionId);
             if (!definition.isNull() && definition->isValid()) {
-                highlighter->setDefaultContext(definition->initialContext());
-
                 m_commentDefinition.isAfterWhiteSpaces = definition->isCommentAfterWhiteSpaces();
                 m_commentDefinition.singleLine = definition->singleLineComment();
                 m_commentDefinition.multiLineStart = definition->multiLineCommentStart();
@@ -188,23 +161,6 @@ void PlainTextEditorWidget::configure(const Core::MimeType &mimeType)
 bool PlainTextEditorWidget::isMissingSyntaxDefinition() const
 {
     return m_isMissingSyntaxDefinition;
-}
-
-QString PlainTextEditorWidget::findDefinitionId(const Core::MimeType &mimeType,
-                                          bool considerParents) const
-{
-    QString definitionId = Manager::instance()->definitionIdByAnyMimeType(mimeType.aliases());
-    if (definitionId.isEmpty() && considerParents) {
-        definitionId = Manager::instance()->definitionIdByAnyMimeType(mimeType.subClassesOf());
-        if (definitionId.isEmpty()) {
-            foreach (const QString &parent, mimeType.subClassesOf()) {
-                const Core::MimeType &parentMimeType =
-                    Core::ICore::mimeDatabase()->findByType(parent);
-                definitionId = findDefinitionId(parentMimeType, considerParents);
-            }
-        }
-    }
-    return definitionId;
 }
 
 void PlainTextEditorWidget::acceptMissingSyntaxDefinitionInfo()

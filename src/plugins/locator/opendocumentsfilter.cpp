@@ -40,23 +40,23 @@ using namespace Locator;
 using namespace Locator::Internal;
 using namespace Utils;
 
-OpenDocumentsFilter::OpenDocumentsFilter(EditorManager *editorManager) :
-    m_editorManager(editorManager)
+OpenDocumentsFilter::OpenDocumentsFilter()
 {
     setId("Open documents");
     setDisplayName(tr("Open Documents"));
     setShortcutString(QString(QLatin1Char('o')));
     setIncludedByDefault(true);
 
-    connect(m_editorManager, SIGNAL(editorOpened(Core::IEditor*)),
+    connect(EditorManager::instance(), SIGNAL(editorOpened(Core::IEditor*)),
             this, SLOT(refreshInternally()));
-    connect(m_editorManager, SIGNAL(editorsClosed(QList<Core::IEditor*>)),
+    connect(EditorManager::instance(), SIGNAL(editorsClosed(QList<Core::IEditor*>)),
             this, SLOT(refreshInternally()));
 }
 
 QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::FilterEntry> &future, const QString &entry_)
 {
-    QList<FilterEntry> value;
+    QList<FilterEntry> goodEntries;
+    QList<FilterEntry> betterEntries;
     QString entry = entry_;
     const QString lineNoSuffix = EditorManager::splitLineNumber(&entry);
     const QChar asterisk = QLatin1Char('*');
@@ -65,23 +65,27 @@ QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::Fil
     pattern += asterisk;
     QRegExp regexp(pattern, Qt::CaseInsensitive, QRegExp::Wildcard);
     if (!regexp.isValid())
-        return value;
+        return goodEntries;
+    const Qt::CaseSensitivity caseSensitivityForPrefix = caseSensitivity(entry);
     foreach (const DocumentModel::Entry &editorEntry, m_editors) {
         if (future.isCanceled())
             break;
         QString fileName = editorEntry.fileName();
+        if (fileName.isEmpty())
+            continue;
         QString displayName = editorEntry.displayName();
         if (regexp.exactMatch(displayName)) {
-            if (!fileName.isEmpty()) {
-                QFileInfo fi(fileName);
-                FilterEntry fiEntry(this, fi.fileName(), QString(fileName + lineNoSuffix));
-                fiEntry.extraInfo = FileUtils::shortNativePath(FileName(fi));
-                fiEntry.fileName = fileName;
-                value.append(fiEntry);
-            }
+            QFileInfo fi(fileName);
+            FilterEntry fiEntry(this, fi.fileName(), QString(fileName + lineNoSuffix));
+            fiEntry.extraInfo = FileUtils::shortNativePath(FileName(fi));
+            fiEntry.fileName = fileName;
+            QList<FilterEntry> &category = displayName.startsWith(entry, caseSensitivityForPrefix)
+                    ? betterEntries : goodEntries;
+            category.append(fiEntry);
         }
     }
-    return value;
+    betterEntries.append(goodEntries);
+    return betterEntries;
 }
 
 void OpenDocumentsFilter::refreshInternally()

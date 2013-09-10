@@ -41,7 +41,6 @@
 #include <projectexplorer/session.h>
 #include <texteditor/basetextdocument.h>
 #include <texteditor/basetextdocumentlayout.h>
-#include <texteditor/fontsettings.h>
 #include <texteditor/texteditorsettings.h>
 #include <utils/qtcassert.h>
 
@@ -571,8 +570,6 @@ public:
     bool m_mouseDragging;
     QList<AbstractTextCursorHandler *> m_textCursorHandlers;
 
-    QColor m_backgroundColor;
-
 private:
     QComboBox *m_entriesComboBox;
 };
@@ -881,8 +878,7 @@ void VcsBaseEditorWidget::slotJumpToEntry(int index)
     int currentLine, currentColumn;
     convertPosition(position(), &currentLine, &currentColumn);
     if (lineNumber != currentLine) {
-        Core::EditorManager *editorManager = Core::EditorManager::instance();
-        editorManager->addCurrentPositionToNavigationHistory();
+        Core::EditorManager::addCurrentPositionToNavigationHistory();
         gotoLine(lineNumber, 0);
     }
 }
@@ -1048,7 +1044,7 @@ void VcsBaseEditorWidget::slotActivateAnnotation()
         ah->setChangeNumbers(changes);
         ah->rehighlight();
     } else {
-        baseTextDocument()->setSyntaxHighlighter(createAnnotationHighlighter(changes, d->m_backgroundColor));
+        baseTextDocument()->setSyntaxHighlighter(createAnnotationHighlighter(changes));
     }
 }
 
@@ -1186,33 +1182,6 @@ void VcsBaseEditorWidget::reportCommandFinished(bool ok, int exitCode, const QVa
         setPlainText(tr("Failed to retrieve data."));
 }
 
-void VcsBaseEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
-{
-    TextEditor::BaseTextEditorWidget::setFontSettings(fs);
-    d->m_backgroundColor = fs.toTextCharFormat(TextEditor::C_TEXT)
-            .brushProperty(QTextFormat::BackgroundBrush).color();
-
-    if (d->m_parameters->type == AnnotateOutput) {
-        if (BaseAnnotationHighlighter *highlighter = qobject_cast<BaseAnnotationHighlighter *>(baseTextDocument()->syntaxHighlighter())) {
-            highlighter->setBackgroundColor(d->m_backgroundColor);
-            highlighter->rehighlight();
-        }
-    } else if (hasDiff()) {
-        if (DiffHighlighter *highlighter = qobject_cast<DiffHighlighter*>(baseTextDocument()->syntaxHighlighter())) {
-            static QVector<TextEditor::TextStyle> categories;
-            if (categories.isEmpty()) {
-                categories << TextEditor::C_TEXT
-                           << TextEditor::C_ADDED_LINE
-                           << TextEditor::C_REMOVED_LINE
-                           << TextEditor::C_DIFF_FILE
-                           << TextEditor::C_DIFF_LOCATION;
-            }
-            highlighter->setFormats(fs.toTextCharFormats(categories));
-            highlighter->rehighlight();
-        }
-    }
-}
-
 const VcsBaseEditorParameters *VcsBaseEditorWidget::findType(const VcsBaseEditorParameters *array,
                                                        int arraySize,
                                                        EditorContentType et)
@@ -1237,8 +1206,7 @@ static QTextCodec *findProjectCodec(const QString &dir)
 {
     typedef  QList<ProjectExplorer::Project*> ProjectList;
     // Try to find a project under which file tree the file is.
-    const ProjectExplorer::SessionManager *sm = ProjectExplorer::ProjectExplorerPlugin::instance()->session();
-    const ProjectList projects = sm->projects();
+    const ProjectList projects = ProjectExplorer::SessionManager::projects();
     if (!projects.empty()) {
         const ProjectList::const_iterator pcend = projects.constEnd();
         for (ProjectList::const_iterator it = projects.constBegin(); it != pcend; ++it)
@@ -1397,8 +1365,7 @@ QString VcsBaseEditorWidget::findDiffFile(const QString &f) const
             return sourceFileInfo.absoluteFilePath();
 
         QString topLevel;
-        Core::VcsManager *vcsManager = Core::ICore::vcsManager();
-        vcsManager->findVersionControlForDirectory(sourceDir, &topLevel); //
+        Core::VcsManager::findVersionControlForDirectory(sourceDir, &topLevel); //
         if (topLevel.isEmpty())
             return QString();
 

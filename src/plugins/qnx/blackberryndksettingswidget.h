@@ -42,6 +42,7 @@ QT_END_NAMESPACE
 namespace Qnx {
 namespace Internal {
 
+class BlackBerryConfiguration;
 class BlackBerryConfigurationManager;
 class Ui_BlackBerryNDKSettingsWidget;
 
@@ -55,26 +56,31 @@ public:
 
    bool hasActiveNdk() const;
 
+   QList<BlackBerryConfiguration *> activatedTargets();
+   QList<BlackBerryConfiguration *> deactivatedTargets();
+
 signals:
     void kitsUpdated();
 
 public slots:
     void launchBlackBerrySetupWizard() const;
-    void updateInfoTable(QTreeWidgetItem* currentNdk);
+    void updateInfoTable(QTreeWidgetItem* currentItem);
     void updateNdkList();
-    void clearInfoTable();
-    void addNdk();
-    void removeNdk();
+    void addNdkTarget();
+    void removeNdkTarget();
+    void activateNdkTarget();
+    void deactivateNdkTarget();
+    void updateUi(QTreeWidgetItem* item, BlackBerryConfiguration* config);
 
 private:
-    void initInfoTable();
     void initNdkList();
 
     Ui_BlackBerryNDKSettingsWidget *m_ui;
     BlackBerryConfigurationManager *m_bbConfigManager;
-    QStandardItemModel *m_infoModel;
     QTreeWidgetItem *m_autoDetectedNdks;
     QTreeWidgetItem *m_manualNdks;
+    QList<BlackBerryConfiguration *> m_activatedTargets;
+    QList<BlackBerryConfiguration *> m_deactivatedTargets;
 };
 
 } // namespace Internal

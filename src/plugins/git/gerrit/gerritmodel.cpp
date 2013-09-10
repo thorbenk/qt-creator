@@ -32,7 +32,6 @@
 #include "../gitplugin.h"
 #include "../gitclient.h"
 
-#include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <coreplugin/progressmanager/futureprogress.h>
 #include <vcsbase/vcsbaseoutputwindow.h>
@@ -323,9 +322,8 @@ QueryContext::~QueryContext()
 
 void QueryContext::start()
 {
-    Core::ProgressManager *pm = Core::ICore::instance()->progressManager();
-    Core::FutureProgress *fp = pm->addTask(m_progress.future(), tr("Gerrit"),
-                                           QLatin1String("gerrit-query"));
+    Core::FutureProgress *fp = Core::ProgressManager::addTask(m_progress.future(), tr("Gerrit"),
+                                           "gerrit-query");
     fp->setKeepOnFinish(Core::FutureProgress::HideOnFinish);
     m_progress.reportStarted();
     startQuery(m_queries.front()); // Order: synchronous call to  error handling if something goes wrong.

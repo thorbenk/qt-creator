@@ -38,6 +38,7 @@
 #include "buildconfigurationinfo.h"
 
 #include <utils/qtcprocess.h>
+#include <utils/qtcassert.h>
 #include <limits>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
@@ -60,7 +61,6 @@ using namespace Utils;
 
 const char QT4_BC_ID[] = "Qt4ProjectManager.Qt4BuildConfiguration";
 const char USE_SHADOW_BUILD_KEY[] = "Qt4ProjectManager.Qt4BuildConfiguration.UseShadowBuild";
-const char BUILD_DIRECTORY_KEY[] = "Qt4ProjectManager.Qt4BuildConfiguration.BuildDirectory";
 const char BUILD_CONFIGURATION_KEY[] = "Qt4ProjectManager.Qt4BuildConfiguration.BuildConfiguration";
 
 enum { debug = 0 };
@@ -91,7 +91,6 @@ Qt4BuildConfiguration::Qt4BuildConfiguration(Target *target, Qt4BuildConfigurati
     BuildConfiguration(target, source),
     m_shadowBuild(source->m_shadowBuild),
     m_isEnabled(false),
-    m_buildDirectory(source->m_buildDirectory),
     m_qmakeBuildConfiguration(source->m_qmakeBuildConfiguration),
     m_subNodeBuild(0), // temporary value, so not copied
     m_fileNodeBuild(0)
@@ -108,7 +107,6 @@ QVariantMap Qt4BuildConfiguration::toMap() const
 {
     QVariantMap map(BuildConfiguration::toMap());
     map.insert(QLatin1String(USE_SHADOW_BUILD_KEY), m_shadowBuild);
-    map.insert(QLatin1String(BUILD_DIRECTORY_KEY), m_buildDirectory);
     map.insert(QLatin1String(BUILD_CONFIGURATION_KEY), int(m_qmakeBuildConfiguration));
     return map;
 }
@@ -120,9 +118,7 @@ bool Qt4BuildConfiguration::fromMap(const QVariantMap &map)
 
     m_shadowBuild = map.value(QLatin1String(USE_SHADOW_BUILD_KEY), true).toBool();
     m_qmakeBuildConfiguration = BaseQtVersion::QmakeBuildConfigs(map.value(QLatin1String(BUILD_CONFIGURATION_KEY)).toInt());
-    m_buildDirectory = map.value(QLatin1String(BUILD_DIRECTORY_KEY), defaultShadowBuildDirectory()).toString();
 
-    m_lastEmmitedBuildDirectory = buildDirectory();
     m_qtVersionSupportsShadowBuilds =  supportsShadowBuilds();
 
     m_lastKitState = LastKitState(target()->kit());
@@ -136,8 +132,8 @@ bool Qt4BuildConfiguration::fromMap(const QVariantMap &map)
 
 void Qt4BuildConfiguration::ctor()
 {
-    connect(this, SIGNAL(environmentChanged()),
-            this, SLOT(emitBuildDirectoryChanged()));
+    m_buildDirectory = target()->project()->projectDirectory(); // default to in-source build!
+
     connect(this, SIGNAL(environmentChanged()),
             this, SLOT(emitProFileEvaluateNeeded()));
     connect(target(), SIGNAL(kitChanged()),
@@ -152,7 +148,7 @@ void Qt4BuildConfiguration::kitChanged()
         // For that reason the Qt4BuildConfiguration is also connected
         // to the toolchain and qtversion managers
         emitProFileEvaluateNeeded();
-        emitBuildDirectoryChanged();
+        updateShadowBuild();
         m_lastKitState = newState;
     }
 }
@@ -169,14 +165,14 @@ void Qt4BuildConfiguration::qtVersionsChanged(const QList<int> &,const QList<int
         emitProFileEvaluateNeeded();
 }
 
-void Qt4BuildConfiguration::emitBuildDirectoryChanged()
+void Qt4BuildConfiguration::updateShadowBuild()
 {
     // We also emit buildDirectoryChanged if the the Qt version's supportShadowBuild changed
-    if (buildDirectory() != m_lastEmmitedBuildDirectory
-            || supportsShadowBuilds() != m_qtVersionSupportsShadowBuilds) {
-        m_lastEmmitedBuildDirectory = buildDirectory();
-        m_qtVersionSupportsShadowBuilds = supportsShadowBuilds();
-        emit buildDirectoryChanged();
+    bool currentShadowBuild = supportsShadowBuilds();
+    if (currentShadowBuild != m_qtVersionSupportsShadowBuilds) {
+        if (!currentShadowBuild)
+            setBuildDirectory(Utils::FileName::fromString(target()->project()->projectDirectory()));
+        m_qtVersionSupportsShadowBuilds = currentShadowBuild;
     }
 }
 
@@ -190,28 +186,6 @@ QString Qt4BuildConfiguration::defaultShadowBuildDirectory() const
     // todo displayName isn't ideal
     return Qt4Project::shadowBuildDirectory(target()->project()->projectFilePath(),
                                             target()->kit(), displayName());
-}
-
-/// returns the unexpanded build directory
-QString Qt4BuildConfiguration::rawBuildDirectory() const
-{
-    QString workingDirectory;
-    if (m_shadowBuild) {
-        if (!m_buildDirectory.isEmpty())
-            workingDirectory = m_buildDirectory;
-        else
-            workingDirectory = defaultShadowBuildDirectory();
-    }
-    if (workingDirectory.isEmpty())
-        workingDirectory = target()->project()->projectDirectory();
-    return workingDirectory;
-}
-
-/// Returns the build directory.
-QString Qt4BuildConfiguration::buildDirectory() const
-{
-    QString path = QDir::cleanPath(environment().expandVariables(rawBuildDirectory()));
-    return QDir::cleanPath(QDir(target()->project()->projectDirectory()).absoluteFilePath(path));
 }
 
 bool Qt4BuildConfiguration::supportsShadowBuilds()
@@ -253,32 +227,19 @@ void Qt4BuildConfiguration::setFileNodeBuild(FileNode *node)
 /// note, even if shadowBuild() returns true, it might be using the
 /// source directory as the shadow build directory, thus it
 /// still is a in-source build
-bool Qt4BuildConfiguration::shadowBuild() const
+bool Qt4BuildConfiguration::isShadowBuild() const
 {
-    return m_shadowBuild;
+    return buildDirectory().toString() != target()->project()->projectDirectory();
 }
 
-/// returns the shadow build directory if set
-/// \note buildDirectory() is probably the function you want to call
-QString Qt4BuildConfiguration::shadowBuildDirectory() const
+void Qt4BuildConfiguration::setBuildDirectory(const FileName &directory)
 {
-    if (m_buildDirectory.isEmpty())
-        return defaultShadowBuildDirectory();
-    return m_buildDirectory;
-}
-
-void Qt4BuildConfiguration::setShadowBuildAndDirectory(bool shadowBuild, const QString &buildDirectory)
-{
-    BaseQtVersion *version = QtKitInformation::qtVersion(target()->kit());
-    QString directoryToSet = buildDirectory;
-    bool toSet = (shadowBuild && version && version->isValid() && version->supportsShadowBuilds());
-    if (m_shadowBuild == toSet && m_buildDirectory == directoryToSet)
+    if (directory == buildDirectory())
         return;
-
-    m_shadowBuild = toSet;
-    m_buildDirectory = directoryToSet;
-
-    emitBuildDirectoryChanged();
+    BuildConfiguration::setBuildDirectory(directory);
+    QTC_CHECK(supportsShadowBuilds()
+              || (!supportsShadowBuilds()
+                  && buildDirectory().toString() == target()->project()->projectDirectory()));
     emitProFileEvaluateNeeded();
 }
 
@@ -299,7 +260,6 @@ void Qt4BuildConfiguration::setQMakeBuildConfiguration(BaseQtVersion::QmakeBuild
     m_qmakeBuildConfiguration = config;
 
     emit qmakeBuildConfigurationChanged();
-    emitBuildDirectoryChanged();
     emitProFileEvaluateNeeded();
 }
 
@@ -551,8 +511,8 @@ Qt4BuildConfigurationFactory::Qt4BuildConfigurationFactory(QObject *parent) :
 {
     update();
 
-    QtVersionManager *vm = QtVersionManager::instance();
-    connect(vm, SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
+    connect(QtVersionManager::instance(),
+            SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
             this, SLOT(update()));
 }
 
@@ -742,8 +702,10 @@ Qt4BuildConfiguration *Qt4BuildConfiguration::setup(Target *t, QString defaultDi
 
     bc->setQMakeBuildConfiguration(qmakeBuildConfiguration);
 
-    if (!directory.isEmpty())
-        bc->setShadowBuildAndDirectory(directory != t->project()->projectDirectory(), directory);
+    if (directory.isEmpty())
+        bc->setBuildDirectory(Utils::FileName::fromString(t->project()->projectDirectory()));
+    else
+        bc->setBuildDirectory(Utils::FileName::fromString(directory));
 
     return bc;
 }

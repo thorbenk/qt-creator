@@ -12,6 +12,7 @@ HEADERS += projectexplorer.h \
     gcctoolchain.h \
     localapplicationrunconfiguration.h \
     localenvironmentaspect.h \
+    osparser.h \
     projectexplorer_export.h \
     projectwindow.h \
     removetaskhandler.h \
@@ -113,10 +114,12 @@ HEADERS += projectexplorer.h \
     devicesupport/desktopdevicefactory.h \
     devicesupport/idevicewidget.h \
     devicesupport/idevicefactory.h \
+    devicesupport/desktopdeviceprocess.h \
     devicesupport/devicecheckbuildstep.h \
     devicesupport/devicemanager.h \
     devicesupport/devicemanagermodel.h \
     devicesupport/devicefactoryselectiondialog.h \
+    devicesupport/deviceprocess.h \
     devicesupport/deviceprocesslist.h \
     devicesupport/deviceprocessesdialog.h \
     devicesupport/devicesettingswidget.h \
@@ -125,6 +128,7 @@ HEADERS += projectexplorer.h \
     devicesupport/deviceusedportsgatherer.h \
     devicesupport/deviceapplicationrunner.h \
     devicesupport/localprocesslist.h \
+    devicesupport/sshdeviceprocess.h \
     devicesupport/sshdeviceprocesslist.h \
     devicesupport/desktopdeviceconfigurationwidget.h \
     deploymentdata.h \
@@ -144,6 +148,7 @@ SOURCES += projectexplorer.cpp \
     gcctoolchain.cpp \
     localapplicationrunconfiguration.cpp \
     localenvironmentaspect.cpp \
+    osparser.cpp \
     projectwindow.cpp \
     removetaskhandler.cpp \
     kit.cpp \
@@ -232,10 +237,12 @@ SOURCES += projectexplorer.cpp \
     devicesupport/desktopdevice.cpp \
     devicesupport/desktopdevicefactory.cpp \
     devicesupport/idevicefactory.cpp \
+    devicesupport/desktopdeviceprocess.cpp \
     devicesupport/devicecheckbuildstep.cpp \
     devicesupport/devicemanager.cpp \
     devicesupport/devicemanagermodel.cpp \
     devicesupport/devicefactoryselectiondialog.cpp \
+    devicesupport/deviceprocess.cpp \
     devicesupport/deviceprocesslist.cpp \
     devicesupport/deviceprocessesdialog.cpp \
     devicesupport/devicesettingswidget.cpp \
@@ -244,6 +251,7 @@ SOURCES += projectexplorer.cpp \
     devicesupport/deviceusedportsgatherer.cpp \
     devicesupport/deviceapplicationrunner.cpp \
     devicesupport/localprocesslist.cpp \
+    devicesupport/sshdeviceprocess.cpp \
     devicesupport/sshdeviceprocesslist.cpp \
     devicesupport/desktopdeviceconfigurationwidget.cpp \
     deployablefile.cpp \

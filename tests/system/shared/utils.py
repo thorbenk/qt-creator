@@ -225,7 +225,7 @@ def cleanUpUserFiles(pathsToProFiles=None):
             doneWithoutErrors = False
     return doneWithoutErrors
 
-def invokeMenuItem(menu, item, subItem = None):
+def invokeMenuItem(menu, item, *subItems):
     if platform.system() == "Darwin":
         try:
             waitForObject(":Qt Creator.QtCreator.MenuBar_QMenuBar", 2000)
@@ -237,10 +237,11 @@ def invokeMenuItem(menu, item, subItem = None):
     itemObject = waitForObjectItem(objectMap.realName(menuObject), item)
     waitFor("itemObject.enabled", 2000)
     activateItem(itemObject)
-    if subItem != None:
+    for subItem in subItems:
         sub = itemObject.menu()
         waitFor("sub.visible", 1000)
-        activateItem(waitForObjectItem(sub, subItem))
+        itemObject = waitForObjectItem(sub, subItem)
+        activateItem(itemObject)
 
 def logApplicationOutput():
     # make sure application output is shown
@@ -307,6 +308,34 @@ def addHelpDocumentation(which):
     for qch in which:
         clickButton(waitForObject("{type='QPushButton' name='addButton' visible='1' text='Add...'}"))
         selectFromFileDialog(qch)
+    clickButton(waitForObject(":Options.OK_QPushButton"))
+
+def addCurrentCreatorDocumentation():
+    currentCreatorPath = currentApplicationContext().cwd
+    if platform.system() == "Darwin":
+        docPath = os.path.abspath(os.path.join(currentCreatorPath, "Qt Creator.app", "Contents",
+                                               "Resources", "doc", "qtcreator.qch"))
+    else:
+        docPath = os.path.abspath(os.path.join(currentCreatorPath, "..", "share", "doc",
+                                               "qtcreator", "qtcreator.qch"))
+    if not os.path.exists(docPath):
+        test.fatal("Missing current Qt Creator documentation (expected in %s)" % docPath)
+        return
+    invokeMenuItem("Tools", "Options...")
+    waitForObjectItem(":Options_QListView", "Help")
+    clickItem(":Options_QListView", "Help", 14, 15, 0, Qt.LeftButton)
+    waitForObject("{container=':Options.qt_tabwidget_tabbar_QTabBar' type='TabItem' text='Documentation'}")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "Documentation")
+    clickButton(waitForObject("{type='QPushButton' name='addButton' visible='1' text='Add...'}"))
+    selectFromFileDialog(docPath)
+    try:
+        waitForObject("{type='QMessageBox' unnamed='1' visible='1' "
+                      "text?='Unable to register documentation.*'}", 3000)
+        test.passes("Qt Creator's documentation found already registered.")
+        clickButton(waitForObject("{type='QPushButton' text='OK' unnamed='1' visible='1' "
+                                  "container={name='groupBox' type='QGroupBox' visible='1'}}"))
+    except:
+        test.fail("Added Qt Creator's documentation explicitly.")
     clickButton(waitForObject(":Options.OK_QPushButton"))
 
 def verifyOutput(string, substring, outputFrom, outputIn):

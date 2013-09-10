@@ -29,11 +29,10 @@ HEADERS += completionsettingspage.h \
     cppcodestylepreferencesfactory.h \
     cppcodestylepreferences.h \
     cpptoolsreuse.h \
-    cppctordtorfilter.h \
     doxygengenerator.h \
     commentssettings.h \
     symbolfinder.h \
-    cppcompletionsupport.h \
+    cppmodelmanagersupport.h \
     cpphighlightingsupport.h \
     cpphighlightingsupportinternal.h \
     cppchecksymbols.h \
@@ -46,7 +45,9 @@ HEADERS += completionsettingspage.h \
     cpppointerdeclarationformatter.h \
     cppprojectfile.h \
     cpppreprocessor.h \
-    includeutils.h
+    includeutils.h \
+    cpplocatordata.h \
+    cppmodelmanagersupportinternal.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -74,11 +75,10 @@ SOURCES += completionsettingspage.cpp \
     cppcodestylepreferencesfactory.cpp \
     cppcodestylepreferences.cpp \
     cpptoolsreuse.cpp \
-    cppctordtorfilter.cpp \
     doxygengenerator.cpp \
     commentssettings.cpp \
     symbolfinder.cpp \
-    cppcompletionsupport.cpp \
+    cppmodelmanagersupport.cpp \
     cpphighlightingsupport.cpp \
     cpphighlightingsupportinternal.cpp \
     cppchecksymbols.cpp \
@@ -91,7 +91,9 @@ SOURCES += completionsettingspage.cpp \
     cpppointerdeclarationformatter.cpp \
     cppprojectfile.cpp \
     cpppreprocessor.cpp \
-    includeutils.cpp
+    includeutils.cpp \
+    cpplocatordata.cpp \
+    cppmodelmanagersupportinternal.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
@@ -99,12 +101,16 @@ FORMS += completionsettingspage.ui \
 
 equals(TEST, 1) {
     SOURCES += \
-        cpppreprocessertesthelper.cpp \
         cppcodegen_test.cpp \
         cppcompletion_test.cpp \
         cppmodelmanager_test.cpp \
         modelmanagertesthelper.cpp \
-        cpppointerdeclarationformatter_test.cpp
+        cpppointerdeclarationformatter_test.cpp \
+        cpplocatorfilter_test.cpp \
+        symbolsearcher_test.cpp \
+        cpppreprocessor_test.cpp \
+        cpppreprocessertesthelper.cpp \
+        cppheadersource_test.cpp
 
     HEADERS += \
         cpppreprocessertesthelper.h \

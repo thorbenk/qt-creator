@@ -30,9 +30,9 @@
 #include "customwizard.h"
 #include "customwizardparameters.h"
 #include "customwizardpage.h"
-#include "projectexplorer.h"
-#include "baseprojectwizarddialog.h"
 #include "customwizardscriptgenerator.h"
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/baseprojectwizarddialog.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/messagemanager.h>
@@ -495,7 +495,7 @@ QList<CustomWizard*> CustomWizard::createWizards()
     if (CustomWizardPrivate::verbose) { // Print to output pane for Windows.
         verboseLog += listWizards();
         qWarning("%s", qPrintable(verboseLog));
-        Core::ICore::messageManager()->printToOutputPane(verboseLog, Core::MessageManager::ModeSwitch);
+        Core::MessageManager::write(verboseLog, Core::MessageManager::ModeSwitch);
     }
     return rc;
 }

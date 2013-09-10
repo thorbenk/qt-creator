@@ -51,16 +51,9 @@
 #include <QVariant>
 #include <QMessageBox>
 
+using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;
-
-using ProjectExplorer::BuildStep;
-using ProjectExplorer::FileType;
-using ProjectExplorer::HeaderType;
-using ProjectExplorer::SourceType;
-using ProjectExplorer::FormType;
-using ProjectExplorer::ResourceType;
-using ProjectExplorer::UnknownFileType;
 
 // Known file types of a Qt 4 project
 static const char *qt4FileTypes[] = {
@@ -113,11 +106,6 @@ ProjectExplorer::Project *Qt4Manager::openProject(const QString &fileName, QStri
     }
 
     return new Qt4Project(this, fileName);
-}
-
-ProjectExplorer::ProjectExplorerPlugin *Qt4Manager::projectExplorer() const
-{
-    return ProjectExplorer::ProjectExplorerPlugin::instance();
 }
 
 ProjectExplorer::Node *Qt4Manager::contextNode() const
@@ -198,7 +186,7 @@ void Qt4Manager::addLibrary(const QString &fileName, ProFileEditorWidget *editor
 
 void Qt4Manager::runQMake()
 {
-    runQMake(projectExplorer()->startupProject(), 0);
+    runQMake(SessionManager::startupProject(), 0);
 }
 
 void Qt4Manager::runQMakeContextMenu()
@@ -229,7 +217,7 @@ void Qt4Manager::runQMake(ProjectExplorer::Project *p, ProjectExplorer::Node *no
         if (Qt4ProFileNode *profile = qobject_cast<Qt4ProFileNode *>(node))
             bc->setSubNodeBuild(profile);
 
-    projectExplorer()->buildManager()->appendStep(qs, tr("QMake"));
+    BuildManager::appendStep(qs, tr("QMake"));
     bc->setSubNodeBuild(0);
 }
 
@@ -257,13 +245,11 @@ void Qt4Manager::buildFile()
 {
     if (Core::IDocument *currentDocument= Core::EditorManager::currentDocument()) {
         QString file = currentDocument->filePath();
-        ProjectExplorer::SessionManager *session = projectExplorer()->session();
-        ProjectExplorer::FileNode *node  = qobject_cast<FileNode *>(session->nodeForFile(file));
-        ProjectExplorer::Project *project = session->projectForFile(file);
+        FileNode *node  = qobject_cast<FileNode *>(SessionManager::nodeForFile(file));
+        Project *project = SessionManager::projectForFile(file);
 
         if (project && node)
             handleSubDirContextMenu(BUILD, true, project, node->projectNode(), node);
-
     }
 }
 
@@ -296,23 +282,23 @@ void Qt4Manager::handleSubDirContextMenu(Qt4Manager::Action action, bool isFileB
 
     if (isFileBuild)
         bc->setFileNodeBuild(contextFile);
-    if (projectExplorer()->saveModifiedFiles()) {
-        const Core::Id buildStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
-        const Core::Id cleanStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
+    if (ProjectExplorerPlugin::instance()->saveModifiedFiles()) {
+        const Core::Id buildStep = ProjectExplorer::Constants::BUILDSTEPS_BUILD;
+        const Core::Id cleanStep = ProjectExplorer::Constants::BUILDSTEPS_CLEAN;
         if (action == BUILD) {
-            const QString name = ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(buildStep);
-            projectExplorer()->buildManager()->buildList(bc->stepList(buildStep), name);
+            const QString name = ProjectExplorerPlugin::displayNameForStepId(buildStep);
+            BuildManager::buildList(bc->stepList(buildStep), name);
         } else if (action == CLEAN) {
-            const QString name = ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(cleanStep);
-            projectExplorer()->buildManager()->buildList(bc->stepList(cleanStep), name);
+            const QString name = ProjectExplorerPlugin::displayNameForStepId(cleanStep);
+            BuildManager::buildList(bc->stepList(cleanStep), name);
         } else if (action == REBUILD) {
             QStringList names;
-            names << ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(cleanStep)
-                  << ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(buildStep);
+            names << ProjectExplorerPlugin::displayNameForStepId(cleanStep)
+                  << ProjectExplorerPlugin::displayNameForStepId(buildStep);
 
             QList<ProjectExplorer::BuildStepList *> stepLists;
             stepLists << bc->stepList(cleanStep) << bc->stepList(buildStep);
-            projectExplorer()->buildManager()->buildLists(stepLists, names);
+            BuildManager::buildLists(stepLists, names);
         }
     }
 

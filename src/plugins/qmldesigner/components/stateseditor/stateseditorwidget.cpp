@@ -67,6 +67,11 @@ void StatesEditorWidget::setNodeInstanceView(NodeInstanceView *nodeInstanceView)
     m_imageProvider->setNodeInstanceView(nodeInstanceView);
 }
 
+void StatesEditorWidget::showAddNewStatesButton(bool showAddNewStatesButton)
+{
+    m_declarativeView->rootContext()->setContextProperty("canAddNewStates", showAddNewStatesButton);
+}
+
 StatesEditorWidget::StatesEditorWidget(StatesEditorView *statesEditorView, StatesEditorModel *statesEditorModel):
         QWidget(),
     m_declarativeView(new QDeclarativeView(this)),
@@ -94,6 +99,8 @@ StatesEditorWidget::StatesEditorWidget(StatesEditorView *statesEditorView, State
         highlightColor.setHsvF(highlightColor.hsvHueF(),0.1 + highlightColor.saturationF()*2.0, highlightColor.valueF());
     m_declarativeView->rootContext()->setContextProperty(QLatin1String("highlightColor"), highlightColor);
 
+    m_declarativeView->rootContext()->setContextProperty("canAddNewStates", true);
+
     // Work around ASSERT in the internal QGraphicsScene that happens when
     // the scene is created + items set dirty in one event loop run (BAUHAUS-459)
     //QApplication::processEvents();
@@ -104,7 +111,8 @@ StatesEditorWidget::StatesEditorWidget(StatesEditorView *statesEditorView, State
         throw InvalidQmlSourceException(__LINE__, __FUNCTION__, __FILE__);
 
     m_declarativeView->setFocusPolicy(Qt::ClickFocus);
-    QApplication::sendEvent(m_declarativeView->scene(), new QEvent(QEvent::WindowActivate));
+    QEvent event(QEvent::WindowActivate);
+    QApplication::sendEvent(m_declarativeView->scene(), &event);
 
     connect(m_declarativeView->rootObject(), SIGNAL(currentStateInternalIdChanged()), statesEditorView, SLOT(synchonizeCurrentStateFromWidget()));
     connect(m_declarativeView->rootObject(), SIGNAL(createNewState()), statesEditorView, SLOT(createNewState()));

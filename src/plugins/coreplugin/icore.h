@@ -43,25 +43,12 @@ class QWidget;
 template <class T> class QList;
 QT_END_NAMESPACE
 
-namespace Utils {
-class AppMainWindow;
-}
-
 namespace Core {
 class IWizard;
-class ActionManager;
 class Context;
-class EditorManager;
-class DocumentManager;
-class HelpManager;
 class IContext;
-class MessageManager;
-class MimeDatabase;
-class ModeManager;
 class ProgressManager;
-class ScriptManager;
 class SettingsDatabase;
-class VariableManager;
 class VcsManager;
 
 namespace Internal { class MainWindow; }
@@ -93,17 +80,6 @@ public:
                                        Id settingsId = Id(),
                                        QWidget *parent = 0);
 
-    static QT_DEPRECATED ActionManager *actionManager(); // Use Actionmanager::... directly.
-    static QT_DEPRECATED DocumentManager *documentManager(); // Use DocumentManager::... directly.
-    static QT_DEPRECATED MessageManager *messageManager(); // Use MessageManager::... directly.
-    static EditorManager *editorManager();
-    static ProgressManager *progressManager();
-    static QT_DEPRECATED VariableManager *variableManager(); // Use VariableManager::... directly.
-    static VcsManager *vcsManager();
-    static QT_DEPRECATED ModeManager *modeManager(); // Use ModeManager::... directly.
-    static MimeDatabase *mimeDatabase();
-    static HelpManager *helpManager();
-
     static QSettings *settings(QSettings::Scope scope = QSettings::UserScope);
     static SettingsDatabase *settingsDatabase();
     static QPrinter *printer();
@@ -117,7 +93,6 @@ public:
     static QString buildCompatibilityString();
 
     static QWidget *mainWindow();
-    static Utils::AppMainWindow *appMainWindow();
     static QStatusBar *statusBar();
     /* Raises and activates the window for the widget. This contains workarounds for X11. */
     static void raiseWindow(QWidget *widget);

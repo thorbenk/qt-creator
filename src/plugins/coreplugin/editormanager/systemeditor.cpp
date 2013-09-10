@@ -28,7 +28,7 @@
 ****************************************************************************/
 
 #include "systemeditor.h"
-#include "id.h"
+#include <coreplugin/id.h>
 
 #include <QStringList>
 #include <QUrl>
@@ -49,7 +49,7 @@ QStringList SystemEditor::mimeTypes() const
 
 Id SystemEditor::id() const
 {
-    return Id("CorePlugin.OpenWithSystemEditor");
+    return "CorePlugin.OpenWithSystemEditor";
 }
 
 QString SystemEditor::displayName() const

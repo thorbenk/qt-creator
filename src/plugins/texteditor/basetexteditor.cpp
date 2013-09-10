@@ -35,20 +35,20 @@
 #include "behaviorsettings.h"
 #include "codecselector.h"
 #include "completionsettings.h"
+#include "snippets/snippet.h"
 #include "tabsettings.h"
 #include "typingsettings.h"
 #include "icodestylepreferences.h"
 #include "syntaxhighlighter.h"
 #include "indenter.h"
 #include "autocompleter.h"
-#include "snippet.h"
-#include "codeassistant.h"
-#include "defaultassistinterface.h"
 #include "convenience.h"
 #include "texteditorsettings.h"
 #include "texteditoroverlay.h"
 #include "circularclipboard.h"
 #include "circularclipboardassist.h"
+#include <texteditor/codeassist/codeassistant.h>
+#include <texteditor/codeassist/defaultassistinterface.h>
 
 #include <aggregation/aggregate.h>
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -500,6 +500,8 @@ BaseTextEditor *BaseTextEditorWidget::editor() const
                 d->m_editor, SIGNAL(contentsChanged()));
         connect(this, SIGNAL(changed()),
                 d->m_editor->document(), SIGNAL(changed()));
+        connect(qobject_cast<BaseTextDocument *>(d->m_editor->document()),SIGNAL(mimeTypeChanged()),
+                d->m_codeAssistant.data(), SLOT(reconfigure()));
     }
     return d->m_editor;
 }
@@ -520,7 +522,7 @@ void BaseTextEditorWidget::selectEncoding()
         break; }
     case CodecSelector::Save:
         doc->setCodec(codecSelector.selectedCodec());
-        Core::EditorManager::instance()->saveEditor(editor());
+        Core::EditorManager::saveEditor(editor());
         updateTextCodecLabel();
         break;
     case CodecSelector::Cancel:
@@ -1558,6 +1560,7 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
                 && d->m_snippetOverlay->isVisible()) {
             e->accept();
             d->m_snippetOverlay->hide();
+            d->m_snippetOverlay->mangle();
             d->m_snippetOverlay->clear();
             QTextCursor cursor = textCursor();
             cursor.clearSelection();
@@ -1597,6 +1600,7 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         if (d->m_snippetOverlay->isVisible()) {
             e->accept();
             d->m_snippetOverlay->hide();
+            d->m_snippetOverlay->mangle();
             d->m_snippetOverlay->clear();
             QTextCursor cursor = textCursor();
             cursor.movePosition(QTextCursor::EndOfBlock);
@@ -1931,57 +1935,20 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
 
 void BaseTextEditorWidget::insertCodeSnippet(const QTextCursor &cursor_arg, const QString &snippet)
 {
-    if ((snippet.count(Snippet::kVariableDelimiter) % 2) != 0) {
-        qWarning() << "invalid snippet";
-        return;
-    }
-
-    QList<QTextEdit::ExtraSelection> selections;
+    Snippet::ParsedSnippet data = Snippet::parse(snippet);
 
     QTextCursor cursor = cursor_arg;
     cursor.beginEditBlock();
     cursor.removeSelectedText();
     const int startCursorPosition = cursor.position();
 
-    int pos = 0;
-    QMap<int, int> positions;
+    cursor.insertText(data.text);
+    QList<QTextEdit::ExtraSelection> selections;
 
-    while (pos < snippet.size()) {
-        if (snippet.at(pos) != Snippet::kVariableDelimiter) {
-            const int start = pos;
-            do { ++pos; }
-            while (pos < snippet.size() && snippet.at(pos) != Snippet::kVariableDelimiter);
-            cursor.insertText(snippet.mid(start, pos - start));
-        } else {
-            // the start of a place holder.
-            const int start = ++pos;
-            for (; pos < snippet.size(); ++pos) {
-                if (snippet.at(pos) == Snippet::kVariableDelimiter)
-                    break;
-            }
-
-            Q_ASSERT(pos < snippet.size());
-            Q_ASSERT(snippet.at(pos) == Snippet::kVariableDelimiter);
-
-            const QString textToInsert = snippet.mid(start, pos - start);
-
-            int cursorPosition = cursor.position();
-            cursor.insertText(textToInsert);
-
-            if (textToInsert.isEmpty())
-                positions.insert(cursorPosition, 0);
-            else
-                positions.insert(cursorPosition, textToInsert.length());
-
-            ++pos;
-        }
-    }
-
-    QMapIterator<int,int> it(positions);
-    while (it.hasNext()) {
-        it.next();
-        int length = it.value();
-        int position = it.key();
+    QList<NameMangler *> manglers;
+    for (int i = 0; i < data.ranges.count(); ++i) {
+        int position = data.ranges.at(i).start + startCursorPosition;
+        int length = data.ranges.at(i).length;
 
         QTextCursor tc(document());
         tc.setPosition(position);
@@ -1990,6 +1957,7 @@ void BaseTextEditorWidget::insertCodeSnippet(const QTextCursor &cursor_arg, cons
         selection.cursor = tc;
         selection.format = (length ? d->m_occurrencesFormat : d->m_occurrenceRenameFormat);
         selections.append(selection);
+        manglers << data.ranges.at(i).mangler;
     }
 
     cursor.setPosition(startCursorPosition, QTextCursor::KeepAnchor);
@@ -1997,8 +1965,9 @@ void BaseTextEditorWidget::insertCodeSnippet(const QTextCursor &cursor_arg, cons
     cursor.endEditBlock();
 
     setExtraSelections(BaseTextEditorWidget::SnippetPlaceholderSelection, selections);
+    d->m_snippetOverlay->setNameMangler(manglers);
 
-    if (! selections.isEmpty()) {
+    if (!selections.isEmpty()) {
         const QTextEdit::ExtraSelection &selection = selections.first();
 
         cursor = textCursor();
@@ -2010,7 +1979,6 @@ void BaseTextEditorWidget::insertCodeSnippet(const QTextCursor &cursor_arg, cons
         }
         setTextCursor(cursor);
     }
-
 }
 
 void BaseTextEditorWidget::universalHelper()
@@ -2554,6 +2522,7 @@ bool BaseTextEditorWidgetPrivate::snippetCheckCursor(const QTextCursor &cursor)
         || !m_snippetOverlay->hasCursorInSelection(end)
         || m_snippetOverlay->hasFirstSelectionBeginMoved()) {
         m_snippetOverlay->setVisible(false);
+        m_snippetOverlay->mangle();
         m_snippetOverlay->clear();
         return false;
     }
@@ -4036,7 +4005,7 @@ void BaseTextEditorWidget::slotCursorPositionChanged()
             << "indent:" << BaseTextDocumentLayout::userData(textCursor().block())->foldingIndent();
 #endif
     if (!d->m_contentsChanged && d->m_lastCursorChangeWasInteresting) {
-        Core::EditorManager::instance()->addCurrentPositionToNavigationHistory(editor(), d->m_tempNavigationState);
+        Core::EditorManager::addCurrentPositionToNavigationHistory(editor(), d->m_tempNavigationState);
         d->m_lastCursorChangeWasInteresting = false;
     } else if (d->m_contentsChanged) {
         saveCurrentCursorPositionForNavigation();
@@ -4202,11 +4171,11 @@ void BaseTextEditorWidget::mouseMoveEvent(QMouseEvent *e)
 static bool handleForwardBackwardMouseButtons(QMouseEvent *e)
 {
     if (e->button() == Qt::XButton1) {
-        Core::EditorManager::instance()->goBackInNavigationHistory();
+        Core::EditorManager::goBackInNavigationHistory();
         return true;
     }
     if (e->button() == Qt::XButton2) {
-        Core::EditorManager::instance()->goForwardInNavigationHistory();
+        Core::EditorManager::goForwardInNavigationHistory();
         return true;
     }
 
@@ -4256,7 +4225,7 @@ void BaseTextEditorWidget::mouseReleaseEvent(QMouseEvent *e)
             && e->button() == Qt::LeftButton
             ) {
 
-        Core::EditorManager::instance()->addCurrentPositionToNavigationHistory();
+        Core::EditorManager::addCurrentPositionToNavigationHistory();
         bool inNextSplit = ((e->modifiers() & Qt::AltModifier) && !alwaysOpenLinksInNextSplit())
                 || (alwaysOpenLinksInNextSplit() && !(e->modifiers() & Qt::AltModifier));
         if (openLink(findLinkAt(cursorForPosition(e->pos())), inNextSplit)) {
@@ -4734,6 +4703,7 @@ void BaseTextEditorWidget::handleBackspaceKey()
             handled = true;
         } else {
             if (cursorWithinSnippet) {
+                d->m_snippetOverlay->mangle();
                 d->m_snippetOverlay->clear();
                 cursorWithinSnippet = false;
             }
@@ -4766,6 +4736,7 @@ void BaseTextEditorWidget::handleBackspaceKey()
             cursor.deletePreviousChar();
         } else {
             if (cursorWithinSnippet) {
+                d->m_snippetOverlay->mangle();
                 d->m_snippetOverlay->clear();
                 cursorWithinSnippet = false;
             }
@@ -4845,11 +4816,10 @@ bool BaseTextEditorWidget::openLink(const Link &link, bool inNextSplit)
     if (!link.hasValidTarget())
         return false;
 
-    Core::EditorManager *editorManager = Core::EditorManager::instance();
     if (inNextSplit) {
-        editorManager->gotoOtherSplit();
+        Core::EditorManager::gotoOtherSplit();
     } else if (baseTextDocument()->filePath() == link.targetFileName) {
-        editorManager->addCurrentPositionToNavigationHistory();
+        Core::EditorManager::addCurrentPositionToNavigationHistory();
         gotoLine(link.targetLine, link.targetColumn);
         setFocus();
         return true;
@@ -5355,6 +5325,7 @@ void BaseTextEditorWidget::setExtraSelections(ExtraSelectionKind kind, const QLi
         }
         d->m_overlay->setVisible(!d->m_overlay->isEmpty());
     } else if (kind == SnippetPlaceholderSelection) {
+        d->m_snippetOverlay->mangle();
         d->m_snippetOverlay->clear();
         foreach (const QTextEdit::ExtraSelection &selection, d->m_extraSelections[kind]) {
             d->m_snippetOverlay->addOverlaySelection(selection.cursor,
@@ -5674,6 +5645,12 @@ void BaseTextEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
 
     slotUpdateExtraAreaWidth();   // Adjust to new font width
     updateCurrentLineHighlight(); // Make sure it takes the new color
+
+    SyntaxHighlighter *highlighter = baseTextDocument()->syntaxHighlighter();
+    if (highlighter) {
+        highlighter->setFontSettings(fs);
+        highlighter->rehighlight();
+    }
 }
 
 void BaseTextEditorWidget::setTabSettings(const TabSettings &ts)
@@ -6028,6 +6005,7 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
 
         if (d->m_snippetOverlay->isVisible() && lines.count() > 1) {
             d->m_snippetOverlay->hide();
+            d->m_snippetOverlay->mangle();
             d->m_snippetOverlay->clear();
         }
 
@@ -6044,6 +6022,7 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
     if (d->m_snippetOverlay->isVisible() && (text.contains(QLatin1Char('\n'))
                                              || text.contains(QLatin1Char('\t')))) {
         d->m_snippetOverlay->hide();
+        d->m_snippetOverlay->mangle();
         d->m_snippetOverlay->clear();
     }
 
@@ -6330,6 +6309,11 @@ void BaseTextEditor::select(int toPos)
 }
 
 const CommentDefinition *BaseTextEditor::commentDefinition() const
+{
+    return 0;
+}
+
+CompletionAssistProvider *BaseTextEditor::completionAssistProvider()
 {
     return 0;
 }

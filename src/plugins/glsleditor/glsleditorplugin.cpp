@@ -34,6 +34,7 @@
 #include "glslfilewizard.h"
 #include "glslhoverhandler.h"
 #include "glslcompletionassist.h"
+#include "glslhighlighterfactory.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/coreconstants.h>
@@ -106,7 +107,7 @@ GLSLEditorPlugin::~GLSLEditorPlugin()
 
 bool GLSLEditorPlugin::initialize(const QStringList & /*arguments*/, QString *errorMessage)
 {
-    if (!ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/glsleditor/GLSLEditor.mimetypes.xml"), errorMessage))
+    if (!MimeDatabase::addMimeTypes(QLatin1String(":/glsleditor/GLSLEditor.mimetypes.xml"), errorMessage))
         return false;
 
 //    m_modelManager = new ModelManager(this);
@@ -147,17 +148,16 @@ bool GLSLEditorPlugin::initialize(const QStringList & /*arguments*/, QString *er
     errorMessage->clear();
 
     FileIconProvider *iconProvider = FileIconProvider::instance();
-    MimeDatabase *mimeDatabase = ICore::mimeDatabase();
     iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/glsleditor/images/glslfile.png")),
-                                                 mimeDatabase->findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE)));
+                                                 MimeDatabase::findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE)));
     iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/glsleditor/images/glslfile.png")),
-                                                 mimeDatabase->findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_VERT)));
+                                                 MimeDatabase::findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_VERT)));
     iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/glsleditor/images/glslfile.png")),
-                                                 mimeDatabase->findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_FRAG)));
+                                                 MimeDatabase::findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_FRAG)));
     iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/glsleditor/images/glslfile.png")),
-                                                 mimeDatabase->findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_VERT_ES)));
+                                                 MimeDatabase::findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_VERT_ES)));
     iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/glsleditor/images/glslfile.png")),
-                                                 mimeDatabase->findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_FRAG_ES)));
+                                                 MimeDatabase::findByType(QLatin1String(GLSLEditor::Constants::GLSL_MIMETYPE_FRAG_ES)));
 
     QObject *core = ICore::instance();
     BaseFileWizardParameters fragWizardParameters(IWizard::FileWizard);
@@ -201,6 +201,7 @@ bool GLSLEditorPlugin::initialize(const QStringList & /*arguments*/, QString *er
     vertWizardParameters.setDisplayName(tr("Vertex Shader (Desktop OpenGL)"));
     vertWizardParameters.setId(QLatin1String("K.GLSL"));
     addAutoReleasedObject(new GLSLFileWizard(vertWizardParameters, GLSLFileWizard::VertexShaderDesktop, core));
+    addAutoReleasedObject(new GLSLHighlighterFactory);
 
     return true;
 }
@@ -215,7 +216,7 @@ ExtensionSystem::IPlugin::ShutdownFlag GLSLEditorPlugin::aboutToShutdown()
     return IPlugin::aboutToShutdown();
 }
 
-void GLSLEditorPlugin::initializeEditor(GLSLEditor::GLSLTextEditorWidget *editor)
+void GLSLEditorPlugin::initializeEditor(GLSLTextEditorWidget *editor)
 {
     QTC_CHECK(m_instance);
     m_actionHandler->setupActions(editor);

@@ -54,17 +54,8 @@ static const char SYSROOT_INFORMATION[] = "PE.Profile.SysRoot";
 SysRootKitInformation::SysRootKitInformation()
 {
     setObjectName(QLatin1String("SysRootInformation"));
-}
-
-Core::Id SysRootKitInformation::dataId() const
-{
-    static const Core::Id id(SYSROOT_INFORMATION);
-    return id;
-}
-
-unsigned int SysRootKitInformation::priority() const
-{
-    return 31000;
+    setDataId(SYSROOT_INFORMATION);
+    setPriority(31000);
 }
 
 QVariant SysRootKitInformation::defaultValue(Kit *k) const
@@ -113,9 +104,9 @@ void SysRootKitInformation::setSysRoot(Kit *k, const Utils::FileName &v)
     k->setValue(Core::Id(SYSROOT_INFORMATION), v.toString());
 }
 
-void SysRootKitInformation::makeSticky(Kit *k)
+void SysRootKitInformation::setSticky(Kit *k, bool b)
 {
-    k->makeSticky(SYSROOT_INFORMATION);
+    k->setSticky(SYSROOT_INFORMATION, b);
 }
 
 // --------------------------------------------------------------------------
@@ -127,29 +118,21 @@ static const char TOOLCHAIN_INFORMATION[] = "PE.Profile.ToolChain";
 ToolChainKitInformation::ToolChainKitInformation()
 {
     setObjectName(QLatin1String("ToolChainInformation"));
+    setDataId(TOOLCHAIN_INFORMATION);
+    setPriority(30000);
+
     connect(KitManager::instance(), SIGNAL(kitsLoaded()),
             this, SLOT(kitsWereLoaded()));
-}
-
-Core::Id ToolChainKitInformation::dataId() const
-{
-    static const Core::Id id(TOOLCHAIN_INFORMATION);
-    return id;
-}
-
-unsigned int ToolChainKitInformation::priority() const
-{
-    return 30000;
 }
 
 QVariant ToolChainKitInformation::defaultValue(Kit *k) const
 {
     Q_UNUSED(k);
-    QList<ToolChain *> tcList = ToolChainManager::instance()->toolChains();
+    QList<ToolChain *> tcList = ToolChainManager::toolChains();
     if (tcList.isEmpty())
         return QString();
 
-    ProjectExplorer::Abi abi = ProjectExplorer::Abi::hostAbi();
+    Abi abi = Abi::hostAbi();
 
     foreach (ToolChain *tc, tcList) {
         if (tc->targetAbi() == abi)
@@ -175,7 +158,7 @@ QList<Task> ToolChainKitInformation::validate(const Kit *k) const
 
 void ToolChainKitInformation::fix(Kit *k)
 {
-    QTC_ASSERT(ToolChainManager::instance()->isLoaded(), return);
+    QTC_ASSERT(ToolChainManager::isLoaded(), return);
     if (toolChain(k))
         return;
 
@@ -186,17 +169,17 @@ void ToolChainKitInformation::fix(Kit *k)
 
 void ToolChainKitInformation::setup(Kit *k)
 {
-    QTC_ASSERT(ToolChainManager::instance()->isLoaded(), return);
-    const QString id = k->value(Core::Id(TOOLCHAIN_INFORMATION)).toString();
+    QTC_ASSERT(ToolChainManager::isLoaded(), return);
+    const QString id = k->value(TOOLCHAIN_INFORMATION).toString();
     if (id.isEmpty())
         return;
 
-    ToolChain *tc = ToolChainManager::instance()->findToolChain(id);
+    ToolChain *tc = ToolChainManager::findToolChain(id);
     if (tc)
         return;
 
     // ID is not found: Might be an ABI string...
-    foreach (ToolChain *current, ToolChainManager::instance()->toolChains()) {
+    foreach (ToolChain *current, ToolChainManager::toolChains()) {
         if (current->targetAbi().toString() == id)
             return setToolChain(k, current);
     }
@@ -236,16 +219,15 @@ IOutputParser *ToolChainKitInformation::createOutputParser(const Kit *k) const
 
 ToolChain *ToolChainKitInformation::toolChain(const Kit *k)
 {
-    QTC_ASSERT(ToolChainManager::instance()->isLoaded(), return 0);
+    QTC_ASSERT(ToolChainManager::isLoaded(), return 0);
     if (!k)
         return 0;
-    return ToolChainManager::instance()
-            ->findToolChain(k->value(Core::Id(TOOLCHAIN_INFORMATION)).toString());
+    return ToolChainManager::findToolChain(k->value(TOOLCHAIN_INFORMATION).toString());
 }
 
 void ToolChainKitInformation::setToolChain(Kit *k, ToolChain *tc)
 {
-    k->setValue(Core::Id(TOOLCHAIN_INFORMATION), tc ? tc->id() : QString());
+    k->setValue(TOOLCHAIN_INFORMATION, tc ? tc->id() : QString());
 }
 
 QString ToolChainKitInformation::msgNoToolChainInTarget()
@@ -253,14 +235,14 @@ QString ToolChainKitInformation::msgNoToolChainInTarget()
     return tr("No compiler set in kit.");
 }
 
-void ToolChainKitInformation::makeSticky(Kit *k)
+void ToolChainKitInformation::setSticky(Kit *k, bool b)
 {
-    k->makeSticky(TOOLCHAIN_INFORMATION);
+    k->setSticky(TOOLCHAIN_INFORMATION, b);
 }
 
 void ToolChainKitInformation::kitsWereLoaded()
 {
-    foreach (Kit *k, KitManager::instance()->kits())
+    foreach (Kit *k, KitManager::kits())
         fix(k);
 
     connect(ToolChainManager::instance(), SIGNAL(toolChainRemoved(ProjectExplorer::ToolChain*)),
@@ -272,14 +254,14 @@ void ToolChainKitInformation::kitsWereLoaded()
 void ToolChainKitInformation::toolChainUpdated(ProjectExplorer::ToolChain *tc)
 {
     ToolChainMatcher m(tc);
-    foreach (Kit *k, KitManager::instance()->kits(&m))
+    foreach (Kit *k, KitManager::kits(&m))
         notifyAboutUpdate(k);
 }
 
 void ToolChainKitInformation::toolChainRemoved(ProjectExplorer::ToolChain *tc)
 {
     Q_UNUSED(tc);
-    foreach (Kit *k, KitManager::instance()->kits())
+    foreach (Kit *k, KitManager::kits())
         fix(k);
 }
 
@@ -292,17 +274,8 @@ static const char DEVICETYPE_INFORMATION[] = "PE.Profile.DeviceType";
 DeviceTypeKitInformation::DeviceTypeKitInformation()
 {
     setObjectName(QLatin1String("DeviceTypeInformation"));
-}
-
-Core::Id DeviceTypeKitInformation::dataId() const
-{
-    static const Core::Id id(DEVICETYPE_INFORMATION);
-    return id;
-}
-
-unsigned int DeviceTypeKitInformation::priority() const
-{
-    return 33000;
+    setDataId(DEVICETYPE_INFORMATION);
+    setPriority(33000);
 }
 
 QVariant DeviceTypeKitInformation::defaultValue(Kit *k) const
@@ -349,9 +322,9 @@ void DeviceTypeKitInformation::setDeviceTypeId(Kit *k, Core::Id type)
     k->setValue(DEVICETYPE_INFORMATION, type.toSetting());
 }
 
-void DeviceTypeKitInformation::makeSticky(Kit *k)
+void DeviceTypeKitInformation::setSticky(Kit *k, bool b)
 {
-    k->makeSticky(DEVICETYPE_INFORMATION);
+    k->setSticky(DEVICETYPE_INFORMATION, b);
 }
 
 // --------------------------------------------------------------------------
@@ -363,19 +336,11 @@ static const char DEVICE_INFORMATION[] = "PE.Profile.Device";
 DeviceKitInformation::DeviceKitInformation()
 {
     setObjectName(QLatin1String("DeviceInformation"));
+    setDataId(DEVICE_INFORMATION);
+    setPriority(32000);
+
     connect(KitManager::instance(), SIGNAL(kitsLoaded()),
             this, SLOT(kitsWereLoaded()));
-}
-
-Core::Id DeviceKitInformation::dataId() const
-{
-    static const Core::Id id(DEVICE_INFORMATION);
-    return id;
-}
-
-unsigned int DeviceKitInformation::priority() const
-{
-    return 32000;
 }
 
 QVariant DeviceKitInformation::defaultValue(Kit *k) const
@@ -456,14 +421,14 @@ void DeviceKitInformation::setDeviceId(Kit *k, const Core::Id id)
     k->setValue(DEVICE_INFORMATION, id.toSetting());
 }
 
-void DeviceKitInformation::makeSticky(Kit *k)
+void DeviceKitInformation::setSticky(Kit *k, bool b)
 {
-    k->makeSticky(DEVICE_INFORMATION);
+    k->setSticky(DEVICE_INFORMATION, b);
 }
 
 void DeviceKitInformation::kitsWereLoaded()
 {
-    foreach (Kit *k, KitManager::instance()->kits())
+    foreach (Kit *k, KitManager::kits())
         fix(k);
 
     DeviceManager *dm = DeviceManager::instance();
@@ -480,7 +445,7 @@ void DeviceKitInformation::kitsWereLoaded()
 
 void DeviceKitInformation::deviceUpdated(const Core::Id &id)
 {
-    foreach (Kit *k, KitManager::instance()->kits()) {
+    foreach (Kit *k, KitManager::kits()) {
         if (deviceId(k) == id)
             notifyAboutUpdate(k);
     }
@@ -493,7 +458,7 @@ void DeviceKitInformation::kitUpdated(Kit *k)
 
 void DeviceKitInformation::devicesChanged()
 {
-    foreach (Kit *k, KitManager::instance()->kits())
+    foreach (Kit *k, KitManager::kits())
         setup(k); // Set default device if necessary
 }
 

@@ -60,6 +60,9 @@ public:
     ~CppToolsPlugin();
 
     static CppToolsPlugin *instance();
+    static const QStringList &headerSearchPaths();
+    static const QStringList &sourceSearchPaths();
+    static void clearHeaderSourceCache();
 
     bool initialize(const QStringList &arguments, QString *errorMessage);
     void extensionsInitialized();
@@ -147,6 +150,8 @@ private slots:
     void test_completion_recursive_using_declarations1();
     void test_completion_recursive_using_declarations2();
     void test_completion_recursive_using_typedef_declarations();
+    void test_completion_prefix_first_QTCREATORBUG_8737();
+    void test_completion_prefix_first_QTCREATORBUG_9236();
 
     void test_completion_class_declaration_inside_function_or_block_QTCREATORBUG3620();
     void test_completion_class_declaration_inside_function_or_block_QTCREATORBUG3620_data();
@@ -176,6 +181,8 @@ private slots:
     void test_completion_local_type_and_member_5();
     void test_completion_local_type_and_member_6();
 
+    void test_completion_signals_hide_QPrivateSignal();
+
     void test_format_pointerdeclaration_in_simpledeclarations();
     void test_format_pointerdeclaration_in_simpledeclarations_data();
     void test_format_pointerdeclaration_in_controlflowstatements();
@@ -186,6 +193,8 @@ private slots:
     void test_format_pointerdeclaration_multiple_matches_data();
     void test_format_pointerdeclaration_macros();
     void test_format_pointerdeclaration_macros_data();
+
+    void test_cpppreprocessor_includes();
 
     void test_modelmanager_paths_are_clean();
     void test_modelmanager_framework_headers();
@@ -199,6 +208,16 @@ private slots:
     void test_modelmanager_extraeditorsupport_uiFiles();
     void test_modelmanager_gc_if_last_cppeditor_closed();
     void test_modelmanager_dont_gc_opened_files();
+
+    void test_cpplocatorfilters_CppLocatorFilter();
+    void test_cpplocatorfilters_CppLocatorFilter_data();
+    void test_cpplocatorfilters_CppCurrentDocumentFilter();
+
+    void test_builtinsymbolsearcher();
+    void test_builtinsymbolsearcher_data();
+
+    void test_headersource_data();
+    void test_headersource();
 
 private:
     void test_completion();

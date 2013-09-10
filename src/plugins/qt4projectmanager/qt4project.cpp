@@ -40,7 +40,6 @@
 #include "qt4projectmanager/wizards/qtquickapp.h"
 #include "qt4projectmanager/wizards/html5app.h"
 
-#include <coreplugin/icore.h>
 #include <coreplugin/icontext.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <coreplugin/documentmanager.h>
@@ -350,8 +349,7 @@ Qt4Project::Qt4Project(Qt4Manager *manager, const QString& fileName) :
     m_asyncUpdateTimer.setInterval(3000);
     connect(&m_asyncUpdateTimer, SIGNAL(timeout()), this, SLOT(asyncUpdate()));
 
-    connect(ProjectExplorerPlugin::instance()->buildManager(),
-            SIGNAL(buildQueueFinished(bool)),
+    connect(BuildManager::instance(), SIGNAL(buildQueueFinished(bool)),
             SLOT(buildFinished(bool)));
 }
 
@@ -512,7 +510,7 @@ void Qt4Project::updateCppCodeModel()
     if (ProjectExplorer::Target *target = activeTarget())
         k = target->kit();
     else
-        k = KitManager::instance()->defaultKit();
+        k = KitManager::defaultKit();
     qtVersion = QtSupport::QtKitInformation::qtVersion(k);
 
     CppTools::CppModelManagerInterface *modelmanager =
@@ -858,11 +856,9 @@ void Qt4Project::asyncUpdate()
     Q_ASSERT(!m_asyncUpdateFutureInterface);
     m_asyncUpdateFutureInterface = new QFutureInterface<void>();
 
-    Core::ProgressManager *progressManager = Core::ICore::progressManager();
-
     m_asyncUpdateFutureInterface->setProgressRange(0, 0);
-    progressManager->addTask(m_asyncUpdateFutureInterface->future(), tr("Evaluating"),
-                             QLatin1String(Constants::PROFILE_EVALUATE));
+    Core::ProgressManager::addTask(m_asyncUpdateFutureInterface->future(), tr("Evaluating"),
+                             Constants::PROFILE_EVALUATE);
     if (debug)
         qDebug()<<"  adding task";
 
@@ -969,7 +965,7 @@ QString Qt4Project::generatedUiHeader(const QString &formFile) const
 
 void Qt4Project::proFileParseError(const QString &errorMessage)
 {
-    Core::ICore::messageManager()->printToOutputPane(errorMessage, Core::MessageManager::NoModeSwitch);
+    Core::MessageManager::write(errorMessage);
 }
 
 QtSupport::ProFileReader *Qt4Project::createProFileReader(const Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc)
@@ -992,7 +988,7 @@ QtSupport::ProFileReader *Qt4Project::createProFileReader(const Qt4ProFileNode *
             else
                 qmakeArgs = bc->configCommandLineArguments();
         } else {
-            k = KitManager::instance()->defaultKit();
+            k = KitManager::defaultKit();
         }
 
         QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
@@ -1393,7 +1389,7 @@ bool Qt4Project::needsConfiguration() const
 
 void Qt4Project::configureAsExampleProject(const QStringList &platforms)
 {
-    QList<Kit *> kits = ProjectExplorer::KitManager::instance()->kits();
+    QList<Kit *> kits = ProjectExplorer::KitManager::kits();
     foreach (Kit *k, kits) {
         QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
         if (!version)

@@ -29,10 +29,6 @@
 
 #include "gdbengine.h"
 
-#include "debuggerstartparameters.h"
-#include "debuggerinternalconstants.h"
-#include "debuggerruncontrolfactory.h"
-#include "disassemblerlines.h"
 #include "attachgdbadapter.h"
 #include "coregdbadapter.h"
 #include "localplaingdbadapter.h"
@@ -40,28 +36,34 @@
 #include "remotegdbserveradapter.h"
 #include "remoteplaingdbadapter.h"
 
-#include "debuggeractions.h"
-#include "debuggercore.h"
-#include "debuggermainwindow.h"
-#include "debuggerplugin.h"
-#include "debuggerprotocol.h"
-#include "debuggerstringutils.h"
-#include "debuggertooltipmanager.h"
-#include "disassembleragent.h"
 #include "gdboptionspage.h"
-#include "memoryagent.h"
-#include "sourceutils.h"
 
-#include "breakhandler.h"
-#include "moduleshandler.h"
-#include "registerhandler.h"
-#include "sourcefileshandler.h"
-#include "stackhandler.h"
-#include "threadshandler.h"
-#include "debuggersourcepathmappingwidget.h"
-#include "hostutils.h"
-#include "logwindow.h"
-#include "procinterrupt.h"
+#include <debugger/debuggerstartparameters.h>
+#include <debugger/debuggerinternalconstants.h>
+#include <debugger/debuggerruncontrolfactory.h>
+#include <debugger/disassemblerlines.h>
+
+#include <debugger/debuggeractions.h>
+#include <debugger/debuggercore.h>
+#include <debugger/debuggermainwindow.h>
+#include <debugger/debuggerplugin.h>
+#include <debugger/debuggerprotocol.h>
+#include <debugger/debuggerstringutils.h>
+#include <debugger/debuggertooltipmanager.h>
+#include <debugger/disassembleragent.h>
+#include <debugger/memoryagent.h>
+#include <debugger/sourceutils.h>
+
+#include <debugger/breakhandler.h>
+#include <debugger/moduleshandler.h>
+#include <debugger/registerhandler.h>
+#include <debugger/sourcefileshandler.h>
+#include <debugger/stackhandler.h>
+#include <debugger/threadshandler.h>
+#include <debugger/debuggersourcepathmappingwidget.h>
+#include <debugger/logwindow.h>
+#include <debugger/procinterrupt.h>
+#include <debugger/shared/hostutils.h>
 
 #include <coreplugin/icore.h>
 #include <projectexplorer/taskhub.h>
@@ -687,9 +689,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 m_lastWinException = msgWinException(data, &exCode);
                 showMessage(m_lastWinException, LogMisc);
                 const Task::TaskType type = isFatalWinException(exCode) ? Task::Error : Task::Warning;
-                const Task task(type, m_lastWinException, Utils::FileName(), 0,
-                                Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME));
-                TaskHub::addTask(task);
+                TaskHub::addTask(type, m_lastWinException, Constants::TASK_CATEGORY_DEBUGGER_RUNTIME);
             }
 
             if (data.startsWith("QMLBP:")) {
@@ -1829,7 +1829,7 @@ void GdbEngine::handleShowVersion(const GdbResponse &response)
             postCommand("set detach-on-fork off", ConsoleCommand);
 
         //postCommand("set build-id-verbose 2", ConsoleCommand);
-        postCommand("python print 43", ConsoleCommand, CB(handleHasPython));
+        postCommand("python print(sys.version)", ConsoleCommand, CB(handleHasPython));
     }
 }
 
@@ -4854,12 +4854,12 @@ void GdbEngine::startGdb(const QStringList &args)
     postCommand("set width 0");
     postCommand("set height 0");
 
+    // FIXME: Provide proper Gui settings for these:
     //postCommand("set breakpoint always-inserted on", ConsoleCommand);
     // displaced-stepping does not work in Thumb mode.
     //postCommand("set displaced-stepping on");
     //postCommand("set trust-readonly-sections on", ConsoleCommand);
-
-    postCommand("set remotecache on", ConsoleCommand);
+    //postCommand("set remotecache on", ConsoleCommand);
     //postCommand("set non-stop on", ConsoleCommand);
 
     typedef GlobalDebuggerOptions::SourcePathMap SourcePathMap;

@@ -70,13 +70,15 @@ public:
     {}
 
     virtual void filter(const QString &prefix);
-    virtual void sort();
+    virtual void sort(const QString &prefix);
     virtual bool keepPerfectMatch(TextEditor::AssistReason reason) const;
 };
 
 
 class QmlJSCompletionAssistProvider : public TextEditor::CompletionAssistProvider
 {
+    Q_OBJECT
+
 public:
     virtual bool supportsEditor(const Core::Id &editorId) const;
     virtual TextEditor::IAssistProcessor *createProcessor() const;

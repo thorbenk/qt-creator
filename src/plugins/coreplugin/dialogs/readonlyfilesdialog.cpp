@@ -27,11 +27,11 @@
 **
 ****************************************************************************/
 
-#include "fileiconprovider.h"
 #include "readonlyfilesdialog.h"
 #include "ui_readonlyfilesdialog.h"
 
 #include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/fileiconprovider.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/idocument.h>
 #include <coreplugin/iversioncontrol.h>
@@ -267,7 +267,7 @@ int ReadOnlyFilesDialog::exec()
             }
             break;
         case RO_SaveAs:
-            if (!EditorManager::instance()->saveDocumentAs(d->document)) {
+            if (!EditorManager::saveDocumentAs(d->document)) {
                 failedToMakeWritable << buttengroup.fileName;
                 continue;
             }
@@ -377,7 +377,7 @@ void ReadOnlyFilesDialog::initDialog(const QStringList &fileNames)
         // Add a button for opening the file with a version control system
         // if the file is managed by an version control system which allows opening files.
         IVersionControl *versionControlForFile =
-                ICore::vcsManager()->findVersionControlForDirectory(directory);
+                VcsManager::findVersionControlForDirectory(directory);
         const bool fileManagedByVCS = versionControlForFile
                 && versionControlForFile->openSupportMode() != IVersionControl::NoOpen;
         if (fileManagedByVCS) {

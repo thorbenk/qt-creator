@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Kläralvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -99,8 +99,7 @@ RunControl *ValgrindRunControlFactory::create(RunConfiguration *runConfiguration
         sp.startMode = StartRemote;
         sp.debuggee = rc2->remoteExecutableFilePath();
         sp.connParams = DeviceKitInformation::device(rc2->target()->kit())->sshParameters();
-        sp.analyzerCmdPrefix = rc2->commandPrefix();
-        sp.debuggeeArgs = rc2->arguments();
+        sp.debuggeeArgs = rc2->arguments().join(QLatin1String(" "));
     } else {
         QTC_ASSERT(false, return 0);
     }
@@ -118,7 +117,9 @@ public:
         setProjectSettings(new ValgrindProjectSettings());
         setGlobalSettings(ValgrindPlugin::globalSettings());
         setId(ANALYZER_VALGRIND_SETTINGS);
-        setDisplayName(tr("Valgrind Settings"));
+        setDisplayName(QCoreApplication::translate("Valgrind::Internal::ValgrindRunConfigurationAspect", "Valgrind Settings"));
+        setUsingGlobalSettings(true);
+        resetProjectToGlobalSettings();
     }
 
     IRunConfigurationAspect *create(RunConfiguration *parent) const

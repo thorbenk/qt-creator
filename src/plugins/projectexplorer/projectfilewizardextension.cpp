@@ -48,6 +48,7 @@
 #include <texteditor/icodestylepreferencesfactory.h>
 #include <texteditor/normalindenter.h>
 #include <texteditor/tabsettings.h>
+#include <texteditor/storagesettings.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/editorconfiguration.h>
 
@@ -106,7 +107,7 @@ private:
 ProjectNodeList AllProjectNodesVisitor::allProjects(ProjectNode::ProjectAction action)
 {
     AllProjectNodesVisitor visitor(action);
-    ProjectExplorerPlugin::instance()->session()->sessionNode()->accept(&visitor);
+    SessionManager::sessionNode()->accept(&visitor);
     return visitor.m_projectNodes;
 }
 
@@ -348,7 +349,7 @@ void ProjectFileWizardExtension::initializeVersionControlChoices()
 
     QStringList versionControlChoices = QStringList(tr("<None>"));
     if (!m_context->commonDirectory.isEmpty()) {
-        Core::IVersionControl *managingControl = Core::ICore::vcsManager()->findVersionControlForDirectory(m_context->commonDirectory);
+        Core::IVersionControl *managingControl = Core::VcsManager::findVersionControlForDirectory(m_context->commonDirectory);
         if (managingControl) {
             // Under VCS
             if (managingControl->supportsOperation(Core::IVersionControl::AddOperation)) {
@@ -545,8 +546,7 @@ void ProjectFileWizardExtension::applyCodeStyle(Core::GeneratedFile *file) const
     if (file->isBinary() || file->contents().isEmpty())
         return; // nothing to do
 
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
-    Core::MimeType mt = mdb->findByFile(QFileInfo(file->path()));
+    Core::MimeType mt = Core::MimeDatabase::findByFile(QFileInfo(file->path()));
     Core::Id languageId = TextEditor::TextEditorSettings::instance()->languageId(mt.type());
 
     if (!languageId.isValid())
@@ -557,8 +557,7 @@ void ProjectFileWizardExtension::applyCodeStyle(Core::GeneratedFile *file) const
     if (projectIndex >= 0 && projectIndex < m_context->projects.size())
         project = m_context->projects.at(projectIndex).node;
 
-    ProjectExplorer::Project *baseProject
-            = ProjectExplorer::ProjectExplorerPlugin::instance()->session()->projectForNode(project);
+    Project *baseProject = SessionManager::projectForNode(project);
 
     TextEditor::ICodeStylePreferencesFactory *factory
             = TextEditor::TextEditorSettings::instance()->codeStyleFactory(languageId);
@@ -571,13 +570,19 @@ void ProjectFileWizardExtension::applyCodeStyle(Core::GeneratedFile *file) const
 
     TextEditor::ICodeStylePreferences *codeStylePrefs = codeStylePreferences(baseProject, languageId);
     indenter->setCodeStylePreferences(codeStylePrefs);
-
     QTextDocument doc(file->contents());
     QTextCursor cursor(&doc);
     cursor.select(QTextCursor::Document);
     indenter->indent(&doc, cursor, QChar::Null, codeStylePrefs->currentTabSettings());
-    file->setContents(doc.toPlainText());
     delete indenter;
+    if (TextEditor::TextEditorSettings::instance()->storageSettings().m_cleanWhitespace) {
+        QTextBlock block = doc.firstBlock();
+        while (block.isValid()) {
+            codeStylePrefs->currentTabSettings().removeTrailingWhitespace(cursor, block);
+            block = block.next();
+        }
+    }
+    file->setContents(doc.toPlainText());
 }
 
 QStringList ProjectFileWizardExtension::getProjectChoices() const
