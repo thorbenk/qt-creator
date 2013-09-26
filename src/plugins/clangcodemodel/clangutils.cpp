@@ -71,12 +71,12 @@ UnsavedFiles createUnsavedFiles(CppModelManagerInterface::WorkingCopy workingCop
         modifiedFiles.insert(doc->filePath());
 
     UnsavedFiles result;
-    QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();
+    QHashIterator<QString, QPair<QByteArray, unsigned> > wcIter = workingCopy.iterator();
     while (wcIter.hasNext()) {
         wcIter.next();
         const QString &fileName = wcIter.key();
         if (modifiedFiles.contains(fileName) && QFile(fileName).exists())
-            result.insert(fileName, wcIter.value().first.toUtf8());
+            result.insert(fileName, wcIter.value().first);
     }
 
     return result;
