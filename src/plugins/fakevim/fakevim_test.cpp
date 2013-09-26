@@ -400,6 +400,12 @@ void FakeVimPlugin::test_vim_movement()
     KEYS("2B", X "123 "   "456.789 "   "abc "   "def");
     KEYS("4W",   "123 "   "456.789 "   "abc "   "de" X "f");
 
+    data.setText("assert(abc);");
+    KEYS("w",    "assert" X "(abc);");
+    KEYS("w",    "assert(" X "abc);");
+    KEYS("w",    "assert(abc" X ");");
+    KEYS("w",    "assert(abc)" X ";");
+
     data.setText("123" N   "45."   "6" N   "" N " " N   "789");
     KEYS("3w",   "123" N   "45." X "6" N   "" N " " N   "789");
     // From Vim help (motion.txt): An empty line is also considered to be a word.
@@ -1466,6 +1472,32 @@ void FakeVimPlugin::test_vim_search()
     KEYS("N", "abc" N X "def" N "ghi");
     KEYS("N", X "abc" N "def" N "ghi");
     KEYS("2n2N", X "abc" N "def" N "ghi");
+
+    // delete to match
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("2l" "d/ghi<CR>", "ab" X "ghi abc jkl" N "xyz");
+
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("l" "d2/abc<CR>", "a" X "abc jkl" N "xyz");
+
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("d/abc<CR>", X "abc" N "ghi abc jkl" N "xyz");
+    KEYS(".", "abc jkl" N "xyz");
+
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("/abc<CR>" "l" "dn", "abc" N "def" N "a" X "abc jkl" N "xyz");
+
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("2/abc<CR>" "h" "dN", "abc" N "def" N X " abc jkl" N "xyz");
+    KEYS("c/xxx<CR><ESC>" "h" "dN", "abc" N "def" N X " abc jkl" N "xyz");
+
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("l" "v2/abc<CR>" "x", "abc jkl" N "xyz");
+
+    // don't leave visual mode after search failed or is cancelled
+    data.setText("abc" N "def" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("vj" "/abc<ESC>" "x", X "ef" N "abc" N "ghi abc jkl" N "xyz");
+    KEYS("vj" "/xxx<CR>" "x", X "bc" N "ghi abc jkl" N "xyz");
 }
 
 void FakeVimPlugin::test_vim_indent()

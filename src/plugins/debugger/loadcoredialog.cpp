@@ -292,7 +292,7 @@ int AttachCoreDialog::exec()
     connect(d->localExecFileName, SIGNAL(changed(QString)), SLOT(changed()));
     connect(d->localCoreFileName, SIGNAL(changed(QString)), SLOT(changed()));
     connect(d->forceLocalCheckBox, SIGNAL(stateChanged(int)), SLOT(changed()));
-    connect(d->kitChooser, SIGNAL(activated(int)), SLOT(changed()));
+    connect(d->kitChooser, SIGNAL(currentIndexChanged(int)), SLOT(changed()));
     connect(d->buttonBox, SIGNAL(rejected()), SLOT(reject()));
     connect(d->buttonBox, SIGNAL(accepted()), SLOT(accept()));
     changed();
@@ -316,7 +316,7 @@ bool AttachCoreDialog::useLocalCoreFile() const
 
 void AttachCoreDialog::changed()
 {
-    bool isValid = d->kitChooser->currentIndex() >= 0 && d->localExecFileName->isValid();
+    bool isValid = d->kitChooser->currentKit() && d->localExecFileName->isValid();
     bool isKitLocal = isLocalKit();
 
     d->forceLocalLabel->setVisible(!isKitLocal);

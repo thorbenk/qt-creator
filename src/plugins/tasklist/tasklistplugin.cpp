@@ -38,6 +38,7 @@
 #include <coreplugin/mimedatabase.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/project.h>
+#include <projectexplorer/session.h>
 #include <projectexplorer/task.h>
 #include <projectexplorer/taskhub.h>
 
@@ -47,6 +48,9 @@
 
 using namespace ProjectExplorer;
 using namespace TaskList::Internal;
+
+static const char SESSION_FILE_KEY[] = "TaskList.File";
+static const char SESSION_BASE_KEY[] = "TaskList.BaseDir";
 
 namespace TaskList {
 
@@ -98,7 +102,7 @@ static QString unescape(const QString &input)
     return result;
 }
 
-static bool parseTaskFile(QString *errorString, Project *context, const QString &name)
+static bool parseTaskFile(QString *errorString, const QString &base, const QString &name)
 {
     QFile tf(name);
     if (!tf.open(QIODevice::ReadOnly)) {
@@ -138,8 +142,8 @@ static bool parseTaskFile(QString *errorString, Project *context, const QString 
         if (!file.isEmpty()) {
             file = QDir::fromNativeSeparators(file);
             QFileInfo fi(file);
-            if (fi.isRelative() && context) {
-                QString fullPath = context->projectDirectory() + QLatin1Char('/') + file;
+            if (fi.isRelative() && !base.isEmpty()) {
+                QString fullPath = base + QLatin1Char('/') + file;
                 fi.setFile(fullPath);
                 file = fi.absoluteFilePath();
             }
@@ -171,28 +175,47 @@ bool TaskListPlugin::initialize(const QStringList &arguments, QString *errorMess
     m_fileFactory = new TaskFileFactory(this);
     addAutoReleasedObject(m_fileFactory);
     addAutoReleasedObject(new StopMonitoringHandler);
+
+    connect(SessionManager::instance(), SIGNAL(sessionLoaded(QString)),
+            this, SLOT(loadDataFromSession()));
+
     return true;
 }
 
-bool TaskListPlugin::loadFile(QString *errorString, Project *context, const QString &fileName)
+bool TaskListPlugin::loadFile(QString *errorString, const QString &context, const QString &fileName)
 {
     clearTasks();
-    return parseTaskFile(errorString, context, fileName);
-}
 
-bool TaskListPlugin::monitorFile(Project *context, const QString &fileName)
-{
-    return m_fileFactory->open(context, fileName);
+    bool result = parseTaskFile(errorString, context, fileName);
+    if (result) {
+        SessionManager::setValue(QLatin1String(SESSION_BASE_KEY), context);
+        SessionManager::setValue(QLatin1String(SESSION_FILE_KEY), fileName);
+    } else {
+        stopMonitoring();
+    }
+
+    return result;
 }
 
 void TaskListPlugin::stopMonitoring()
 {
+    SessionManager::setValue(QLatin1String(SESSION_BASE_KEY), QString());
+    SessionManager::setValue(QLatin1String(SESSION_FILE_KEY), QString());
+
     m_fileFactory->closeAllFiles();
 }
 
 void TaskListPlugin::clearTasks()
 {
     TaskHub::clearTasks(Constants::TASKLISTTASK_ID);
+}
+
+void TaskListPlugin::loadDataFromSession()
+{
+    const QString fileName = SessionManager::value(QLatin1String(SESSION_FILE_KEY)).toString();
+    if (fileName.isEmpty())
+        return;
+    m_fileFactory->open(SessionManager::value(QLatin1String(SESSION_BASE_KEY)).toString(), fileName);
 }
 
 } // namespace TaskList

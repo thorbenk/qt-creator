@@ -24,14 +24,6 @@ QtcPlugin {
     ]
 
     Group {
-        name: "Tests"
-        condition: project.testsEnabled
-        qbs.install: true
-        qbs.installDir: "tests/manual/debugger/simple/"
-        files: ["../../../tests/manual/debugger/simple/simple.pro"]
-    }
-
-    Group {
         name: "General"
         files: [
             "basewindow.cpp", "basewindow.h",
@@ -112,20 +104,16 @@ QtcPlugin {
         name: "gdb"
         prefix: "gdb/"
         files: [
-            "abstractgdbprocess.cpp", "abstractgdbprocess.h",
-            "abstractplaingdbadapter.cpp", "abstractplaingdbadapter.h",
             "attachgdbadapter.cpp", "attachgdbadapter.h",
             "classicgdbengine.cpp",
             "coregdbadapter.cpp", "coregdbadapter.h",
             "gdb.qrc",
             "gdbengine.cpp", "gdbengine.h",
             "gdboptionspage.cpp", "gdboptionspage.h",
-            "localgdbprocess.cpp", "localgdbprocess.h",
-            "localplaingdbadapter.cpp", "localplaingdbadapter.h",
+            "gdbprocess.cpp", "gdbprocess.h",
+            "gdbplainengine.cpp", "gdbplainengine.h",
             "pythongdbengine.cpp",
-            "remotegdbprocess.cpp", "remotegdbprocess.h",
             "remotegdbserveradapter.cpp", "remotegdbserveradapter.h",
-            "remoteplaingdbadapter.cpp", "remoteplaingdbadapter.h",
             "startgdbserverdialog.cpp", "startgdbserverdialog.h",
             "termgdbadapter.cpp", "termgdbadapter.h"
         ]

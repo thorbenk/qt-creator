@@ -1,11 +1,13 @@
 import qbs.base 1.0
 
+import "../../../qbs/functions.js" as QtcFunctions
 import "../QtcPlugin.qbs" as QtcPlugin
 
 QtcPlugin {
     name: "QtSupport"
 
-    Depends { name: "Qt"; submodules: ["widgets", "declarative"] }
+    Depends { name: "Qt"; submodules: ["core", "widgets"]; }
+    Depends { name: "Qt.quick"; condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1"); }
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "TextEditor" }
@@ -70,8 +72,6 @@ QtcPlugin {
         "debugginghelperbuildtask.h",
         "exampleslistmodel.cpp",
         "exampleslistmodel.h",
-        "gettingstartedwelcomepage.cpp",
-        "gettingstartedwelcomepage.h",
         "profilereader.cpp",
         "profilereader.h",
         "qmldebugginglibrary.cpp",
@@ -111,6 +111,16 @@ QtcPlugin {
         "images/qt_project.png",
         "images/qt_qrc.png",
     ]
+
+    Group {
+        name: "Getting Started Welcome Page"
+        condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1")
+        files: [
+            "gettingstartedwelcomepage.cpp",
+            "gettingstartedwelcomepage.h"
+        ]
+    }
+
 
     Export {
         Depends { name: "cpp" }

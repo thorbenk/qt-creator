@@ -78,7 +78,7 @@ QString AndroidDevice::displayNameForActionId(Core::Id actionId) const
     return QString();
 }
 
-void AndroidDevice::executeAction(Core::Id actionId, QWidget *parent) const
+void AndroidDevice::executeAction(Core::Id actionId, QWidget *parent)
 {
     Q_UNUSED(actionId)
     Q_UNUSED(parent)
@@ -87,6 +87,11 @@ void AndroidDevice::executeAction(Core::Id actionId, QWidget *parent) const
 bool AndroidDevice::canAutoDetectPorts() const
 {
     return true;
+}
+
+DeviceProcessSignalOperation::Ptr AndroidDevice::signalOperation() const
+{
+    return DeviceProcessSignalOperation::Ptr();
 }
 
 IDevice::Ptr AndroidDevice::clone() const

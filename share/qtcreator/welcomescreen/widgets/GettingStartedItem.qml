@@ -1,5 +1,4 @@
-import QtQuick 1.1
-import qtcomponents 1.0
+import QtQuick 2.1
 
 Item {
     id: gettingStartedItem
@@ -13,16 +12,6 @@ Item {
 
     signal clicked
 
-    CustomColors {
-        id: colors
-    }
-
-    CustomFonts {
-        id: fonts
-    }
-
-    QStyleItem { cursor: "pointinghandcursor"; anchors.fill: parent }
-
     Rectangle {
         y: 170
         width: 20
@@ -34,7 +23,7 @@ Item {
         smooth: true
         visible: false
 
-        Text {
+        NativeText {
             color: "#f7f7f7"
             font.bold: true
             text: gettingStartedItem.number
@@ -45,7 +34,7 @@ Item {
         }
     }
 
-    Text {
+    NativeText {
         id: titleText
         y: 188
         color: colors.strongForegroundColor
@@ -57,7 +46,7 @@ Item {
         font: fonts.standardCaption
     }
 
-    Text {
+    NativeText {
         id: descriptionText
         y: 246
         height: 62
@@ -106,6 +95,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         onEntered: {
             gettingStartedItem.state="hover"
         }

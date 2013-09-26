@@ -27,12 +27,12 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 
 Image {
     id: logo
     source: "images/qtcreator.png"
-    Text {
+    NativeText {
         y: 21
         color: "#424242"
         text: "Qt Creator"

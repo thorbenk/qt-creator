@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 
 Item {
     id: projectItem
@@ -48,10 +48,6 @@ Item {
         anchors.verticalCenter: projectNameText.verticalCenter
     }
 
-    CustomFonts {
-        id: fonts
-    }
-
     LinkedText {
         id: projectNameText
         y: 2
@@ -62,7 +58,7 @@ Item {
         onClicked: projectWelcomePage.requestProject(filePath)
     }
 
-    Text {
+    NativeText {
         id: pathText
         y: 18
         color: "#6b6b6b"

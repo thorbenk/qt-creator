@@ -99,6 +99,7 @@ public:
     FormEditorView *formEditorView() const;
 
     void setHighlightBoundingRect(bool highlight);
+    void blurContent(bool blurContent);
 
     void setContentVisible(bool visible);
     bool isContentVisible() const;
@@ -110,6 +111,7 @@ protected:
     AbstractFormEditorTool* tool() const;
     void paintBoundingRect(QPainter *painter) const;
     void paintPlaceHolderForInvisbleItem(QPainter *painter) const;
+    void paintComponentContentVisualisation(QPainter *painter, const QRectF &clippinRectangle) const;
 
 private: // functions
     FormEditorItem(const QmlItemNode &qmlItemNode, FormEditorScene* scene);
@@ -124,6 +126,7 @@ private: // variables
     QRectF m_paintedBoundingRect;
     double m_borderWidth;
     bool m_highlightBoundingRect;
+    bool m_blurContent;
     bool m_isContentVisible;
     bool m_isFormEditorVisible;
 };

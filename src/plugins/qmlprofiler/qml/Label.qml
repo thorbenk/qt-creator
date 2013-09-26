@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 
 Item {
     id: labelContainer
@@ -36,9 +36,9 @@ Item {
     property int categoryIndex: qmlProfilerModelProxy.correctedCategoryIndexForModel(modelIndex, index)
     property int modelIndex: qmlProfilerModelProxy.modelIndexForCategory(index);
 
-    property variant descriptions: []
-    property variant extdescriptions: []
-    property variant eventIds: []
+    property var descriptions: []
+    property var extdescriptions: []
+    property var eventIds: []
 
     visible: qmlProfilerModelProxy.categoryDepth(modelIndex, categoryIndex) > 0;
 

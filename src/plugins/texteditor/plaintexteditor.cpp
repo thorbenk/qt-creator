@@ -33,7 +33,7 @@
 #include "texteditorsettings.h"
 #include "basetextdocument.h"
 #include "normalindenter.h"
-#include "generichighlighter/highlighterutils.h"
+#include "highlighterutils.h"
 #include <texteditor/generichighlighter/context.h>
 #include <texteditor/generichighlighter/highlightdefinition.h>
 #include <texteditor/generichighlighter/highlighter.h>
@@ -148,12 +148,12 @@ void PlainTextEditorWidget::configure(const MimeType &mimeType)
             }
         } else if (editorDocument()) {
             const QString &fileName = editorDocument()->filePath();
-            if (TextEditorSettings::instance()->highlighterSettings().isIgnoredFilePattern(fileName))
+            if (TextEditorSettings::highlighterSettings().isIgnoredFilePattern(fileName))
                 m_isMissingSyntaxDefinition = false;
         }
     }
 
-    setFontSettings(TextEditorSettings::instance()->fontSettings());
+    setFontSettings(TextEditorSettings::fontSettings());
 
     emit configured(editor());
 }

@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 import Monitor 1.0
 import "Overview.js" as Plotter
 
@@ -37,8 +37,8 @@ Canvas2D {
     // ***** properties
     height: 50
     property bool dataReady: false
-    property variant startTime : 0
-    property variant endTime : 0
+    property real startTime : 0
+    property real endTime : 0
 
     // ***** functions
     function clearDisplay()
@@ -108,7 +108,7 @@ Canvas2D {
         onPressed: {
             jumpTo(mouse.x);
         }
-        onMousePositionChanged: {
+        onPositionChanged: {
             jumpTo(mouse.x);
         }
     }

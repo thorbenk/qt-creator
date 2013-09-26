@@ -87,8 +87,7 @@ void SshDeviceProcess::start(const QString &executable, const QStringList &argum
     d->exitCode = -1;
     d->executable = executable;
     d->arguments = arguments;
-    d->connection
-            = QSsh::SshConnectionManager::instance().acquireConnection(device()->sshParameters());
+    d->connection = QSsh::acquireConnection(device()->sshParameters());
     connect(d->connection, SIGNAL(error(QSsh::SshError)), SLOT(handleConnectionError()));
     connect(d->connection, SIGNAL(disconnected()), SLOT(handleDisconnected()));
     if (d->connection->state() == QSsh::SshConnection::Connected) {
@@ -296,13 +295,11 @@ void SshDeviceProcess::SshDeviceProcessPrivate::doSignal(QSsh::SshRemoteProcess:
         if (serverSupportsSignals) {
             process->sendSignal(signal);
         } else {
-            const DeviceProcessSupport::Ptr processSupport = q->device()->processSupport();
-            QString signalCommandLine = signal == QSsh::SshRemoteProcess::IntSignal
-                    ? processSupport->interruptProcessByNameCommandLine(executable)
-                    : processSupport->killProcessByNameCommandLine(executable);
-            const QSsh::SshRemoteProcess::Ptr signalProcess
-                    = connection->createRemoteProcess(signalCommandLine.toUtf8());
-            signalProcess->start();
+            DeviceProcessSignalOperation::Ptr signalOperation = q->device()->signalOperation();
+            if (signal == QSsh::SshRemoteProcess::IntSignal)
+                signalOperation->interruptProcess(executable);
+            else
+                signalOperation->killProcess(executable);
         }
         break;
     }
@@ -321,9 +318,14 @@ void SshDeviceProcess::SshDeviceProcessPrivate::setState(SshDeviceProcess::SshDe
         process->disconnect(q);
     if (connection) {
         connection->disconnect(q);
-        QSsh::SshConnectionManager::instance().releaseConnection(connection);
+        QSsh::releaseConnection(connection);
         connection = 0;
     }
+}
+
+qint64 SshDeviceProcess::write(const QByteArray &data)
+{
+    return d->process->write(data);
 }
 
 } // namespace ProjectExplorer

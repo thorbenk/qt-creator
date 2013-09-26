@@ -31,6 +31,7 @@
 #include "diffhighlighter.h"
 #include "baseannotationhighlighter.h"
 #include "vcsbaseplugin.h"
+#include "vcsbaseeditorparameterwidget.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/vcsmanager.h>
@@ -179,7 +180,7 @@ class AbstractTextCursorHandler : public QObject
 public:
     AbstractTextCursorHandler(VcsBaseEditorWidget *editorWidget = 0);
 
-    /*! \brief Try to find some matching contents under \p cursor
+    /*! \brief Try to find some matching contents under \a cursor
      *
      *  It's the first function to be called because it changes the internal state of the handler.
      *  Other functions (highlightCurrentContents(), handleCurrentContents(), ...) use the result
@@ -198,7 +199,7 @@ public:
     //! Contents matched with the last call to findContentsUnderCursor()
     virtual QString currentContents() const = 0;
 
-    /*! \brief Fill \p menu with contextual actions applying to the contents matched
+    /*! \brief Fill \a menu with contextual actions applying to the contents matched
      *         with findContentsUnderCursor()
      */
     virtual void fillContextMenu(QMenu *menu, EditorContentType type) const = 0;
@@ -566,7 +567,7 @@ public:
     QString m_copyRevisionTextFormat;
     bool m_fileLogAnnotateEnabled;
     TextEditor::BaseTextEditor *m_editor;
-    QWidget *m_configurationWidget;
+    VcsBaseEditorParameterWidget *m_configurationWidget;
     bool m_mouseDragging;
     QList<AbstractTextCursorHandler *> m_textCursorHandlers;
 
@@ -702,7 +703,7 @@ void VcsBaseEditorWidget::init()
         setCodeFoldingSupported(true);
         baseTextDocument()->setSyntaxHighlighter(dh);
     }
-    TextEditor::TextEditorSettings::instance()->initializeEditor(this);
+    TextEditor::TextEditorSettings::initializeEditor(this);
     // override revisions display (green or red bar on the left, marking changes):
     setRevisionsVisible(false);
 }
@@ -1324,7 +1325,7 @@ QString VcsBaseEditorWidget::getTitleId(const QString &workingDirectory,
     return rc;
 }
 
-bool VcsBaseEditorWidget::setConfigurationWidget(QWidget *w)
+bool VcsBaseEditorWidget::setConfigurationWidget(VcsBaseEditorParameterWidget *w)
 {
     if (!d->m_editor || d->m_configurationWidget)
         return false;
@@ -1335,7 +1336,7 @@ bool VcsBaseEditorWidget::setConfigurationWidget(QWidget *w)
     return true;
 }
 
-QWidget *VcsBaseEditorWidget::configurationWidget() const
+VcsBaseEditorParameterWidget *VcsBaseEditorWidget::configurationWidget() const
 {
     return d->m_configurationWidget;
 }

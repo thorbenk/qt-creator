@@ -1,11 +1,13 @@
 import qbs.base 1.0
 
+import "../../../qbs/functions.js" as QtcFunctions
 import "../QtcPlugin.qbs" as QtcPlugin
 
 QtcPlugin {
     name: "ProjectExplorer"
 
-    Depends { name: "Qt"; submodules: ["widgets", "xml", "network", "script", "declarative"] }
+    Depends { name: "Qt"; submodules: ["core", "widgets", "xml", "network", "script"] }
+    Depends { name: "Qt.quick"; condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1"); }
     Depends { name: "Core" }
     Depends { name: "Locator" }
     Depends { name: "Find" }
@@ -33,6 +35,7 @@ QtcPlugin {
             "buildconfiguration.cpp", "buildconfiguration.h",
             "buildconfigurationmodel.cpp", "buildconfigurationmodel.h",
             "buildenvironmentwidget.cpp", "buildenvironmentwidget.h",
+            "buildinfo.h",
             "buildmanager.cpp", "buildmanager.h",
             "buildprogress.cpp", "buildprogress.h",
             "buildsettingspropertiespage.cpp", "buildsettingspropertiespage.h",
@@ -75,7 +78,7 @@ QtcPlugin {
             "itaskhandler.h",
             "kit.cpp", "kit.h",
             "kitchooser.cpp", "kitchooser.h",
-            "kitconfigwidget.h",
+            "kitconfigwidget.cpp", "kitconfigwidget.h",
             "kitinformation.cpp", "kitinformation.h",
             "kitinformationconfigwidget.cpp", "kitinformationconfigwidget.h",
             "kitmanager.cpp", "kitmanager.h",
@@ -109,7 +112,6 @@ QtcPlugin {
             "projectmodels.cpp", "projectmodels.h",
             "projectnodes.cpp", "projectnodes.h",
             "projecttreewidget.cpp", "projecttreewidget.h",
-            "projectwelcomepage.cpp", "projectwelcomepage.h",
             "projectwindow.cpp", "projectwindow.h",
             "projectwizardpage.cpp", "projectwizardpage.h", "projectwizardpage.ui",
             "removetaskhandler.cpp", "removetaskhandler.h",
@@ -135,6 +137,15 @@ QtcPlugin {
             "toolchainmanager.cpp", "toolchainmanager.h",
             "toolchainoptionspage.cpp", "toolchainoptionspage.h",
             "vcsannotatetaskhandler.cpp", "vcsannotatetaskhandler.h",
+        ]
+    }
+
+    Group {
+        name: "Project Welcome Page"
+        condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1")
+        files: [
+            "projectwelcomepage.cpp",
+            "projectwelcomepage.h"
         ]
     }
 
@@ -175,6 +186,7 @@ QtcPlugin {
             "localprocesslist.cpp", "localprocesslist.h",
             "sshdeviceprocess.cpp", "sshdeviceprocess.h",
             "sshdeviceprocesslist.cpp", "sshdeviceprocesslist.h",
+            "desktopprocesssignaloperation.cpp", "desktopprocesssignaloperation.h",
             "desktopdeviceconfigurationwidget.cpp", "desktopdeviceconfigurationwidget.h", "desktopdeviceconfigurationwidget.ui"
         ]
     }

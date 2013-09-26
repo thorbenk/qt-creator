@@ -49,6 +49,8 @@
 #include <qmljs/qmljsmodelmanagerinterface.h>
 #include <qmljs/qmljsqrcparser.h>
 
+#include <utils/qtcassert.h>
+
 #include <QSet>
 #include <QDir>
 
@@ -109,11 +111,6 @@ static inline unsigned char convertHex(ushort c)
         return (c - 'a' + 10);
     else
         return (c - 'A' + 10);
-}
-
-static inline unsigned char convertHex(ushort c1, ushort c2)
-{
-    return ((convertHex(c1) << 4) + convertHex(c2));
 }
 
 QChar convertUnicode(ushort c1, ushort c2,
@@ -1393,13 +1390,13 @@ void ModelValidator::variantValuesDiffer(VariantProperty &modelProperty, const Q
     Q_UNUSED(qmlVariantValue)
     Q_UNUSED(dynamicTypeName)
 
-    Q_ASSERT(modelProperty.isDynamic() == !dynamicTypeName.isEmpty());
+    QTC_ASSERT(modelProperty.isDynamic() == !dynamicTypeName.isEmpty(), return);
     if (modelProperty.isDynamic()) {
-        Q_ASSERT(modelProperty.dynamicTypeName() == dynamicTypeName);
+        QTC_ASSERT(modelProperty.dynamicTypeName() == dynamicTypeName, return);
     }
 
-    Q_ASSERT(equals(modelProperty.value(), qmlVariantValue));
-    Q_ASSERT(0);
+    QTC_ASSERT(equals(modelProperty.value(), qmlVariantValue), return);
+    QTC_ASSERT(0, return);
 }
 
 void ModelValidator::shouldBeVariantProperty(AbstractProperty &modelProperty, const QVariant &/*qmlVariantValue*/, const TypeName &/*dynamicTypeName*/)
@@ -1452,10 +1449,10 @@ void ModelValidator::typeDiffers(bool /*isRootNode*/,
     Q_UNUSED(minorVersion)
     Q_UNUSED(majorVersion)
 
-    Q_ASSERT(modelNode.type() == typeName);
-    Q_ASSERT(modelNode.majorVersion() == majorVersion);
-    Q_ASSERT(modelNode.minorVersion() == minorVersion);
-    Q_ASSERT(0);
+    QTC_ASSERT(modelNode.type() == typeName, return);
+    QTC_ASSERT(modelNode.majorVersion() == majorVersion, return);
+    QTC_ASSERT(modelNode.minorVersion() == minorVersion, return);
+    QTC_ASSERT(0, return);
 }
 
 void ModelValidator::propertyAbsentFromQml(AbstractProperty &modelProperty)
@@ -1471,8 +1468,8 @@ void ModelValidator::idsDiffer(ModelNode &modelNode, const QString &qmlId)
     Q_UNUSED(modelNode)
     Q_UNUSED(qmlId)
 
-    Q_ASSERT(modelNode.id() == qmlId);
-    Q_ASSERT(0);
+    QTC_ASSERT(modelNode.id() == qmlId, return);
+    QTC_ASSERT(0, return);
 }
 
 void ModelAmender::modelMissesImport(const QmlDesigner::Import &import)

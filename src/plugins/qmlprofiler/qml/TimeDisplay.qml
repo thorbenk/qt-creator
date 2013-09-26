@@ -27,15 +27,15 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 import Monitor 1.0
 
 Canvas2D {
     id: timeDisplay
 
-    property variant startTime : 0
-    property variant endTime : 0
-    property variant timePerPixel: 0
+    property real startTime : 0
+    property real endTime : 0
+    property real timePerPixel: 0
 
 
     Component.onCompleted: {

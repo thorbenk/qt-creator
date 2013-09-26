@@ -29,6 +29,7 @@
 
 #include "target.h"
 
+#include "buildinfo.h"
 #include "buildtargetinfo.h"
 #include "deploymentdata.h"
 #include "kit.h"
@@ -130,7 +131,7 @@ Target::Target(Project *project, Kit *k) :
     setDisplayName(d->m_kit->displayName());
     setIcon(d->m_kit->icon());
 
-    KitManager *km = KitManager::instance();
+    QObject *km = KitManager::instance();
     connect(km, SIGNAL(kitUpdated(ProjectExplorer::Kit*)),
             this, SLOT(handleKitUpdates(ProjectExplorer::Kit*)));
     connect(km, SIGNAL(kitRemoved(ProjectExplorer::Kit*)),
@@ -527,16 +528,14 @@ void Target::updateDefaultBuildConfigurations()
         qWarning("No build configuration factory found for target id '%s'.", qPrintable(id().toString()));
         return;
     }
-    QList<Core::Id> bcIds = bcFactory->availableCreationIds(this);
-    foreach (Core::Id id, bcIds) {
-        if (!bcFactory->canCreate(this, id))
-            continue;
-        BuildConfiguration *bc = bcFactory->create(this, id, tr("Default build"));
+    QList<BuildInfo *> infoList = bcFactory->availableBuilds(this);
+    foreach (BuildInfo *info, infoList) {
+        BuildConfiguration *bc = bcFactory->create(this, info);
         if (!bc)
             continue;
-        QTC_CHECK(bc->id() == id);
         addBuildConfiguration(bc);
     }
+    qDeleteAll(infoList);
 }
 
 void Target::updateDefaultDeployConfigurations()

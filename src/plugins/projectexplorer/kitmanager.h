@@ -51,7 +51,6 @@ class KitManager;
 
 namespace Internal {
 class KitManagerConfigWidget;
-class KitManagerPrivate;
 class KitModel;
 } // namespace Internal
 
@@ -70,7 +69,7 @@ public:
     typedef QPair<QString, QString> Item;
     typedef QList<Item> ItemList;
 
-    Core::Id dataId() const { return m_dataId; }
+    Core::Id id() const { return m_id; }
     int priority() const { return m_priority; }
 
     virtual QVariant defaultValue(Kit *) const = 0;
@@ -91,15 +90,13 @@ public:
 
     virtual QString displayNamePostfix(const Kit *k) const;
 
-    bool isSticky(const Kit *k) const;
-
 protected:
-    void setDataId(Core::Id id) { m_dataId = id; }
+    void setId(Core::Id id) { m_id = id; }
     void setPriority(int priority) { m_priority = priority; }
     void notifyAboutUpdate(Kit *k);
 
 private:
-    Core::Id m_dataId;
+    Core::Id m_id;
     int m_priority; // The higher the closer to the top.
 };
 
@@ -115,12 +112,13 @@ class PROJECTEXPLORER_EXPORT KitManager : public QObject
     Q_OBJECT
 
 public:
-    static KitManager *instance();
+    static QObject *instance();
     ~KitManager();
 
-    static QList<Kit *> kits(const KitMatcher *m = 0);
+    static QList<Kit *> kits();
+    static QList<Kit *> matchingKits(const KitMatcher &matcher);
     static Kit *find(const Core::Id &id);
-    static Kit *find(const KitMatcher *m);
+    static Kit *find(const KitMatcher &matcher);
     static Kit *defaultKit();
 
     static QList<KitInformation *> kitInformation();
@@ -158,7 +156,6 @@ signals:
 private:
     explicit KitManager(QObject *parent = 0);
 
-    bool isLoaded() const;
     static bool setKeepDisplayNameUnique(bool unique);
 
     // Make sure the this is only called after all
@@ -178,11 +175,6 @@ private:
     static void notifyAboutUpdate(ProjectExplorer::Kit *k);
     void addKit(Kit *k);
 
-    Internal::KitManagerPrivate *const d;
-
-    static KitManager *m_instance;
-
-    friend class Internal::KitManagerPrivate; // for the restoreToolChains methods
     friend class ProjectExplorerPlugin; // for constructor
     friend class Kit;
     friend class Internal::KitModel;

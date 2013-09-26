@@ -389,16 +389,27 @@ bool QmlItemNode::instanceHasRotationTransform() const
     return nodeInstance().transform().type() > QTransform::TxScale;
 }
 
+bool itemIsMovable(const ModelNode &modelNode)
+{
+    if (modelNode.metaInfo().isSubclassOf("QtQuick.Controls.Tab", -1, -1))
+        return false;
+
+    return true;
+}
+
+
 bool QmlItemNode::modelIsMovable() const
 {
     return !modelNode().hasBindingProperty("x")
-            && !modelNode().hasBindingProperty("y");
+            && !modelNode().hasBindingProperty("y")
+            && itemIsMovable(modelNode());
 }
 
 bool QmlItemNode::modelIsResizable() const
 {
     return !modelNode().hasBindingProperty("width")
-            && !modelNode().hasBindingProperty("height");
+            && !modelNode().hasBindingProperty("height")
+            && itemIsMovable(modelNode());
 }
 
 QRectF  QmlItemNode::instanceBoundingRect() const
@@ -471,10 +482,14 @@ bool QmlItemNode::instanceIsRenderPixmapNull() const
     return nodeInstance().renderPixmap().isNull();
 }
 
-void QmlItemNode::paintInstance(QPainter *painter)
+QPixmap QmlItemNode::instanceRenderPixmap() const
 {
-    if (nodeInstance().isValid())
-        nodeInstance().paint(painter);
+    return nodeInstance().renderPixmap();
+}
+
+QPixmap QmlItemNode::instanceBlurredRenderPixmap() const
+{
+    return nodeInstance().blurredRenderPixmap();
 }
 
 QList<QmlModelState> QmlModelStateGroup::allStates() const

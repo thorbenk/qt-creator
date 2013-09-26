@@ -52,15 +52,22 @@ namespace QmlDesigner {
 StatesEditorView::StatesEditorView(QObject *parent) :
         AbstractView(parent),
         m_statesEditorModel(new StatesEditorModel(this)),
-        m_statesEditorWidget(new StatesEditorWidget(this, m_statesEditorModel.data())),
         m_lastIndex(-1)
 {
     Q_ASSERT(m_statesEditorModel);
     // base state
 }
 
+StatesEditorView::~StatesEditorView()
+{
+    delete m_statesEditorWidget.data();
+}
+
 WidgetInfo StatesEditorView::widgetInfo()
 {
+    if (!m_statesEditorWidget)
+        m_statesEditorWidget = new StatesEditorWidget(this, m_statesEditorModel.data());
+
     return createWidgetInfo(m_statesEditorWidget.data(), 0, "StatesEditor", WidgetInfo::TopPane, 0, tr("States Editor"));
 }
 
@@ -398,6 +405,9 @@ void StatesEditorView::currentStateChanged(const ModelNode &node)
 
 void StatesEditorView::instancesPreviewImageChanged(const QVector<ModelNode> &nodeList)
 {
+    if (!model())
+        return;
+
     int minimumIndex = 10000;
     int maximumIndex = -1;
     foreach (const ModelNode &node, nodeList) {

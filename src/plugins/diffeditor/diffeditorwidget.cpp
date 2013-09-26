@@ -45,8 +45,7 @@
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/fontsettings.h>
 #include <texteditor/displaysettings.h>
-#include <texteditor/generichighlighter/highlighter.h>
-#include <texteditor/generichighlighter/highlighterutils.h>
+#include <texteditor/highlighterutils.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/minisplitter.h>
@@ -57,7 +56,6 @@
 #include <utils/tooltip/tipcontents.h>
 #include <utils/tooltip/tooltip.h>
 
-static const int BASE_LEVEL = 0;
 static const int FILE_LEVEL = 1;
 static const int CHUNK_LEVEL = 2;
 
@@ -279,9 +277,7 @@ void MultiHighlighter::setDocuments(const QList<QPair<DiffEditorWidget::DiffFile
                 highlighter->setDocument(document);
         }
         if (!highlighter) {
-            TextEditor::Highlighter *h = new TextEditor::Highlighter();
-            highlighter = h;
-            setMimeTypeForHighlighter(h, mimeType);
+            highlighter = createGenericSyntaxHighlighter(mimeType);
             highlighter->setDocument(document);
         }
         m_documents.append(document);
@@ -324,11 +320,10 @@ void DiffViewEditorEditable::slotTooltipRequested(TextEditor::ITextEditor *edito
     QMap<int, DiffEditorWidget::DiffFileInfo>::const_iterator it
             = fi.constFind(ew->document()->findBlock(position).blockNumber());
     if (it != fi.constEnd()) {
-        Utils::ToolTip::instance()->show(globalPoint,
-                                         Utils::TextContent(it.value().fileName),
+        Utils::ToolTip::show(globalPoint, Utils::TextContent(it.value().fileName),
                                          editor->widget());
     } else {
-        Utils::ToolTip::instance()->hide();
+        Utils::ToolTip::hide();
     }
 }
 
@@ -727,30 +722,31 @@ DiffEditorWidget::DiffEditorWidget(QWidget *parent)
       m_syncScrollBars(true),
       m_foldingBlocker(false)
 {
-    TextEditor::TextEditorSettings *settings = TextEditorSettings::instance();
-
     m_leftEditor = new DiffViewEditorWidget(this);
     m_leftEditor->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_leftEditor->setReadOnly(true);
-    connect(settings, SIGNAL(displaySettingsChanged(TextEditor::DisplaySettings)),
+    connect(TextEditorSettings::instance(),
+            SIGNAL(displaySettingsChanged(TextEditor::DisplaySettings)),
             m_leftEditor, SLOT(setDisplaySettings(TextEditor::DisplaySettings)));
-    m_leftEditor->setDisplaySettings(settings->displaySettings());
-    m_leftEditor->setCodeStyle(settings->codeStyle());
+    m_leftEditor->setDisplaySettings(TextEditorSettings::displaySettings());
+    m_leftEditor->setCodeStyle(TextEditorSettings::codeStyle());
     connect(m_leftEditor, SIGNAL(jumpToOriginalFileRequested(int,int,int)),
             this, SLOT(slotLeftJumpToOriginalFileRequested(int,int,int)));
 
     m_rightEditor = new DiffViewEditorWidget(this);
     m_rightEditor->setReadOnly(true);
-    connect(settings, SIGNAL(displaySettingsChanged(TextEditor::DisplaySettings)),
+    connect(TextEditorSettings::instance(),
+            SIGNAL(displaySettingsChanged(TextEditor::DisplaySettings)),
             m_rightEditor, SLOT(setDisplaySettings(TextEditor::DisplaySettings)));
-    m_rightEditor->setDisplaySettings(settings->displaySettings());
-    m_rightEditor->setCodeStyle(settings->codeStyle());
+    m_rightEditor->setDisplaySettings(TextEditorSettings::displaySettings());
+    m_rightEditor->setCodeStyle(TextEditorSettings::codeStyle());
     connect(m_rightEditor, SIGNAL(jumpToOriginalFileRequested(int,int,int)),
             this, SLOT(slotRightJumpToOriginalFileRequested(int,int,int)));
 
-    connect(settings, SIGNAL(fontSettingsChanged(TextEditor::FontSettings)),
+    connect(TextEditorSettings::instance(),
+            SIGNAL(fontSettingsChanged(TextEditor::FontSettings)),
             this, SLOT(setFontSettings(TextEditor::FontSettings)));
-    setFontSettings(settings->fontSettings());
+    setFontSettings(TextEditorSettings::fontSettings());
 
     connect(m_leftEditor->verticalScrollBar(), SIGNAL(valueChanged(int)),
             this, SLOT(leftVSliderChanged()));
@@ -890,6 +886,16 @@ void DiffEditorWidget::navigateToDiffFile(int diffFileIndex)
 QTextCodec *DiffEditorWidget::codec() const
 {
     return const_cast<QTextCodec *>(m_leftEditor->codec());
+}
+
+QString DiffEditorWidget::source() const
+{
+    return m_source;
+}
+
+void DiffEditorWidget::setSource(const QString &source)
+{
+    m_source = source;
 }
 
 BaseTextEditorWidget *DiffEditorWidget::leftEditor() const

@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 import Monitor 1.0
 
 Item {
@@ -65,7 +65,7 @@ Item {
         onCandidateHeightChanged: fitInView();
     }
 
-    //property variant eventInfo
+    //property int eventInfo
 
     ListModel {
         id: eventInfo

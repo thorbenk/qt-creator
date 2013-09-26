@@ -64,6 +64,8 @@ ValgrindConfigWidget::ValgrindConfigWidget(ValgrindBaseSettings *settings,
             m_settings, SLOT(setValgrindExecutable(QString)));
     connect(m_settings, SIGNAL(valgrindExecutableChanged(QString)),
             m_ui->valgrindExeChooser, SLOT(setPath(QString)));
+    connect(m_ui->smcDetectionComboBox, SIGNAL(currentIndexChanged(int)),
+            m_settings, SLOT(setSelfModifyingCodeDetection(int)));
 
     if (Utils::HostOsInfo::isWindowsHost()) {
         // FIXME: On Window we know that we don't have a local valgrind
@@ -124,6 +126,16 @@ ValgrindConfigWidget::ValgrindConfigWidget(ValgrindBaseSettings *settings,
     connect(m_ui->numCallers, SIGNAL(valueChanged(int)), m_settings, SLOT(setNumCallers(int)));
     connect(m_settings, SIGNAL(numCallersChanged(int)), m_ui->numCallers, SLOT(setValue(int)));
 
+    connect(m_ui->leakCheckOnFinish, SIGNAL(currentIndexChanged(int)),
+            m_settings, SLOT(setLeakCheckOnFinish(int)));
+    connect(m_settings, SIGNAL(leakCheckOnFinishChanged(int)),
+            m_ui->leakCheckOnFinish, SLOT(setCurrentIndex(int)));
+
+    connect(m_ui->showReachable, SIGNAL(toggled(bool)),
+            m_settings, SLOT(setShowReachable(bool)));
+    connect(m_settings, SIGNAL(showReachableChanged(bool)),
+            m_ui->showReachable, SLOT(setChecked(bool)));
+
     connect(m_ui->trackOrigins, SIGNAL(toggled(bool)),
             m_settings, SLOT(setTrackOrigins(bool)));
     connect(m_settings, SIGNAL(trackOriginsChanged(bool)),
@@ -158,6 +170,7 @@ ValgrindConfigWidget::~ValgrindConfigWidget()
 void ValgrindConfigWidget::updateUi()
 {
     m_ui->valgrindExeChooser->setPath(m_settings->valgrindExecutable());
+    m_ui->smcDetectionComboBox->setCurrentIndex(m_settings->selfModifyingCodeDetection());
     m_ui->enableCacheSim->setChecked(m_settings->enableCacheSim());
     m_ui->enableBranchSim->setChecked(m_settings->enableBranchSim());
     m_ui->collectSystime->setChecked(m_settings->collectSystime());
@@ -166,6 +179,8 @@ void ValgrindConfigWidget::updateUi()
     m_ui->minimumInclusiveCostRatio->setValue(m_settings->minimumInclusiveCostRatio());
     m_ui->visualisationMinimumInclusiveCostRatio->setValue(m_settings->visualisationMinimumInclusiveCostRatio());
     m_ui->numCallers->setValue(m_settings->numCallers());
+    m_ui->leakCheckOnFinish->setCurrentIndex(m_settings->leakCheckOnFinish());
+    m_ui->showReachable->setChecked(m_settings->showReachable());
     m_ui->trackOrigins->setChecked(m_settings->trackOrigins());
     m_model->clear();
     foreach (const QString &file, m_settings->suppressionFiles())

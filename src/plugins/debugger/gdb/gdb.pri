@@ -3,14 +3,10 @@ HEADERS += \
     $$PWD/gdboptionspage.h \
     $$PWD/attachgdbadapter.h \
     $$PWD/coregdbadapter.h \
-    $$PWD/localplaingdbadapter.h \
     $$PWD/termgdbadapter.h \
     $$PWD/remotegdbserveradapter.h \
-    $$PWD/abstractgdbprocess.h \
-    $$PWD/localgdbprocess.h \
-    $$PWD/remotegdbprocess.h \
-    $$PWD/remoteplaingdbadapter.h \
-    $$PWD/abstractplaingdbadapter.h \
+    $$PWD/gdbplainengine.h \
+    $$PWD/gdbprocess.h \
     $$PWD/startgdbserverdialog.h
 
 SOURCES += \
@@ -20,14 +16,10 @@ SOURCES += \
     $$PWD/gdboptionspage.cpp \
     $$PWD/attachgdbadapter.cpp \
     $$PWD/coregdbadapter.cpp \
-    $$PWD/localplaingdbadapter.cpp \
     $$PWD/termgdbadapter.cpp \
     $$PWD/remotegdbserveradapter.cpp \
-    $$PWD/abstractgdbprocess.cpp \
-    $$PWD/localgdbprocess.cpp \
-    $$PWD/remotegdbprocess.cpp \
-    $$PWD/remoteplaingdbadapter.cpp \
-    $$PWD/abstractplaingdbadapter.cpp \
+    $$PWD/gdbprocess.cpp \
+    $$PWD/gdbplainengine.cpp \
     $$PWD/startgdbserverdialog.cpp
 
 RESOURCES += $$PWD/gdb.qrc

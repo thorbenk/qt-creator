@@ -228,6 +228,8 @@ void SubComponentManager::parseDirectories()
 
 void SubComponentManager::parseDirectory(const QString &canonicalDirPath, bool addToLibrary, const TypeName& qualification)
 {
+    if (!model()->rewriterView())
+        return;
 
     QDir designerDir(canonicalDirPath + Constants::QML_DESIGNER_SUBFOLDER);
     if (designerDir.exists()) {
@@ -358,14 +360,6 @@ void SubComponentManager::unregisterQmlFile(const QFileInfo &fileInfo, const QSt
     QString componentName = fileInfo.baseName();
     if (!qualifier.isEmpty())
         componentName = qualifier + '.' + componentName;
-}
-
-static inline bool isDepricatedQtType(const QString &typeName)
-{
-    if (typeName.length() < 8)
-        return false;
-
-    return typeName.contains("Qt.");
 }
 
 

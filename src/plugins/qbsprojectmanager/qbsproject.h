@@ -93,8 +93,9 @@ public:
     bool hasParseResult() const;
 
     Utils::FileName defaultBuildDirectory() const;
+    static Utils::FileName defaultBuildDirectory(const QString &path);
 
-    const qbs::Project *qbsProject() const;
+    qbs::Project qbsProject() const;
     const qbs::ProjectData qbsProjectData() const;
 
     bool needsSpecialDeployment() const;
@@ -129,8 +130,8 @@ private:
     void updateCppCodeModel(const qbs::ProjectData &prj);
     void updateQmlJsCodeModel(const qbs::ProjectData &prj);
     void updateApplicationTargets(const qbs::ProjectData &projectData);
-    void updateDeploymentInfo(const qbs::Project *project);
-    QString qbsBuildDir() const;
+    void updateDeploymentInfo(const qbs::Project &project);
+    QString qbsDirectory() const;
 
     QbsManager *const m_manager;
     const QString m_projectName;

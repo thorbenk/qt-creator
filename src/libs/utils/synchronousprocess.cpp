@@ -57,7 +57,7 @@
     writes them.
 
     The stdOutBuffered(), stdErrBuffered() signals are emitted with complete
-    lines based on the '\n' marker if they are enabled using
+    lines based on the '\\n' marker if they are enabled using
     stdOutBufferedSignalsEnabled()/setStdErrBufferedSignalsEnabled().
     They would typically be used for log windows.
 
@@ -130,7 +130,6 @@ QString SynchronousProcessResponse::exitMessage(const QString &binary, int timeo
         return SynchronousProcess::tr("The command '%1' finished successfully.").arg(QDir::toNativeSeparators(binary));
     case FinishedError:
         return SynchronousProcess::tr("The command '%1' terminated with exit code %2.").arg(QDir::toNativeSeparators(binary)).arg(exitCode);
-        break;
     case TerminatedAbnormally:
         return SynchronousProcess::tr("The command '%1' terminated abnormally.").arg(QDir::toNativeSeparators(binary));
     case StartFailed:

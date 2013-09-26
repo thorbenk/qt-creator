@@ -29,6 +29,8 @@
 
 #include "remotegdbserveradapter.h"
 
+#include "gdbprocess.h"
+
 #include <debugger/debuggeractions.h>
 #include <debugger/debuggercore.h>
 #include <debugger/debuggerprotocol.h>
@@ -61,7 +63,7 @@ GdbRemoteServerEngine::GdbRemoteServerEngine(const DebuggerStartParameters &star
     m_isMulti = false;
     m_targetPid = -1;
 #ifdef Q_OS_WIN
-    m_gdbProc.setUseCtrlCStub(!startParameters.remoteExecutable.isEmpty()); // This is only set for QNX
+    m_gdbProc->setUseCtrlCStub(!startParameters.remoteExecutable.isEmpty()); // This is only set for QNX
 #endif
     connect(&m_uploadProc, SIGNAL(error(QProcess::ProcessError)),
         SLOT(uploadProcError(QProcess::ProcessError)));
@@ -99,9 +101,9 @@ void GdbRemoteServerEngine::setupEngine()
         m_uploadProc.waitForStarted();
     }
     if (!startParameters().workingDirectory.isEmpty())
-        m_gdbProc.setWorkingDirectory(startParameters().workingDirectory);
+        m_gdbProc->setWorkingDirectory(startParameters().workingDirectory);
     if (startParameters().environment.size())
-        m_gdbProc.setEnvironment(startParameters().environment.toStringList());
+        m_gdbProc->setEnvironment(startParameters().environment.toStringList());
 
     if (startParameters().remoteSetupNeeded)
         notifyEngineRequestRemoteSetup();
@@ -433,12 +435,10 @@ void GdbRemoteServerEngine::interruptInferior2()
     if (debuggerCore()->boolSetting(TargetAsync)) {
         postCommand("-exec-interrupt", GdbEngine::Immediate,
             CB(handleInterruptInferior));
-#ifdef Q_OS_WIN
-    } else if (m_isQnxGdb) {
-        m_gdbProc.winInterruptByCtrlC();
-#endif
+    } else if (m_isQnxGdb && Utils::HostOsInfo::isWindowsHost()) {
+        m_gdbProc->winInterruptByCtrlC();
     } else {
-        bool ok = m_gdbProc.interrupt();
+        bool ok = m_gdbProc->interrupt();
         if (!ok) {
             // FIXME: Extra state needed?
             showMessage(_("NOTE: INFERIOR STOP NOT POSSIBLE"));

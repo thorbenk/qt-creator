@@ -48,7 +48,8 @@ MoveTool::MoveTool(FormEditorView *editorView)
     m_selectionIndicator(editorView->scene()->manipulatorLayerItem()),
     m_resizeIndicator(editorView->scene()->manipulatorLayerItem()),
     m_anchorIndicator(editorView->scene()->manipulatorLayerItem()),
-    m_bindingIndicator(editorView->scene()->manipulatorLayerItem())
+    m_bindingIndicator(editorView->scene()->manipulatorLayerItem()),
+    m_contentNotEditableIndicator(editorView->scene()->manipulatorLayerItem())
 {
     m_selectionIndicator.setCursor(Qt::SizeAllCursor);
 }
@@ -67,6 +68,7 @@ void MoveTool::clear()
     m_resizeIndicator.clear();
     m_anchorIndicator.clear();
     m_bindingIndicator.clear();
+    m_contentNotEditableIndicator.clear();
 
     AbstractFormEditorTool::clear();
 }
@@ -130,6 +132,8 @@ void MoveTool::hoverMoveEvent(const QList<QGraphicsItem*> &itemList,
         view()->changeToSelectionTool();
         return;
     }
+
+    m_contentNotEditableIndicator.setItems(toFormEditorItemList(itemList));
 }
 
 void MoveTool::keyPressEvent(QKeyEvent *event)
@@ -337,7 +341,8 @@ FormEditorItem* MoveTool::containerFormEditorItem(const QList<QGraphicsItem*> &i
         FormEditorItem *formEditorItem = FormEditorItem::fromQGraphicsItem(item);
         if (formEditorItem
            && !selectedItemList.contains(formEditorItem)
-           && isNotAncestorOfItemInList(formEditorItem, selectedItemList))
+           && isNotAncestorOfItemInList(formEditorItem, selectedItemList)
+           && formEditorItem->isContainer())
                 return formEditorItem;
 
     }

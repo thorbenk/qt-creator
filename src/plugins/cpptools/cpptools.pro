@@ -1,6 +1,7 @@
 include(../../qtcreatorplugin.pri)
 
 DEFINES += CPPTOOLS_LIBRARY
+win32-msvc*:DEFINES += _SCL_SECURE_NO_WARNINGS
 HEADERS += completionsettingspage.h \
     cppclassesfilter.h \
     cppcurrentdocumentfilter.h \
@@ -47,7 +48,9 @@ HEADERS += completionsettingspage.h \
     cpppreprocessor.h \
     includeutils.h \
     cpplocatordata.h \
-    cppmodelmanagersupportinternal.h
+    cppmodelmanagersupportinternal.h \
+    cppcodemodelsettings.h \
+    cppcodemodelsettingspage.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -93,11 +96,14 @@ SOURCES += completionsettingspage.cpp \
     cpppreprocessor.cpp \
     includeutils.cpp \
     cpplocatordata.cpp \
-    cppmodelmanagersupportinternal.cpp
+    cppmodelmanagersupportinternal.cpp \
+    cppcodemodelsettings.cpp \
+    cppcodemodelsettingspage.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
-    cppcodestylesettingspage.ui
+    cppcodestylesettingspage.ui \
+    cppcodemodelsettingspage.ui
 
 equals(TEST, 1) {
     SOURCES += \

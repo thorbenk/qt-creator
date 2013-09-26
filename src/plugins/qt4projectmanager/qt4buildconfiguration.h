@@ -39,6 +39,7 @@ namespace ProjectExplorer { class FileNode; }
 
 namespace Qt4ProjectManager {
 
+class QmakeBuildInfo;
 class QMakeStep;
 class MakeStep;
 class Qt4BuildConfigurationFactory;
@@ -154,7 +155,6 @@ private:
 
     bool m_shadowBuild;
     bool m_isEnabled;
-    QString m_buildDirectory;
     bool m_qtVersionSupportsShadowBuilds;
     QtSupport::BaseQtVersion::QmakeBuildConfigs m_qmakeBuildConfiguration;
     Qt4ProjectManager::Qt4ProFileNode *m_subNodeBuild;
@@ -171,11 +171,11 @@ public:
     explicit Qt4BuildConfigurationFactory(QObject *parent = 0);
     ~Qt4BuildConfigurationFactory();
 
-    QList<Core::Id> availableCreationIds(const ProjectExplorer::Target *parent) const;
-    QString displayNameForId(const Core::Id id) const;
+    bool canCreate(const ProjectExplorer::Target *parent) const;
+    QList<ProjectExplorer::BuildInfo *> availableBuilds(const ProjectExplorer::Target *parent) const;
+    ProjectExplorer::BuildConfiguration *create(ProjectExplorer::Target *parent,
+                                                const ProjectExplorer::BuildInfo *info) const;
 
-    bool canCreate(const ProjectExplorer::Target *parent, const Core::Id id) const;
-    ProjectExplorer::BuildConfiguration *create(ProjectExplorer::Target *parent, const Core::Id id, const QString &name = QString());
     bool canClone(const ProjectExplorer::Target *parent, ProjectExplorer::BuildConfiguration *source) const;
     ProjectExplorer::BuildConfiguration *clone(ProjectExplorer::Target *parent, ProjectExplorer::BuildConfiguration *source);
     bool canRestore(const ProjectExplorer::Target *parent, const QVariantMap &map) const;
@@ -189,6 +189,8 @@ private slots:
 
 private:
     bool canHandle(const ProjectExplorer::Target *t) const;
+    QmakeBuildInfo *createBuildInfo(const ProjectExplorer::Kit *k, const QString &projectPath,
+                                    ProjectExplorer::BuildConfiguration::BuildType type) const;
 };
 
 } // namespace Qt4ProjectManager

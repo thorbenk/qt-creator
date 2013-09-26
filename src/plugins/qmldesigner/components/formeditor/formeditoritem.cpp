@@ -31,7 +31,7 @@
 #include "formeditorscene.h"
 
 #include <modelnode.h>
-
+#include <nodemetainfo.h>
 
 #include <QDebug>
 #include <QPainter>
@@ -39,7 +39,6 @@
 #include <QTimeLine>
 
 #include <cmath>
-
 
 namespace QmlDesigner {
 
@@ -54,6 +53,7 @@ FormEditorItem::FormEditorItem(const QmlItemNode &qmlItemNode, FormEditorScene* 
     m_qmlItemNode(qmlItemNode),
     m_borderWidth(1.0),
     m_highlightBoundingRect(false),
+    m_blurContent(false),
     m_isContentVisible(true),
     m_isFormEditorVisible(true)
 {
@@ -113,6 +113,14 @@ void FormEditorItem::setHighlightBoundingRect(bool highlight)
 {
     if (m_highlightBoundingRect != highlight) {
         m_highlightBoundingRect = highlight;
+        update();
+    }
+}
+
+void FormEditorItem::blurContent(bool blurContent)
+{
+    if (m_blurContent != blurContent) {
+        m_blurContent = blurContent;
         update();
     }
 }
@@ -183,20 +191,23 @@ void FormEditorItem::paintBoundingRect(QPainter *painter) const
 
     QPen pen;
     pen.setJoinStyle(Qt::MiterJoin);
-    pen.setStyle(Qt::DotLine);
 
     QColor frameColor("#AAAAAA");
 
     if (scene()->showBoundingRects()) {
-        if (m_highlightBoundingRect)
+        if (m_highlightBoundingRect) {
             pen.setColor(frameColor);
-        else
+        } else {
             pen.setColor(frameColor.darker(150));
+            pen.setStyle(Qt::DotLine);
+        }
     } else {
-        if (m_highlightBoundingRect)
+        if (m_highlightBoundingRect) {
             pen.setColor(frameColor);
-        else
+        } else {
             pen.setColor(Qt::transparent);
+            pen.setStyle(Qt::DotLine);
+        }
     }
 
     painter->setPen(pen);
@@ -256,6 +267,11 @@ void FormEditorItem::paintPlaceHolderForInvisbleItem(QPainter *painter) const
     }
 }
 
+void FormEditorItem::paintComponentContentVisualisation(QPainter *painter, const QRectF &clippinRectangle) const
+{
+    painter->setBrush(QColor(0, 0, 0, 150));
+    painter->fillRect(clippinRectangle, Qt::BDiagPattern);
+}
 
 void FormEditorItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
@@ -271,11 +287,17 @@ void FormEditorItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, 
         if (scene()->showBoundingRects() && m_boundingRect.width() > 15 && m_boundingRect.height() > 15)
             paintPlaceHolderForInvisbleItem(painter);
     } else {
-        qmlItemNode().paintInstance(painter);
+        if (m_blurContent)
+            painter->drawPixmap(boundingRect().topLeft(), qmlItemNode().instanceBlurredRenderPixmap());
+        else
+            painter->drawPixmap(boundingRect().topLeft(), qmlItemNode().instanceRenderPixmap());
     }
 
     if (!qmlItemNode().isRootModelNode())
         paintBoundingRect(painter);
+
+//    if (qmlItemNode().modelNode().metaInfo().isSubclassOf("QtQuick.Loader", -1, -1))
+//        paintComponentContentVisualisation(painter, boundingRect());
 
     painter->restore();
 }
@@ -358,6 +380,11 @@ QList<FormEditorItem*> FormEditorItem::childFormEditorItems() const
 
 bool FormEditorItem::isContainer() const
 {
+    NodeMetaInfo nodeMetaInfo = qmlItemNode().modelNode().metaInfo();
+
+    if (nodeMetaInfo.isValid())
+        return !nodeMetaInfo.defaultPropertyIsComponent();
+
     return true;
 }
 

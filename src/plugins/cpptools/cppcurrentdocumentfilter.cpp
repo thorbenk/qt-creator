@@ -86,16 +86,22 @@ QList<Locator::FilterEntry> CppCurrentDocumentFilter::matchesFor(QFutureInterfac
         if (future.isCanceled())
             break;
 
-        QString matchString = info.typeNameRepresentation();
-        if (matchString.isEmpty())
-            matchString = info.symbolName;
+        QString matchString = info.symbolName;
+        if (info.type == ModelItemInfo::Declaration)
+            matchString = ModelItemInfo::representDeclaration(info.symbolName, info.symbolType);
+        else if (info.type == ModelItemInfo::Method)
+            matchString += info.symbolType;
 
         if ((hasWildcard && regexp.exactMatch(matchString))
             || (!hasWildcard && matcher.indexIn(matchString) != -1))
         {
             QVariant id = qVariantFromValue(info);
-            Locator::FilterEntry filterEntry(this, matchString, id, info.icon);
-            filterEntry.extraInfo = info.symbolScope;
+            QString name = matchString;
+            QString extraInfo = info.symbolScope;
+            if (info.type == ModelItemInfo::Method)
+                info.unqualifiedNameAndScope(matchString, &name, &extraInfo);
+            Locator::FilterEntry filterEntry(this, name, id, info.icon);
+            filterEntry.extraInfo = extraInfo;
 
             if (matchString.startsWith(entry, caseSensitivityForPrefix))
                 betterEntries.append(filterEntry);

@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 2.1
 
 // view displaying one item library section including its grid
 
@@ -98,7 +98,7 @@ Column {
     Component {
         id: itemDelegate
 
-        ItemView {
+        SingleItemView {
             id: item
 
             width: cellWidth
@@ -145,6 +145,7 @@ Column {
             color: style.sectionTitleTextColor
             elide: Text.ElideMiddle
             font.bold: true
+            renderType: Text.NativeRendering
         }
         MouseArea {
             id: mouseArea

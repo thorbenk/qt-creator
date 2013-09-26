@@ -4,8 +4,10 @@ import "../QtcPlugin.qbs" as QtcPlugin
 
 QtcPlugin {
     name: "Welcome"
+    minimumQtVersion: "5.1"
 
-    Depends { name: "Qt"; submodules: ["widgets", "network", "declarative"] }
+    Depends { name: "Qt"; submodules: ["widgets", "network"] }
+    Depends { name: "Qt.quick"; condition: product.condition; }
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
 

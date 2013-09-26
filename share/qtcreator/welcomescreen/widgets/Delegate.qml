@@ -27,8 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.1
-import qtcomponents 1.0
+import QtQuick 2.1
 
 Rectangle {
     id: delegate
@@ -64,17 +63,6 @@ Rectangle {
             searchBar.text += " " + tagStr
     }
 
-    CustomColors {
-        id: colors
-    }
-
-    CustomFonts {
-        id: fonts
-    }
-
-    QStyleItem { cursor: "pointinghandcursor"; anchors.fill: parent }
-
-
     BorderImage {
         id: image1
         x: 11
@@ -109,7 +97,7 @@ Rectangle {
             asynchronous: true
         }
 
-        Text {
+        NativeText {
             id: length
 
             visible: delegate.isVideo
@@ -135,7 +123,7 @@ Rectangle {
         anchors.left: parent.left
     }
 
-    Text {
+    NativeText {
         id: captionItem
         x: 16
         y: 170
@@ -151,7 +139,7 @@ Rectangle {
         font: fonts.standardCaption
     }
 
-    Text {
+    NativeText {
         id: descriptionItem
         height: 43
         color: "#7e7e7e"
@@ -181,7 +169,7 @@ Rectangle {
         anchors.rightMargin: 10
     }
 
-    Text {
+    NativeText {
         id: tags
         x: 16
         y: 198
@@ -228,6 +216,7 @@ Rectangle {
         id: mousearea1
         anchors.fill: parent
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         onEntered: {
             delegate.state="hover"
         }

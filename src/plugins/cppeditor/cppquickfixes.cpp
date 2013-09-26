@@ -227,6 +227,44 @@ Class *isMemberFunction(const LookupContext &context, Function *function)
     return 0;
 }
 
+Namespace *isNamespaceFunction(const LookupContext &context, Function *function)
+{
+    QTC_ASSERT(function, return 0);
+    if (isMemberFunction(context, function))
+        return 0;
+
+    Scope *enclosingScope = function->enclosingScope();
+    while (!(enclosingScope->isNamespace() || enclosingScope->isClass()))
+        enclosingScope = enclosingScope->enclosingScope();
+    QTC_ASSERT(enclosingScope != 0, return 0);
+
+    const Name *functionName = function->name();
+    if (!functionName)
+        return 0; // anonymous function names are not valid c++
+
+    // global namespace
+    if (!functionName->isQualifiedNameId()) {
+        foreach (Symbol *s, context.globalNamespace()->symbols()) {
+            if (Namespace *matchingNamespace = s->asNamespace())
+                return matchingNamespace;
+        }
+        return 0;
+    }
+
+    const QualifiedNameId *q = functionName->asQualifiedNameId();
+    if (!q->base())
+        return 0;
+
+    if (ClassOrNamespace *binding = context.lookupType(q->base(), enclosingScope)) {
+        foreach (Symbol *s, binding->symbols()) {
+            if (Namespace *matchingNamespace = s->asNamespace())
+                return matchingNamespace;
+        }
+    }
+
+    return 0;
+}
+
 // Given include is e.g. "afile.h" or <afile.h> (quotes/angle brackets included!).
 void insertNewIncludeDirective(const QString &include, CppRefactoringFilePtr file)
 {
@@ -3975,44 +4013,6 @@ private:
     const ChangeSet::Range m_toRange;
 };
 
-Namespace *isNamespaceFunction(const LookupContext &context, Function *function)
-{
-    QTC_ASSERT(function, return 0);
-    if (isMemberFunction(context, function))
-        return 0;
-
-    Scope *enclosingScope = function->enclosingScope();
-    while (!(enclosingScope->isNamespace() || enclosingScope->isClass()))
-        enclosingScope = enclosingScope->enclosingScope();
-    QTC_ASSERT(enclosingScope != 0, return 0);
-
-    const Name *functionName = function->name();
-    if (!functionName)
-        return 0; // anonymous function names are not valid c++
-
-    // global namespace
-    if (!functionName->isQualifiedNameId()) {
-        foreach (Symbol *s, context.globalNamespace()->symbols()) {
-            if (Namespace *matchingNamespace = s->asNamespace())
-                return matchingNamespace;
-        }
-        return 0;
-    }
-
-    const QualifiedNameId *q = functionName->asQualifiedNameId();
-    if (!q->base())
-        return 0;
-
-    if (ClassOrNamespace *binding = context.lookupType(q->base(), enclosingScope)) {
-        foreach (Symbol *s, binding->symbols()) {
-            if (Namespace *matchingNamespace = s->asNamespace())
-                return matchingNamespace;
-        }
-    }
-
-    return 0;
-}
-
 } // anonymous namespace
 
 void MoveFuncDefToDecl::match(const CppQuickFixInterface &interface, QuickFixOperations &result)
@@ -4410,8 +4410,7 @@ public:
         m_factory->classFunctionModel->clear();
         Overview printer = CppCodeStyleSettings::currentProjectCodeStyleOverview();
         printer.showFunctionSignatures = true;
-        const TextEditor::FontSettings &fs =
-                TextEditor::TextEditorSettings::instance()->fontSettings();
+        const TextEditor::FontSettings &fs = TextEditor::TextEditorSettings::fontSettings();
         const Format formatReimpFunc = fs.formatFor(C_DISABLED_CODE);
         foreach (const Class *clazz, baseClasses) {
             QStandardItem *itemBase = new QStandardItem(printer.prettyName(clazz->name()));

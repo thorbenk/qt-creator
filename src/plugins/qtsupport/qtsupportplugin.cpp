@@ -38,14 +38,16 @@
 
 #include "profilereader.h"
 
-#include "gettingstartedwelcomepage.h"
-
 #include <coreplugin/icore.h>
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/variablemanager.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/target.h>
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 1, 0))
+#include "gettingstartedwelcomepage.h"
+#endif
 
 #include <QtPlugin>
 
@@ -75,17 +77,15 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
 
     addAutoReleasedObject(new QtOptionsPage);
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 1, 0))
     ExamplesWelcomePage *welcomePage;
     welcomePage = new ExamplesWelcomePage;
     addAutoReleasedObject(welcomePage);
-
-    welcomePage = new ExamplesWelcomePage;
     welcomePage->setShowExamples(true);
-    addAutoReleasedObject(welcomePage);
 
     GettingStartedWelcomePage *gettingStartedWelcomePage = new GettingStartedWelcomePage;
     addAutoReleasedObject(gettingStartedWelcomePage);
-
+#endif
     addAutoReleasedObject(new CustomExecutableRunConfigurationFactory);
 
     ProjectExplorer::KitManager::registerKitInformation(new QtKitInformation);

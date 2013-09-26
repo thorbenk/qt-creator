@@ -1,4 +1,4 @@
-QT += xml script declarative
+QT += xml script
 
 include(../../qtcreatorplugin.pri)
 include(customwizard/customwizard.pri)
@@ -6,6 +6,7 @@ HEADERS += projectexplorer.h \
     abi.h \
     abiwidget.h \
     ansifilterparser.h \
+    buildinfo.h \
     clangparser.h \
     environmentaspect.h \
     environmentaspectwidget.h \
@@ -84,7 +85,6 @@ HEADERS += projectexplorer.h \
     cesdkhandler.h \
     gccparser.h \
     projectexplorersettingspage.h \
-    projectwelcomepage.h \
     baseprojectwizarddialog.h \
     miniprojecttargetselector.h \
     targetselector.h \
@@ -131,6 +131,7 @@ HEADERS += projectexplorer.h \
     devicesupport/sshdeviceprocess.h \
     devicesupport/sshdeviceprocesslist.h \
     devicesupport/desktopdeviceconfigurationwidget.h \
+    devicesupport/desktopprocesssignaloperation.h \
     deploymentdata.h \
     buildtargetinfo.h \
     customtoolchain.h \
@@ -153,6 +154,7 @@ SOURCES += projectexplorer.cpp \
     removetaskhandler.cpp \
     kit.cpp \
     kitchooser.cpp \
+    kitconfigwidget.cpp \
     kitinformation.cpp \
     kitinformationconfigwidget.cpp \
     kitmanager.cpp \
@@ -213,7 +215,6 @@ SOURCES += projectexplorer.cpp \
     cesdkhandler.cpp \
     gccparser.cpp \
     projectexplorersettingspage.cpp \
-    projectwelcomepage.cpp \
     corelistenercheckingforrunningbuild.cpp \
     baseprojectwizarddialog.cpp \
     miniprojecttargetselector.cpp \
@@ -254,6 +255,7 @@ SOURCES += projectexplorer.cpp \
     devicesupport/sshdeviceprocess.cpp \
     devicesupport/sshdeviceprocesslist.cpp \
     devicesupport/desktopdeviceconfigurationwidget.cpp \
+    devicesupport/desktopprocesssignaloperation.cpp \
     deployablefile.cpp \
     customtoolchain.cpp \
     projectmacroexpander.cpp \
@@ -301,6 +303,11 @@ equals(TEST, 1) {
         outputparser_test.h
 }
 
+greaterThan(QT_MAJOR_VERSION, 4) {
+    QT += quick
+    HEADERS += projectwelcomepage.h
+    SOURCES += projectwelcomepage.cpp
+}
 macx:LIBS += -framework Carbon
 
 RESOURCES += projectexplorer.qrc

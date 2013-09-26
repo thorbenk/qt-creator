@@ -55,15 +55,30 @@ namespace Internal { class IDevicePrivate; }
 class IDeviceWidget;
 class DeviceTester;
 
-class PROJECTEXPLORER_EXPORT DeviceProcessSupport
+class PROJECTEXPLORER_EXPORT DeviceProcessSignalOperation : public QObject
 {
+    Q_OBJECT
 public:
-    typedef QSharedPointer<const DeviceProcessSupport> Ptr;
+    enum SpecialInterrupt { NoSpecialInterrupt, Win32Interrupt, Win64Interrupt };
 
-    virtual ~DeviceProcessSupport();
-    virtual QString killProcessByPidCommandLine(int pid) const = 0;
-    virtual QString killProcessByNameCommandLine(const QString &filePath) const = 0;
-    virtual QString interruptProcessByNameCommandLine(const QString &filePath) const = 0;
+    ~DeviceProcessSignalOperation() {}
+    typedef QSharedPointer<DeviceProcessSignalOperation> Ptr;
+
+    virtual void killProcess(int pid) = 0;
+    virtual void killProcess(const QString &filePath) = 0;
+    virtual void interruptProcess(int pid) = 0;
+    virtual void interruptProcess(const QString &filePath) = 0;
+
+    void setSpecialInterrupt(SpecialInterrupt si);
+
+signals:
+    // If the error message is empty the operation was successful
+    void finished(const QString &errorMessage);
+
+protected:
+    explicit DeviceProcessSignalOperation();
+    QString m_errorMessage;
+    SpecialInterrupt m_specialInterrupt;
 };
 
 class PROJECTEXPLORER_EXPORT PortsGatheringMethod
@@ -111,9 +126,8 @@ public:
     virtual IDeviceWidget *createWidget() = 0;
     virtual QList<Core::Id> actionIds() const = 0;
     virtual QString displayNameForActionId(Core::Id actionId) const = 0;
-    virtual void executeAction(Core::Id actionId, QWidget *parent = 0) const = 0;
+    virtual void executeAction(Core::Id actionId, QWidget *parent = 0) = 0;
 
-    virtual DeviceProcessSupport::Ptr processSupport() const;
     // Devices that can auto detect ports need not return a ports gathering method. Such devices can
     // obtain a free port on demand. eg: Desktop device.
     virtual bool canAutoDetectPorts() const { return false; }
@@ -125,6 +139,7 @@ public:
 
     virtual bool canCreateProcess() const { return false; }
     virtual DeviceProcess *createProcess(QObject *parent) const;
+    virtual DeviceProcessSignalOperation::Ptr signalOperation() const = 0;
 
     enum DeviceState { DeviceReadyToUse, DeviceConnected, DeviceDisconnected, DeviceStateUnknown };
     DeviceState deviceState() const;
@@ -148,6 +163,9 @@ public:
     void setFreePorts(const Utils::PortList &freePorts);
 
     MachineType machineType() const;
+
+    QString debugServerPath() const;
+    void setDebugServerPath(const QString &path);
 
 protected:
     IDevice();

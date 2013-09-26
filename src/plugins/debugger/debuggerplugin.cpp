@@ -109,6 +109,7 @@
 #  include <utils/winutils.h>
 #endif
 
+#include <QComboBox>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -589,12 +590,12 @@ public:
 #ifdef Q_OS_WIN
         if (Utils::winIs64BitSystem()) {
             CdbMatcher matcher64(64);
-            if (Kit *cdb64Kit = KitManager::find(&matcher64))
+            if (Kit *cdb64Kit = KitManager::find(matcher64))
                 return cdb64Kit;
         }
 #endif
         CdbMatcher matcher;
-        return KitManager::find(&matcher);
+        return KitManager::find(matcher);
     }
 
 private:
@@ -620,12 +621,9 @@ bool fillParameters(DebuggerStartParameters *sp, const Kit *kit, QString *errorM
                 abis = Abi::abisOfBinary(Utils::FileName::fromString(sp->executable));
         }
         if (!abis.isEmpty()) {
-            AbiKitMatcher matcher(abis);
-            kit = KitManager::find(&matcher);
-            if (!kit) {
-                CompatibleAbiKitMatcher matcher(abis);
-                kit = KitManager::find(&matcher);
-            }
+            kit = KitManager::find(AbiKitMatcher(abis));
+            if (!kit)
+                kit = KitManager::find(CompatibleAbiKitMatcher(abis));
         }
         if (!kit)
             kit = KitManager::defaultKit();
@@ -3509,25 +3507,25 @@ void DebuggerPluginPrivate::testUnloadProject()
     invoke<void>(pe, "unloadProject");
 }
 
-static Target *activeTarget()
-{
-    Project *project = ProjectExplorerPlugin::instance()->currentProject();
-    return project->activeTarget();
-}
+//static Target *activeTarget()
+//{
+//    Project *project = ProjectExplorerPlugin::instance()->currentProject();
+//    return project->activeTarget();
+//}
 
-static Kit *currentKit()
-{
-    Target *t = activeTarget();
-    if (!t || !t->isEnabled())
-        return 0;
-    return t->kit();
-}
+//static Kit *currentKit()
+//{
+//    Target *t = activeTarget();
+//    if (!t || !t->isEnabled())
+//        return 0;
+//    return t->kit();
+//}
 
-static LocalApplicationRunConfiguration *activeLocalRunConfiguration()
-{
-    Target *t = activeTarget();
-    return t ? qobject_cast<LocalApplicationRunConfiguration *>(t->activeRunConfiguration()) : 0;
-}
+//static LocalApplicationRunConfiguration *activeLocalRunConfiguration()
+//{
+//    Target *t = activeTarget();
+//    return t ? qobject_cast<LocalApplicationRunConfiguration *>(t->activeRunConfiguration()) : 0;
+//}
 
 void DebuggerPluginPrivate::testRunProject(const DebuggerStartParameters &sp, const TestCallBack &cb)
 {

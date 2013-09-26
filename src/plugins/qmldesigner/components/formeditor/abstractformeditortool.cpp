@@ -77,6 +77,19 @@ QList<FormEditorItem*> AbstractFormEditorTool::items() const
     return m_itemList;
 }
 
+QList<FormEditorItem *> AbstractFormEditorTool::toFormEditorItemList(const QList<QGraphicsItem *> &itemList)
+{
+    QList<FormEditorItem *> formEditorItemList;
+
+    foreach (QGraphicsItem *graphicsItem, itemList) {
+        FormEditorItem *formEditorItem = qgraphicsitem_cast<FormEditorItem*>(graphicsItem);
+        if (formEditorItem)
+            formEditorItemList.append(formEditorItem);
+    }
+
+    return formEditorItemList;
+}
+
 bool AbstractFormEditorTool::topItemIsMovable(const QList<QGraphicsItem*> & itemList)
 {
     QGraphicsItem *firstSelectableItem = topMovableGraphicsItem(itemList);
@@ -139,12 +152,16 @@ QGraphicsItem *AbstractFormEditorTool::topMovableGraphicsItem(const QList<QGraph
 
     return 0;
 }
-FormEditorItem *AbstractFormEditorTool::topMovableFormEditorItem(const QList<QGraphicsItem*> &itemList)
+FormEditorItem *AbstractFormEditorTool::topMovableFormEditorItem(const QList<QGraphicsItem*> &itemList, bool selectOnlyContentItems)
 {
     foreach (QGraphicsItem *item, itemList) {
         FormEditorItem *formEditorItem = FormEditorItem::fromQGraphicsItem(item);
         if (formEditorItem
-           && (formEditorItem->qmlItemNode().instanceHasShowContent()))
+                && formEditorItem->qmlItemNode().isValid()
+                && !formEditorItem->qmlItemNode().instanceIsInLayoutable()
+                && formEditorItem->qmlItemNode().instanceIsMovable()
+                && formEditorItem->qmlItemNode().modelIsMovable()
+                && (formEditorItem->qmlItemNode().instanceHasShowContent() || !selectOnlyContentItems))
             return formEditorItem;
     }
 
@@ -187,14 +204,6 @@ void AbstractFormEditorTool::dragEnterEvent(QGraphicsSceneDragDropEvent * event)
     } else {
         event->ignore();
     }
-}
-
-static inline bool checkIfNodeIsAView(const ModelNode &node)
-{
-    return node.metaInfo().isValid() &&
-            (node.metaInfo().isSubclassOf("QtQuick.ListView", -1, -1) ||
-             node.metaInfo().isSubclassOf("QtQuick.GridView", -1, -1) ||
-             node.metaInfo().isSubclassOf("QtQuick.PathView", -1, -1));
 }
 
 void AbstractFormEditorTool::mousePressEvent(const QList<QGraphicsItem*> & /*itemList*/, QGraphicsSceneMouseEvent *event)

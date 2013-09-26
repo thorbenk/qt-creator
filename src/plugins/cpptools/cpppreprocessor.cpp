@@ -3,6 +3,7 @@
 #include "cppmodelmanager.h"
 
 #include <utils/hostosinfo.h>
+#include <utils/textfileformat.h>
 
 #include <QCoreApplication>
 
@@ -154,14 +155,14 @@ void CppPreprocessor::resetEnvironment()
 }
 
 void CppPreprocessor::getFileContents(const QString &absoluteFilePath,
-                                      QString *contents,
+                                      QByteArray *contents,
                                       unsigned *revision) const
 {
     if (absoluteFilePath.isEmpty())
         return;
 
     if (m_workingCopy.contains(absoluteFilePath)) {
-        const QPair<QString, unsigned> entry = m_workingCopy.get(absoluteFilePath);
+        const QPair<QByteArray, unsigned> entry = m_workingCopy.get(absoluteFilePath);
         if (contents)
             *contents = entry.first;
         if (revision)
@@ -169,16 +170,11 @@ void CppPreprocessor::getFileContents(const QString &absoluteFilePath,
         return;
     }
 
-    QFile file(absoluteFilePath);
-    if (file.open(QFile::ReadOnly | QFile::Text)) {
-        QTextStream stream(&file);
-        stream.setCodec(Core::EditorManager::defaultTextCodec());
-        if (contents)
-            *contents = stream.readAll();
-        if (revision)
-            *revision = 0;
-        file.close();
-    }
+    QString errStr;
+    if (contents)
+        Utils::TextFileFormat::readFileUTF8(absoluteFilePath, contents, &errStr);
+    if (revision)
+        *revision = 0;
 }
 
 bool CppPreprocessor::checkFile(const QString &absoluteFilePath) const
@@ -355,6 +351,18 @@ void CppPreprocessor::stopSkippingBlocks(unsigned offset)
         m_currentDoc->stopSkippingBlocks(offset);
 }
 
+// This is a temporary fix to handle non-ascii characters. This can be removed when the lexer can
+// handle multi-byte characters.
+static QByteArray convertToLatin1(const QByteArray &contents)
+{
+    const char *p = contents.constData();
+    while (char ch = *p++)
+        if (ch & 0x80)
+            return QString::fromUtf8(contents).toLatin1();
+
+    return contents;
+}
+
 void CppPreprocessor::sourceNeeded(unsigned line, const QString &fileName, IncludeType type)
 {
     if (fileName.isEmpty())
@@ -370,8 +378,9 @@ void CppPreprocessor::sourceNeeded(unsigned line, const QString &fileName, Inclu
         m_included.insert(absoluteFileName);
 
     unsigned editorRevision = 0;
-    QString contents;
+    QByteArray contents;
     getFileContents(absoluteFileName, &contents, &editorRevision);
+    contents = convertToLatin1(contents);
     if (m_currentDoc) {
         if (contents.isEmpty() && !QFileInfo(absoluteFileName).isAbsolute()) {
             QString msg = QCoreApplication::translate(

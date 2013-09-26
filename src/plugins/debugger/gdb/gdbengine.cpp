@@ -31,10 +31,9 @@
 
 #include "attachgdbadapter.h"
 #include "coregdbadapter.h"
-#include "localplaingdbadapter.h"
+#include "gdbplainengine.h"
 #include "termgdbadapter.h"
 #include "remotegdbserveradapter.h"
-#include "remoteplaingdbadapter.h"
 
 #include "gdboptionspage.h"
 
@@ -246,6 +245,7 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters)
     m_systemDumpersLoaded = false;
     m_forceAsyncModel = false;
     m_pythonAttemptedToLoad = false;
+    m_gdbProc = new GdbProcess(this);
 
     invalidateSourcesList();
 
@@ -310,6 +310,11 @@ QString GdbEngine::errorMessage(QProcess::ProcessError error)
         default:
             return tr("An unknown error in the gdb process occurred. ");
     }
+}
+
+GdbProcess *GdbEngine::gdbProc() const
+{
+    return m_gdbProc;
 }
 
 #if 0
@@ -1748,7 +1753,6 @@ void GdbEngine::handleStop2(const GdbMi &data)
                     reasontr = msgStoppedBySignal(_(meaning), _(name));
             }
         }
-
         if (reason.isEmpty())
             showStatusMessage(msgStopped());
         else
@@ -2519,6 +2523,18 @@ void GdbEngine::updateResponse(BreakpointResponse &response, const GdbMi &bkpt)
                     response.type = WatchpointAtExpression;
                     response.expression = QString::fromLocal8Bit(what);
                 }
+            } else if (child.data() == "breakpoint") {
+                QByteArray catchType = bkpt["catch-type"].data();
+                if (catchType == "throw")
+                    response.type = BreakpointAtThrow;
+                else if (catchType == "catch")
+                    response.type = BreakpointAtCatch;
+                else if (catchType == "fork")
+                    response.type = BreakpointAtFork;
+                else if (catchType == "exec")
+                    response.type = BreakpointAtExec;
+                else if (catchType == "syscall")
+                    response.type = BreakpointAtSysCall;
             }
         } else if (child.hasName("original-location")) {
             originalLocation = child.data();
@@ -4973,9 +4989,8 @@ void GdbEngine::tryLoadPythonDumpers()
     const QByteArray dumperSourcePath =
         Core::ICore::resourcePath().toLocal8Bit() + "/dumper/";
 
-    postCommand("python execfile('" + dumperSourcePath + "gbridge.py')",
-        ConsoleCommand, CB(handlePythonSetup));
-
+   postCommand("python sys.path.insert(1, '" + dumperSourcePath + "')", ConsoleCommand);
+   postCommand("python from gbridge import *", ConsoleCommand, CB(handlePythonSetup));
 }
 
 void GdbEngine::reloadDebuggingHelpers()
@@ -5083,6 +5098,12 @@ void GdbEngine::handleInferiorPrepared()
     const DebuggerStartParameters &sp = startParameters();
 
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
+
+    if (!sp.commandsAfterConnect.isEmpty()) {
+        foreach (QByteArray command, sp.commandsAfterConnect.split('\n')) {
+            postCommand(command);
+        }
+    }
 
     if (debuggerCore()->boolSetting(IntelFlavor)) {
         //postCommand("set follow-exec-mode new");
@@ -5460,14 +5481,12 @@ DebuggerEngine *createGdbEngine(const DebuggerStartParameters &sp)
     case StartRemoteProcess:
     case AttachToRemoteServer:
         return new GdbRemoteServerEngine(sp);
-    case StartRemoteGdb:
-        return new GdbRemotePlainEngine(sp);
     case AttachExternal:
         return new GdbAttachEngine(sp);
     default:
         if (sp.useTerminal)
             return new GdbTermEngine(sp);
-        return new GdbLocalPlainEngine(sp);
+        return new GdbPlainEngine(sp);
     }
 }
 

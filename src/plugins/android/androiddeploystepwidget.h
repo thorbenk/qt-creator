@@ -55,6 +55,7 @@ private slots:
 
     void setQASIPackagePath();
     void cleanLibsOnDevice();
+    void resetDefaultDevices();
 
     void deployOptionsChanged();
 private:

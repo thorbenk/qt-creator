@@ -279,12 +279,6 @@ QStringList QtcProcess::splitArgs(const QString &_args, bool abortOnMeta, SplitE
 
 #else // Q_OS_WIN
 
-inline static bool isQuoteMeta(QChar cUnicode)
-{
-    char c = cUnicode.toLatin1();
-    return c == '\\' || c == '\'' || c == '"' || c == '$';
-}
-
 inline static bool isMeta(QChar cUnicode)
 {
     static const uchar iqm[] = {
@@ -736,13 +730,15 @@ void QtcProcess::terminate()
     QProcess::terminate();
 }
 
-#ifdef Q_OS_WIN
 void QtcProcess::interrupt()
 {
+#ifdef Q_OS_WIN
     QTC_ASSERT(m_useCtrlCStub, return);
     EnumWindows(sendInterruptMessageToAllWindowsOfProcess_enumWnd, pid()->dwProcessId);
+#endif
 }
 
+#ifdef Q_OS_WIN
 // This function assumes that the resulting string will be quoted.
 // That's irrelevant if it does not contain quotes itself.
 static int quoteArgInternal(QString &ret, int bslashes)

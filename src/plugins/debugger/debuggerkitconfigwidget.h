@@ -53,7 +53,6 @@ QT_END_NAMESPACE
 namespace Debugger {
 namespace Internal {
 
-class DebuggerItem;
 class DebuggerItemConfigWidget;
 class DebuggerKitConfigWidget;
 
@@ -70,8 +69,8 @@ public:
     ~DebuggerItemManager();
 
     static const DebuggerItem *debuggerFromKit(const ProjectExplorer::Kit *kit);
-    void setDebugger(ProjectExplorer::Kit *kit,
-        DebuggerEngineType type, const Utils::FileName &command);
+    // Returns id.
+    QVariant registerDebugger(const DebuggerItem &item);
 
     QModelIndex currentIndex() const;
     void setCurrentIndex(const QModelIndex &index);
@@ -127,7 +126,9 @@ class DebuggerKitConfigWidget : public ProjectExplorer::KitConfigWidget
     Q_OBJECT
 
 public:
-    DebuggerKitConfigWidget(ProjectExplorer::Kit *workingCopy, bool sticky);
+    DebuggerKitConfigWidget(ProjectExplorer::Kit *workingCopy,
+                            const ProjectExplorer::KitInformation *ki);
+    ~DebuggerKitConfigWidget();
 
     QString displayName() const;
     QString toolTip() const;

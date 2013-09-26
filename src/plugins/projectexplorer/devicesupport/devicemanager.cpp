@@ -433,8 +433,12 @@ private:
     IDeviceWidget *createWidget() { return 0; }
     QList<Core::Id> actionIds() const { return QList<Core::Id>(); }
     QString displayNameForActionId(Core::Id) const { return QString(); }
-    void executeAction(Core::Id, QWidget *) const { }
+    void executeAction(Core::Id, QWidget *) { }
     Ptr clone() const { return Ptr(new TestDevice(*this)); }
+    DeviceProcessSignalOperation::Ptr signalOperation() const
+    {
+        return DeviceProcessSignalOperation::Ptr();
+    }
 };
 
 void ProjectExplorerPlugin::testDeviceManager()

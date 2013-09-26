@@ -94,25 +94,33 @@ struct CPPTOOLS_EXPORT ModelItemInfo
                 : symbolScope +  QLatin1String("::") + symbolName;
     }
 
-    QString typeNameRepresentation() const
+    void unqualifiedNameAndScope(const QString &defaultName, QString *name, QString *scope) const
     {
-        if (type == ModelItemInfo::Declaration) {
-            if (!symbolType.isEmpty()) {
-                const QString padding = symbolType.endsWith(QLatin1Char('*'))
-                    ? QString()
-                    : QString(QLatin1Char(' '));
-                return symbolType + padding + symbolName;
-            }
-        } else if (type == ModelItemInfo::Method) {
-            return symbolName + symbolType;
+        *name = defaultName;
+        *scope = symbolScope;
+        const QString qualifiedName = scopedSymbolName();
+        const int colonColonPosition = qualifiedName.lastIndexOf(QLatin1String("::"));
+        if (colonColonPosition != -1) {
+            *name = qualifiedName.mid(colonColonPosition + 2);
+            *scope = qualifiedName.left(colonColonPosition);
         }
-        return QString();
+    }
+
+    static QString representDeclaration(const QString &name, const QString &type)
+    {
+        if (type.isEmpty())
+            return QString();
+
+        const QString padding = type.endsWith(QLatin1Char('*'))
+            ? QString()
+            : QString(QLatin1Char(' '));
+        return type + padding + name;
     }
 
     QString shortNativeFilePath() const
     { return Utils::FileUtils::shortNativePath(Utils::FileName::fromString(fileName)); }
 
-    QString symbolName;
+    QString symbolName; // as found in the code, therefore might be qualified
     QString symbolType;
     QString symbolScope;
     QString fileName;

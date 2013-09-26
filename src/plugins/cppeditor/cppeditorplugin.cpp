@@ -78,13 +78,9 @@ CppEditorFactory::CppEditorFactory(CppEditorPlugin *owner) :
     addMimeType(CppEditor::Constants::CPP_HEADER_MIMETYPE);
 
     if (!Utils::HostOsInfo::isMacHost() && !Utils::HostOsInfo::isWindowsHost()) {
-        FileIconProvider *iconProvider = FileIconProvider::instance();
-        iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_cpp.png")),
-                                                     MimeDatabase::findByType(QLatin1String(CppEditor::Constants::CPP_SOURCE_MIMETYPE)));
-        iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_c.png")),
-                                                     MimeDatabase::findByType(QLatin1String(CppEditor::Constants::C_SOURCE_MIMETYPE)));
-        iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_h.png")),
-                                                     MimeDatabase::findByType(QLatin1String(CppEditor::Constants::CPP_HEADER_MIMETYPE)));
+        FileIconProvider::registerIconOverlayForMimeType(":/cppeditor/images/qt_cpp.png", CppEditor::Constants::CPP_SOURCE_MIMETYPE);
+        FileIconProvider::registerIconOverlayForMimeType(":/cppeditor/images/qt_c.png", CppEditor::Constants::C_SOURCE_MIMETYPE);
+        FileIconProvider::registerIconOverlayForMimeType(":/cppeditor/images/qt_h.png", CppEditor::Constants::CPP_HEADER_MIMETYPE);
     }
 }
 
@@ -128,7 +124,7 @@ void CppEditorPlugin::initializeEditor(CPPEditorWidget *editor)
     m_actionHandler->setupActions(editor);
 
     editor->setLanguageSettingsId(CppTools::Constants::CPP_SETTINGS_ID);
-    TextEditor::TextEditorSettings::instance()->initializeEditor(editor);
+    TextEditor::TextEditorSettings::initializeEditor(editor);
 
     // method combo box sorting
     connect(this, SIGNAL(outlineSortingChanged(bool)),
@@ -167,28 +163,35 @@ bool CppEditorPlugin::initialize(const QStringList & /*arguments*/, QString *err
     addAutoReleasedObject(m_quickFixProvider);
     CppEditor::Internal::registerQuickFixes(this);
 
-    QObject *core = ICore::instance();
-    CppFileWizard::BaseFileWizardParameters wizardParameters(IWizard::FileWizard);
+    QString trCat = QCoreApplication::translate(Constants::WIZARD_CATEGORY, Constants::WIZARD_TR_CATEGORY);
 
-    wizardParameters.setCategory(QLatin1String(Constants::WIZARD_CATEGORY));
-    wizardParameters.setDisplayCategory(QCoreApplication::translate(Constants::WIZARD_CATEGORY,
-                                                                    Constants::WIZARD_TR_CATEGORY));
-    wizardParameters.setDisplayName(tr("C++ Class"));
-    wizardParameters.setId(QLatin1String("A.Class"));
-    wizardParameters.setKind(IWizard::ClassWizard);
-    wizardParameters.setDescription(tr("Creates a C++ header and a source file for a new class that you can add to a C++ project."));
-    addAutoReleasedObject(new CppClassWizard(wizardParameters, core));
+    IWizard *wizard = new CppClassWizard;
+    wizard->setWizardKind(IWizard::ClassWizard);
+    wizard->setCategory(QLatin1String(Constants::WIZARD_CATEGORY));
+    wizard->setDisplayCategory(trCat);
+    wizard->setDisplayName(tr("C++ Class"));
+    wizard->setId(QLatin1String("A.Class"));
+    wizard->setDescription(tr("Creates a C++ header and a source file for a new class that you can add to a C++ project."));
+    addAutoReleasedObject(wizard);
 
-    wizardParameters.setKind(IWizard::FileWizard);
-    wizardParameters.setDescription(tr("Creates a C++ source file that you can add to a C++ project."));
-    wizardParameters.setDisplayName(tr("C++ Source File"));
-    wizardParameters.setId(QLatin1String("B.Source"));
-    addAutoReleasedObject(new CppFileWizard(wizardParameters, Source, core));
+    wizard = new CppFileWizard(Source);
+    wizard->setWizardKind(IWizard::FileWizard);
+    wizard->setCategory(QLatin1String(Constants::WIZARD_CATEGORY));
+    wizard->setDisplayCategory(trCat);
+    wizard->setDisplayName(tr("C++ Class"));
+    wizard->setDescription(tr("Creates a C++ source file that you can add to a C++ project."));
+    wizard->setDisplayName(tr("C++ Source File"));
+    wizard->setId(QLatin1String("B.Source"));
+    addAutoReleasedObject(wizard);
 
-    wizardParameters.setDescription(tr("Creates a C++ header file that you can add to a C++ project."));
-    wizardParameters.setDisplayName(tr("C++ Header File"));
-    wizardParameters.setId(QLatin1String("C.Header"));
-    addAutoReleasedObject(new CppFileWizard(wizardParameters, Header, core));
+    wizard = new CppFileWizard(Header);
+    wizard->setWizardKind(IWizard::FileWizard);
+    wizard->setCategory(QLatin1String(Constants::WIZARD_CATEGORY));
+    wizard->setDisplayCategory(trCat);
+    wizard->setDescription(tr("Creates a C++ header file that you can add to a C++ project."));
+    wizard->setDisplayName(tr("C++ Header File"));
+    wizard->setId(QLatin1String("C.Header"));
+    addAutoReleasedObject(wizard);
 
     Context context(CppEditor::Constants::C_CPPEDITOR);
 

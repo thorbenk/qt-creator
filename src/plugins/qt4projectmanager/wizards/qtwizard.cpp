@@ -49,41 +49,14 @@
 #include <QCoreApplication>
 #include <QVariant>
 
+using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;
 
-static Core::BaseFileWizardParameters
-    wizardParameters(const QString &id,
-                     const QString &category,
-                     const QString &displayCategory,
-                     const QString &name,
-                     const QString &description,
-                     const QIcon &icon)
-{
-    Core::BaseFileWizardParameters rc(Core::IWizard::ProjectWizard);
-    rc.setCategory(category);
-    rc.setDisplayCategory(QCoreApplication::translate("ProjectExplorer",
-                                                      displayCategory.toLatin1()));
-    rc.setIcon(icon);
-    rc.setDisplayName(name);
-    rc.setId(id);
-    rc.setDescription(description);
-    return rc;
-}
-
 // -------------------- QtWizard
-QtWizard::QtWizard(const QString &id,
-                   const QString &category,
-                   const QString &displayCategory,
-                   const QString &name,
-                   const QString &description, const QIcon &icon) :
-    Core::BaseFileWizard(wizardParameters(id,
-                                          category,
-                                          displayCategory,
-                                          name,
-                                          description,
-                                          icon))
+QtWizard::QtWizard()
 {
+    setWizardKind(Core::IWizard::ProjectWizard);
 }
 
 QString QtWizard::sourceSuffix()
@@ -155,14 +128,12 @@ bool QtWizard::showModulesPageForLibraries()
 }
 
 // ------------ CustomQt4ProjectWizard
-CustomQt4ProjectWizard::CustomQt4ProjectWizard(const Core::BaseFileWizardParameters& baseFileParameters,
-                                               QObject *parent) :
-    ProjectExplorer::CustomProjectWizard(baseFileParameters, parent)
+CustomQt4ProjectWizard::CustomQt4ProjectWizard()
 {
 }
 
-    QWizard *CustomQt4ProjectWizard::createWizardDialog(QWidget *parent,
-                                                        const Core::WizardDialogParameters &wizardDialogParameters) const
+QWizard *CustomQt4ProjectWizard::createWizardDialog
+    (QWidget *parent, const Core::WizardDialogParameters &wizardDialogParameters) const
 {
     BaseQt4ProjectWizardDialog *wizard = new BaseQt4ProjectWizardDialog(false, parent, wizardDialogParameters);
 
@@ -323,13 +294,10 @@ bool BaseQt4ProjectWizardDialog::isQtPlatformSelected(const QString &platform) c
 {
     QList<Core::Id> selectedKitList = selectedKits();
 
-    QtSupport::QtPlatformKitMatcher matcher(platform);
-    QList<ProjectExplorer::Kit *> kitList
-            = ProjectExplorer::KitManager::kits(&matcher);
-    foreach (ProjectExplorer::Kit *k, kitList) {
+    foreach (Kit *k, KitManager::matchingKits(QtSupport::QtPlatformKitMatcher(platform)))
         if (selectedKitList.contains(k->id()))
             return true;
-    }
+
     return false;
 }
 

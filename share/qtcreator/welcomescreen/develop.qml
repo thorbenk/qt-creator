@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 1.1
+import QtQuick 2.1
 import widgets 1.0
 
 Rectangle {
@@ -102,7 +102,7 @@ Rectangle {
             visible: !recentProjects.scrollBarVisible
         }
 
-        Text {
+        NativeText {
             id: sessionsTitle
 
             x: pageCaption.x + pageCaption.textOffset
@@ -115,7 +115,7 @@ Rectangle {
             font.bold: true
         }
 
-        Text {
+        NativeText {
             id: recentProjectsTitle
             x: 406
 

@@ -41,11 +41,13 @@
 #include <projectexplorer/headerpath.h>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/buildmanager.h>
+#include <projectexplorer/buildtargetinfo.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/kitmanager.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/deployconfiguration.h>
+#include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/projectmacroexpander.h>
 #include <qtsupport/customexecutablerunconfiguration.h>
 #include <qtsupport/baseqtversion.h>
@@ -80,20 +82,6 @@ using namespace ProjectExplorer;
 // Open Questions
 // Who sets up the environment for cl.exe ? INCLUDEPATH and so on
 
-// Test for form editor (loosely coupled)
-static inline bool isFormWindowDocument(const QObject *o)
-{
-    return o && !qstrcmp(o->metaObject()->className(), "Designer::Internal::FormWindowFile");
-}
-
-// Return contents of form editor (loosely coupled)
-static inline QString formWindowEditorContents(const QObject *editor)
-{
-    const QVariant contentV = editor->property("contents");
-    QTC_ASSERT(contentV.isValid(), return QString());
-    return contentV.toString();
-}
-
 /*!
   \class CMakeProject
 */
@@ -101,7 +89,8 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
     : m_manager(manager),
       m_activeTarget(0),
       m_fileName(fileName),
-      m_rootNode(new CMakeProjectNode(fileName))
+      m_rootNode(new CMakeProjectNode(fileName)),
+      m_watcher(new QFileSystemWatcher(this))
 {
     setProjectContext(Core::Context(CMakeProjectManager::Constants::PROJECTCONTEXT));
     setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
@@ -112,6 +101,8 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
 
     connect(this, SIGNAL(buildTargetsChanged()),
             this, SLOT(updateRunConfigurations()));
+
+    connect(m_watcher, SIGNAL(fileChanged(QString)), this, SLOT(fileChanged(QString)));
 }
 
 CMakeProject::~CMakeProject()
@@ -150,8 +141,8 @@ void CMakeProject::changeActiveBuildConfiguration(ProjectExplorer::BuildConfigur
     }
 
     if (mode != CMakeOpenProjectWizard::Nothing) {
-        CMakeOpenProjectWizard copw(m_manager, mode,
-                                    CMakeOpenProjectWizard::BuildInfo(cmakebc));
+        CMakeBuildInfo info(cmakebc);
+        CMakeOpenProjectWizard copw(m_manager, mode, &info);
         if (copw.exec() == QDialog::Accepted)
             cmakebc->setUseNinja(copw.useNinja()); // NeedToCreate can change the Ninja setting
     }
@@ -272,6 +263,7 @@ bool CMakeProject::parseCMakeLists()
 //            qDebug()<<"";
 //        }
 
+    updateApplicationAndDeploymentTargets();
 
     createUiCodeModelSupport();
 
@@ -573,9 +565,7 @@ bool CMakeProject::fromMap(const QVariantMap &map)
 
         t->addBuildConfiguration(bc);
 
-        DeployConfigurationFactory *fac = ExtensionSystem::PluginManager::getObject<DeployConfigurationFactory>();
-        ProjectExplorer::DeployConfiguration *dc = fac->create(t, ProjectExplorer::Constants::DEFAULT_DEPLOYCONFIGURATION_ID);
-        t->addDeployConfiguration(dc);
+        t->updateDefaultDeployConfigurations();
 
         addTarget(t);
     } else {
@@ -595,8 +585,8 @@ bool CMakeProject::fromMap(const QVariantMap &map)
             mode = CMakeOpenProjectWizard::NeedToUpdate;
 
         if (mode != CMakeOpenProjectWizard::Nothing) {
-            CMakeOpenProjectWizard copw(m_manager, mode,
-                                        CMakeOpenProjectWizard::BuildInfo(activeBC));
+            CMakeBuildInfo info(activeBC);
+            CMakeOpenProjectWizard copw(m_manager, mode, &info);
             if (copw.exec() != QDialog::Accepted)
                 return false;
             else
@@ -604,17 +594,7 @@ bool CMakeProject::fromMap(const QVariantMap &map)
         }
     }
 
-    m_watcher = new QFileSystemWatcher(this);
-    connect(m_watcher, SIGNAL(fileChanged(QString)), this, SLOT(fileChanged(QString)));
-
     parseCMakeLists();
-
-    if (!hasUserFile && hasBuildTarget(QLatin1String("all"))) {
-        MakeStep *makeStep = qobject_cast<MakeStep *>(
-                    activeTarget()->activeBuildConfiguration()->stepList(ProjectExplorer::Constants::BUILDSTEPS_BUILD)->at(0));
-        Q_ASSERT(makeStep);
-        makeStep->setBuildTarget(QLatin1String("all"), true);
-    }
 
     m_activeTarget = activeTarget();
     if (m_activeTarget)
@@ -629,17 +609,9 @@ bool CMakeProject::fromMap(const QVariantMap &map)
 
 bool CMakeProject::setupTarget(Target *t)
 {
-    CMakeBuildConfigurationFactory *factory
-            = ExtensionSystem::PluginManager::getObject<CMakeBuildConfigurationFactory>();
-    CMakeBuildConfiguration *bc = factory->create(t, Constants::CMAKE_BC_ID, QLatin1String("all"));
-    if (!bc)
-        return false;
+    t->updateDefaultBuildConfigurations();
+    t->updateDefaultDeployConfigurations();
 
-    t->addBuildConfiguration(bc);
-
-    DeployConfigurationFactory *fac = ExtensionSystem::PluginManager::getObject<DeployConfigurationFactory>();
-    ProjectExplorer::DeployConfiguration *dc = fac->create(t, ProjectExplorer::Constants::DEFAULT_DEPLOYCONFIGURATION_ID);
-    t->addDeployConfiguration(dc);
     return true;
 }
 
@@ -739,6 +711,50 @@ void CMakeProject::updateRunConfigurations(Target *t)
         // create a custom executable run configuration
         t->addRunConfiguration(new QtSupport::CustomExecutableRunConfiguration(t));
     }
+}
+
+void CMakeProject::updateApplicationAndDeploymentTargets()
+{
+    Target *t = activeTarget();
+
+    QFile deploymentFile;
+    QTextStream deploymentStream;
+    QString deploymentPrefix;
+    QDir sourceDir;
+
+    sourceDir.setPath(t->project()->projectDirectory());
+    deploymentFile.setFileName(sourceDir.filePath(QLatin1String("QtCreatorDeployment.txt")));
+    if (deploymentFile.open(QFile::ReadOnly | QFile::Text)) {
+        deploymentStream.setDevice(&deploymentFile);
+        deploymentPrefix = deploymentStream.readLine();
+        if (!deploymentPrefix.endsWith(QLatin1Char('/')))
+            deploymentPrefix.append(QLatin1Char('/'));
+    }
+
+    BuildTargetInfoList appTargetList;
+    DeploymentData deploymentData;
+    QDir buildDir(t->activeBuildConfiguration()->buildDirectory().toString());
+    foreach (const CMakeBuildTarget &ct, m_buildTargets) {
+        if (ct.executable.isEmpty())
+            continue;
+
+        deploymentData.addFile(ct.executable, deploymentPrefix + buildDir.relativeFilePath(QFileInfo(ct.executable).dir().path()), DeployableFile::TypeExecutable);
+        if (!ct.library) {
+            // TODO: Put a path to corresponding .cbp file into projectFilePath?
+            appTargetList.list << BuildTargetInfo(ct.executable, ct.executable);
+        }
+    }
+
+    QString absoluteSourcePath = sourceDir.absolutePath();
+    if (!absoluteSourcePath.endsWith(QLatin1Char('/')))
+        absoluteSourcePath.append(QLatin1Char('/'));
+    while (!deploymentStream.atEnd()) {
+        QStringList file = deploymentStream.readLine().split(QLatin1Char(':'));
+        deploymentData.addFile(absoluteSourcePath + file.at(0), deploymentPrefix + file.at(1));
+    }
+
+    t->setApplicationTargets(appTargetList);
+    t->setDeploymentData(deploymentData);
 }
 
 void CMakeProject::createUiCodeModelSupport()
@@ -851,8 +867,9 @@ CMakeBuildSettingsWidget::CMakeBuildSettingsWidget(CMakeBuildConfiguration *bc) 
 void CMakeBuildSettingsWidget::openChangeBuildDirectoryDialog()
 {
     CMakeProject *project = static_cast<CMakeProject *>(m_buildConfiguration->target()->project());
+    CMakeBuildInfo info(m_buildConfiguration);
     CMakeOpenProjectWizard copw(project->projectManager(), CMakeOpenProjectWizard::ChangeDirectory,
-                                CMakeOpenProjectWizard::BuildInfo(m_buildConfiguration));
+                                &info);
     if (copw.exec() == QDialog::Accepted) {
         project->changeBuildDirectory(m_buildConfiguration, copw.buildDirectory());
         m_buildConfiguration->setUseNinja(copw.useNinja());
@@ -865,9 +882,9 @@ void CMakeBuildSettingsWidget::runCMake()
     if (!ProjectExplorer::ProjectExplorerPlugin::instance()->saveModifiedFiles())
         return;
     CMakeProject *project = static_cast<CMakeProject *>(m_buildConfiguration->target()->project());
+    CMakeBuildInfo info(m_buildConfiguration);
     CMakeOpenProjectWizard copw(project->projectManager(),
-                                CMakeOpenProjectWizard::WantToUpdate,
-                                CMakeOpenProjectWizard::BuildInfo(m_buildConfiguration));
+                                CMakeOpenProjectWizard::WantToUpdate, &info);
     if (copw.exec() == QDialog::Accepted)
         project->parseCMakeLists();
 }

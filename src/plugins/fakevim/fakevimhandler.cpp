@@ -1524,12 +1524,13 @@ public:
     EventResult handleSearchSubSubMode(const Input &);
     bool handleCommandSubSubMode(const Input &);
     void fixSelection(); // Fix selection according to current range, move and command modes.
+    bool finishSearch();
     void finishMovement(const QString &dotCommandMovement = QString());
     void resetCommandMode();
     void clearCommandMode();
     QTextCursor search(const SearchData &sd, int startPos, int count, bool showMessages);
     void search(const SearchData &sd, bool showMessages = true);
-    void searchNext(bool forward = true);
+    bool searchNext(bool forward = true);
     void searchBalanced(bool forward, QChar needle, QChar other);
     void highlightMatches(const QString &needle);
     void stopIncrementalFind();
@@ -2096,15 +2097,32 @@ void FakeVimHandler::Private::init()
 
 void FakeVimHandler::Private::focus()
 {
+    if (g.inFakeVim)
+        return;
+
+    enterFakeVim();
+
     stopIncrementalFind();
     if (!isInsertMode()) {
-        leaveVisualMode();
+        if (g.subsubmode == SearchSubSubMode) {
+            setPosition(m_searchStartPosition);
+            scrollToLine(m_searchFromScreenLine);
+            setTargetColumn();
+        } else {
+            leaveVisualMode();
+        }
+
+        bool exitCommandLine = (g.subsubmode == SearchSubSubMode || g.mode == ExMode);
         resetCommandMode();
+        if (exitCommandLine)
+            updateMiniBuffer();
     }
     updateCursorShape();
-    if (!g.inFakeVim || g.mode != CommandMode)
+    if (g.mode != CommandMode)
         updateMiniBuffer();
     updateHighlights();
+
+    leaveFakeVim();
 }
 
 void FakeVimHandler::Private::enterFakeVim()
@@ -2726,14 +2744,16 @@ void FakeVimHandler::Private::updateFind(bool isComplete)
     g.currentMessage.clear();
 
     const QString &needle = g.searchBuffer.contents();
+    if (isComplete) {
+        setPosition(m_searchStartPosition);
+        if (!needle.isEmpty())
+            recordJump();
+    }
+
     SearchData sd;
     sd.needle = needle;
     sd.forward = g.lastSearchForward;
     sd.highlightMatches = isComplete;
-    if (isComplete) {
-        setPosition(m_searchStartPosition);
-        recordJump();
-    }
     search(sd, isComplete);
 }
 
@@ -3016,6 +3036,17 @@ void FakeVimHandler::Private::fixSelection()
         moveRight();
         setAnchorAndPosition(position(), pos);
     }
+}
+
+bool FakeVimHandler::Private::finishSearch()
+{
+    if (g.lastSearch.isEmpty()
+        || (!g.currentMessage.isEmpty() && g.currentMessageLevel == MessageError)) {
+        return false;
+    }
+    if (g.submode != NoSubMode)
+        setAnchorAndPosition(m_searchStartPosition, position());
+    return true;
 }
 
 void FakeVimHandler::Private::finishMovement(const QString &dotCommandMovement)
@@ -3488,7 +3519,7 @@ bool FakeVimHandler::Private::handleMovement(const Input &input)
         g.searchBuffer.historyPush(needle);
         g.lastSearch = needle;
         g.lastSearchForward = input.is('*');
-        searchNext();
+        handled = searchNext();
     } else if (input.is('\'')) {
         g.subsubmode = TickSubSubMode;
         if (g.submode != NoSubMode)
@@ -3655,7 +3686,7 @@ bool FakeVimHandler::Private::handleMovement(const Input &input)
             }
             setPosition(m_cursor.selectionStart());
         } else {
-            searchNext(input.is('n'));
+            handled = searchNext(input.is('n'));
         }
     } else if (input.is('t')) {
         g.movetype = MoveInclusive;
@@ -4378,6 +4409,7 @@ bool FakeVimHandler::Private::handleWindowSubMode(const Input &input)
     if (handleCount(input))
         return true;
 
+    leaveVisualMode();
     emit q->windowCommandRequested(input.toString(), count());
 
     g.submode = NoSubMode;
@@ -4486,6 +4518,9 @@ EventResult FakeVimHandler::Private::handleInsertOrReplaceMode(const Input &inpu
         handleInsertMode(input);
     else
         handleReplaceMode(input);
+
+    if (!m_textedit && !m_plaintextedit)
+        return EventHandled;
 
     if (!isInsertMode() || m_breakEditBlock
             || position() < m_insertState.pos1 || position() > m_insertState.pos2) {
@@ -4811,7 +4846,6 @@ EventResult FakeVimHandler::Private::handleExMode(const Input &input)
 {
     if (input.isEscape()) {
         g.commandBuffer.clear();
-        enterCommandMode(g.returnToMode);
         resetCommandMode();
         m_ctrlVActive = false;
     } else if (m_ctrlVActive) {
@@ -4822,7 +4856,7 @@ EventResult FakeVimHandler::Private::handleExMode(const Input &input)
         return EventHandled;
     } else if (input.isBackspace()) {
         if (g.commandBuffer.isEmpty()) {
-            enterCommandMode(g.returnToMode);
+            leaveVisualMode();
             resetCommandMode();
         } else if (g.commandBuffer.hasSelection()) {
             g.commandBuffer.deleteSelected();
@@ -4852,11 +4886,8 @@ EventResult FakeVimHandler::Private::handleSearchSubSubMode(const Input &input)
 
     if (input.isEscape()) {
         g.currentMessage.clear();
-        g.searchBuffer.clear();
-        setAnchorAndPosition(m_searchStartPosition, m_searchStartPosition);
+        setPosition(m_searchStartPosition);
         scrollToLine(m_searchFromScreenLine);
-        enterCommandMode(g.returnToMode);
-        resetCommandMode();
     } else if (input.isBackspace()) {
         if (g.searchBuffer.isEmpty())
             resetCommandMode();
@@ -4868,19 +4899,17 @@ EventResult FakeVimHandler::Private::handleSearchSubSubMode(const Input &input)
             g.lastSearch = needle;
         else
             g.searchBuffer.setContents(g.lastSearch);
-        if (!g.lastSearch.isEmpty()) {
-            updateFind(true);
-            finishMovement(g.searchBuffer.prompt() + g.lastSearch + QLatin1Char('\n'));
+
+        updateFind(true);
+
+        if (finishSearch()) {
+            if (g.submode != NoSubMode)
+                finishMovement(g.searchBuffer.prompt() + g.lastSearch + QLatin1Char('\n'));
+            if (g.currentMessage.isEmpty())
+                showMessage(MessageCommand, g.searchBuffer.display());
         } else {
-            finishMovement();
-        }
-        if (g.currentMessage.isEmpty())
-            showMessage(MessageCommand, g.searchBuffer.display());
-        else if (g.currentMessageLevel == MessageError)
             handled = EventCancelled; // Not found so cancel mapping if any.
-        enterCommandMode(g.returnToMode);
-        resetCommandMode();
-        g.searchBuffer.clear();
+        }
     } else if (input.isKey(Key_Tab)) {
         g.searchBuffer.insertChar(QChar(9));
     } else if (!g.searchBuffer.handleInput(input)) {
@@ -4888,10 +4917,14 @@ EventResult FakeVimHandler::Private::handleSearchSubSubMode(const Input &input)
         return EventUnhandled;
     }
 
-    updateMiniBuffer();
-
-    if (!input.isReturn() && !input.isEscape())
+    if (input.isReturn() || input.isEscape()) {
+        g.searchBuffer.clear();
+        resetCommandMode();
+        updateMiniBuffer();
+    } else {
+        updateMiniBuffer();
         updateFind(false);
+    }
 
     return handled;
 }
@@ -5963,7 +5996,7 @@ void FakeVimHandler::Private::search(const SearchData &sd, bool showMessages)
     setTargetColumn();
 }
 
-void FakeVimHandler::Private::searchNext(bool forward)
+bool FakeVimHandler::Private::searchNext(bool forward)
 {
     SearchData sd;
     sd.needle = g.lastSearch;
@@ -5973,6 +6006,7 @@ void FakeVimHandler::Private::searchNext(bool forward)
     showMessage(MessageCommand, QLatin1Char(g.lastSearchForward ? '/' : '?') + sd.needle);
     recordJump();
     search(sd);
+    return finishSearch();
 }
 
 void FakeVimHandler::Private::highlightMatches(const QString &needle)
@@ -6938,7 +6972,7 @@ bool FakeVimHandler::Private::handleInsertInEditor(const Input &input)
                     static_cast<Qt::KeyboardModifiers>(input.modifiers()), input.text());
     setAnchor();
     if (!passEventToEditor(event))
-        return false;
+        return !m_textedit && !m_plaintextedit; // Mark event as handled if it has destroyed editor.
 
     endEditBlock();
 
@@ -6954,6 +6988,8 @@ bool FakeVimHandler::Private::passEventToEditor(QEvent &event)
     EDITOR(setOverwriteMode(false));
     emit q->requestSetBlockSelection(false);
     bool accepted = QApplication::sendEvent(editor(), &event);
+    if (!m_textedit && !m_plaintextedit)
+        return false;
     if (isVisualBlockMode())
         emit q->requestSetBlockSelection(true);
     updateCursorShape();

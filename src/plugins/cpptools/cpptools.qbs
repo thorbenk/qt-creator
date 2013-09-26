@@ -15,6 +15,12 @@ QtcPlugin {
     Depends { name: "CPlusPlus" }
     Depends { name: "LanguageUtils" }
 
+    cpp.defines: base
+    Properties {
+        condition: qbs.toolchain.contains("msvc")
+        cpp.defines: base.concat("_SCL_SECURE_NO_WARNINGS")
+    }
+
     files: [
         "abstracteditorsupport.cpp",
         "abstracteditorsupport.h",
@@ -110,7 +116,12 @@ QtcPlugin {
         "cpppreprocessor.cpp",
         "cpppreprocessor.h",
         "includeutils.cpp",
-        "includeutils.h"
+        "includeutils.h",
+        "cppcodemodelsettings.cpp",
+        "cppcodemodelsettings.h",
+        "cppcodemodelsettingspage.cpp",
+        "cppcodemodelsettingspage.h",
+        "cppcodemodelsettingspage.ui"
     ]
 
     Group {

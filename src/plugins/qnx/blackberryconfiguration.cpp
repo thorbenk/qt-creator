@@ -263,19 +263,30 @@ Kit *BlackBerryConfiguration::createKit(QnxArchitecture arch, BaseQtVersion *qtV
     Kit *kit = new Kit;
     QtKitInformation::setQtVersion(kit, qtVersion);
     ToolChainKitInformation::setToolChain(kit, tc);
+
+    QString versionName = QString::fromLatin1("%1 - %2").arg(qtVersion->qtVersionString(), m_targetName);
+
+    Debugger::DebuggerItem debugger;
+    debugger.setCommand(arch == X86 ? m_simulatorDebuger : m_deviceDebuger);
+    debugger.setEngineType(Debugger::GdbEngineType);
+    debugger.setDisplayName(arch == X86
+            ? tr("BlackBerry Debugger (%1) - Simulator").arg(versionName)
+            : tr("BlackBerry Debugger (%1) - Device").arg(versionName));
+    debugger.setAutoDetected(true);
+    debugger.setAbi(tc->targetAbi());
+    Debugger::DebuggerKitInformation::setDebugger(kit, debugger);
+
     if (arch == X86) {
-        Debugger::DebuggerKitInformation::setDebugger(kit, Debugger::GdbEngineType, m_simulatorDebuger);
         Qt4ProjectManager::QmakeKitInformation::setMkspec(kit, FileName::fromString(QString::fromLatin1("blackberry-x86-qcc")));
         // TODO: Check if the name already exists(?)
-        kit->setDisplayName(tr("BlackBerry 10 (%1 - %2) - Simulator").arg(qtVersion->qtVersionString(), m_targetName));
+        kit->setDisplayName(tr("BlackBerry 10 (%1) - Simulator").arg(versionName));
     } else {
-        Debugger::DebuggerKitInformation::setDebugger(kit, Debugger::GdbEngineType, m_deviceDebuger);
-        kit->setDisplayName(tr("BlackBerry 10 (%1 - %2)").arg(qtVersion->qtVersionString(), m_targetName));
+        kit->setDisplayName(tr("BlackBerry 10 (%1)").arg(versionName));
     }
-
 
     kit->setAutoDetected(m_isAutoDetected);
     kit->setIconPath(FileName::fromString(QLatin1String(Constants::QNX_BB_CATEGORY_ICON)));
+    kit->setMutable(DeviceKitInformation::id(), true);
     setSticky(kit);
     DeviceTypeKitInformation::setDeviceTypeId(kit, Constants::QNX_BB_OS_TYPE);
     SysRootKitInformation::setSysRoot(kit, m_sysRoot);
@@ -285,12 +296,12 @@ Kit *BlackBerryConfiguration::createKit(QnxArchitecture arch, BaseQtVersion *qtV
 
 void BlackBerryConfiguration::setSticky(Kit *kit)
 {
-    QtKitInformation::setSticky(kit, true);
-    ToolChainKitInformation::setSticky(kit, true);
-    DeviceTypeKitInformation::setSticky(kit, true);
-    SysRootKitInformation::setSticky(kit, true);
-    Debugger::DebuggerKitInformation::setSticky(kit, true);
-    Qt4ProjectManager::QmakeKitInformation::setSticky(kit, true);
+    kit->setSticky(QtKitInformation::id(), true);
+    kit->setSticky(ToolChainKitInformation::id(), true);
+    kit->setSticky(DeviceTypeKitInformation::id(), true);
+    kit->setSticky(SysRootKitInformation::id(), true);
+    kit->setSticky(Debugger::DebuggerKitInformation::id(), true);
+    kit->setSticky(Qt4ProjectManager::QmakeKitInformation::id(), true);
 }
 
 bool BlackBerryConfiguration::activate()

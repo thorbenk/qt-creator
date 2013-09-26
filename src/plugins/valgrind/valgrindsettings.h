@@ -51,6 +51,19 @@ class ValgrindBaseSettings : public ProjectExplorer::ISettingsAspect
     Q_OBJECT
 
 public:
+    enum SelfModifyingCodeDetection {
+        DetectSmcNo,
+        DetectSmcStackOnly,
+        DetectSmcEverywhere,
+        DetectSmcEverywhereButFile
+    };
+
+    enum LeakCheckOnFinish {
+        LeakCheckOnFinishNo,
+        LeakCheckOnFinishSummaryOnly,
+        LeakCheckOnFinishYes
+    };
+
     ValgrindBaseSettings() {}
 
     void toMap(QVariantMap &map) const;
@@ -64,15 +77,19 @@ signals:
  */
 public:
     QString valgrindExecutable() const;
+    SelfModifyingCodeDetection selfModifyingCodeDetection() const;
 
 public slots:
     void setValgrindExecutable(const QString &);
+    void setSelfModifyingCodeDetection(int);
 
 signals:
     void valgrindExecutableChanged(const QString &);
+    void selfModifyingCodeDetectionChanged(int);
 
 private:
     QString m_valgrindExecutable;
+    SelfModifyingCodeDetection m_selfModifyingCodeDetection;
 
 
 /**
@@ -80,6 +97,8 @@ private:
  */
 public:
     int numCallers() const { return m_numCallers; }
+    LeakCheckOnFinish leakCheckOnFinish() const { return m_leakCheckOnFinish; }
+    bool showReachable() const { return m_showReachable; }
     bool trackOrigins() const { return m_trackOrigins; }
     bool filterExternalIssues() const { return m_filterExternalIssues; }
     QList<int> visibleErrorKinds() const { return m_visibleErrorKinds; }
@@ -90,12 +109,16 @@ public:
 
 public slots:
     void setNumCallers(int);
+    void setLeakCheckOnFinish(int);
+    void setShowReachable(bool);
     void setTrackOrigins(bool);
     void setFilterExternalIssues(bool);
     void setVisibleErrorKinds(const QList<int> &);
 
 signals:
     void numCallersChanged(int);
+    void leakCheckOnFinishChanged(int);
+    void showReachableChanged(bool);
     void trackOriginsChanged(bool);
     void filterExternalIssuesChanged(bool);
     void visibleErrorKindsChanged(const QList<int> &);
@@ -104,6 +127,8 @@ signals:
 
 protected:
     int m_numCallers;
+    LeakCheckOnFinish m_leakCheckOnFinish;
+    bool m_showReachable;
     bool m_trackOrigins;
     bool m_filterExternalIssues;
     QList<int> m_visibleErrorKinds;

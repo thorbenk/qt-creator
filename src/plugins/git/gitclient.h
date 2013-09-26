@@ -54,6 +54,7 @@ namespace VcsBase {
     class Command;
     class SubmitFileModel;
     class VcsBaseEditorWidget;
+    class VcsBaseEditorParameterWidget;
 }
 
 namespace Utils {
@@ -363,9 +364,10 @@ private:
                                             CodecType codecType,
                                             const char *registerDynamicProperty,
                                             const QString &dynamicPropertyValue,
-                                            QWidget *configWidget) const;
+                                            VcsBase::VcsBaseEditorParameterWidget *configWidget) const;
     DiffEditor::DiffEditor *createDiffEditor(const char *registerDynamicProperty,
                                              const QString &dynamicPropertyValue,
+                                             const QString &source,
                                              const QString &titlePattern,
                                              const Core::Id editorId) const;
 
