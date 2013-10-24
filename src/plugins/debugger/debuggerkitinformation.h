@@ -36,9 +36,15 @@
 #include <projectexplorer/abi.h>
 #include <projectexplorer/kitinformation.h>
 
+#include <utils/persistentsettings.h>
+
 namespace Debugger {
 
-namespace Internal { class DebuggerItemManager; }
+namespace Internal { class DebuggerItemModel; }
+
+// -----------------------------------------------------------------------
+// DebuggerItem
+// -----------------------------------------------------------------------
 
 class DEBUGGER_EXPORT DebuggerItem
 {
@@ -71,10 +77,14 @@ public:
     void setAbis(const QList<ProjectExplorer::Abi> &abis);
     void setAbi(const ProjectExplorer::Abi &abi);
 
+    enum MatchLevel { DoesNotMatch, MatchesSomewhat, MatchesPerfectly };
+    MatchLevel matchTarget(const ProjectExplorer::Abi &targetAbi) const;
+
     QStringList abiNames() const;
 
 private:
-    friend class Debugger::Internal::DebuggerItemManager;
+    friend class Debugger::Internal::DebuggerItemModel;
+    friend class DebuggerItemManager;
     void setId(const QVariant &id);
 
     QVariant m_id;
@@ -83,6 +93,51 @@ private:
     Utils::FileName m_command;
     bool m_isAutoDetected;
     QList<ProjectExplorer::Abi> m_abis;
+};
+
+// -----------------------------------------------------------------------
+// DebuggerItemManager
+// -----------------------------------------------------------------------
+
+class DEBUGGER_EXPORT DebuggerItemManager : public QObject
+{
+    Q_OBJECT
+
+public:
+    static QObject *instance();
+    ~DebuggerItemManager();
+
+    static QList<DebuggerItem> debuggers();
+    static Debugger::Internal::DebuggerItemModel *model();
+
+    static QVariant registerDebugger(const DebuggerItem &item);
+    static void deregisterDebugger(const DebuggerItem &item);
+
+    static const DebuggerItem *findByCommand(const Utils::FileName &command);
+    static const DebuggerItem *findById(const QVariant &id);
+
+    static void restoreDebuggers();
+    static QString uniqueDisplayName(const QString &base);
+    static void setItemData(const QVariant &id, const QString& displayName, const Utils::FileName &fileName);
+
+    static void removeDebugger(const QVariant &id);
+    static QVariant addDebugger(const DebuggerItem &item);
+
+public slots:
+    void saveDebuggers();
+
+private:
+    explicit DebuggerItemManager(QObject *parent = 0);
+    static void autoDetectGdbOrLldbDebuggers();
+    static void autoDetectCdbDebuggers();
+    static void readLegacyDebuggers();
+
+    static Utils::PersistentSettingsWriter *m_writer;
+    static QList<DebuggerItem> m_debuggers;
+    static Debugger::Internal::DebuggerItemModel *m_model;
+
+    friend class Internal::DebuggerItemModel;
+    friend class DebuggerPlugin; // Enable constrcutor for DebuggerPlugin
 };
 
 class DEBUGGER_EXPORT DebuggerKitInformation : public ProjectExplorer::KitInformation
@@ -98,6 +153,9 @@ public:
         { return DebuggerKitInformation::validateDebugger(k); }
 
     void setup(ProjectExplorer::Kit *k);
+    void fix(ProjectExplorer::Kit *k);
+
+    static const DebuggerItem *debugger(const ProjectExplorer::Kit *kit);
 
     static QList<ProjectExplorer::Task> validateDebugger(const ProjectExplorer::Kit *k);
     static bool isValidDebugger(const ProjectExplorer::Kit *k);
@@ -106,8 +164,7 @@ public:
 
     ItemList toUserOutput(const ProjectExplorer::Kit *k) const;
 
-    static void setDebugger(ProjectExplorer::Kit *k, const DebuggerItem &item);
-    static void setDebugger(ProjectExplorer::Kit *k, const Utils::FileName &command);
+    static void setDebugger(ProjectExplorer::Kit *k, const QVariant &id);
 
     static Core::Id id();
     static Utils::FileName debuggerCommand(const ProjectExplorer::Kit *k);

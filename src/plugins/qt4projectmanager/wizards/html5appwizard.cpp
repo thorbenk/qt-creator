@@ -31,17 +31,17 @@
 
 #include "html5app.h"
 #include "html5appwizardpages.h"
-#include "targetsetuppage.h"
-#include <qt4projectmanager/qt4projectmanagerconstants.h>
+#include <qt4projectmanager/qmakeprojectmanagerconstants.h>
 
 #include <qtsupport/baseqtversion.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/targetsetuppage.h>
 #include <qtsupport/qtsupportconstants.h>
 #include <limits>
 
 #include <QIcon>
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 class Html5AppWizardDialog : public AbstractMobileAppWizardDialog
@@ -115,7 +115,7 @@ AbstractMobileAppWizardDialog *Html5AppWizard::createWizardDialogInternal(QWidge
 void Html5AppWizard::projectPathChanged(const QString &path) const
 {
     if (d->wizardDialog->targetsPage())
-        d->wizardDialog->targetsPage()->setProFilePath(path);
+        d->wizardDialog->targetsPage()->setProjectPath(path);
 }
 
 void Html5AppWizard::prepareGenerateFiles(const QWizard *w,
@@ -147,6 +147,6 @@ AbstractMobileAppWizardDialog *Html5AppWizard::wizardDialog() const
 }
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager
 
 #include "html5appwizard.moc"

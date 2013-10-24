@@ -195,9 +195,11 @@ signals:
     void editorOpened(Core::IEditor *editor);
     void editorAboutToClose(Core::IEditor *editor);
     void editorsClosed(QList<Core::IEditor *> editors);
+    void findOnFileSystemRequest(const QString &path);
 
 public slots:
     static bool closeAllEditors(bool askAboutModifiedEditors = true);
+    static void closeAllEditorsExceptVisible();
 
     static bool saveDocument(Core::IDocument *documentParam = 0);
     static bool saveDocumentAs(Core::IDocument *documentParam = 0);
@@ -228,6 +230,7 @@ private slots:
 
     static void showInGraphicalShell();
     static void openTerminal();
+    static void findInDirectory();
 
     static void rootDestroyed(QObject *root);
     static void setCurrentEditorFromContextChange();
@@ -263,6 +266,7 @@ private:
     static void activateView(Internal::EditorView *view);
     static IEditor *openEditor(Internal::EditorView *view, const QString &fileName,
         const Id &id = Id(), OpenEditorFlags flags = 0, bool *newEditor = 0);
+    static int visibleDocumentsCount();
 
     static void setCurrentEditor(IEditor *editor, bool ignoreNavigationHistory = false);
     static void setCurrentView(Internal::EditorView *view);

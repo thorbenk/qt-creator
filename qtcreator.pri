@@ -1,8 +1,8 @@
 !isEmpty(QTCREATOR_PRI_INCLUDED):error("qtcreator.pri already included")
 QTCREATOR_PRI_INCLUDED = 1
 
-QTCREATOR_VERSION = 2.8.81
-QTCREATOR_COMPAT_VERSION = 2.8.81
+QTCREATOR_VERSION = 3.0.81
+QTCREATOR_COMPAT_VERSION = 3.0.81
 BINARY_ARTIFACTS_BRANCH = master
 
 isEqual(QT_MAJOR_VERSION, 5) {
@@ -183,6 +183,8 @@ unix {
 win32-msvc* { 
     #Don't warn about sprintf, fopen etc being 'unsafe'
     DEFINES += _CRT_SECURE_NO_WARNINGS
+    # Speed up startup time when debugging with cdb
+    QMAKE_LFLAGS_DEBUG += /INCREMENTAL:NO
 }
 
 qt:greaterThan(QT_MAJOR_VERSION, 4) {

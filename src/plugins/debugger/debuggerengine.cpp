@@ -66,6 +66,7 @@
 #include <QDebug>
 #include <QTimer>
 #include <QFileInfo>
+#include <QDir>
 
 #include <QMessageBox>
 
@@ -534,7 +535,7 @@ void DebuggerEngine::gotoLocation(const Location &loc)
     //    return;
 
 
-    const QString file = loc.fileName();
+    const QString file = QDir::cleanPath(loc.fileName());
     const int line = loc.lineNumber();
     bool newEditor = false;
     IEditor *editor = EditorManager::openEditor(file, Id(),
@@ -1045,7 +1046,7 @@ void DebuggerEnginePrivate::doFinishDebugger()
 
 void DebuggerEnginePrivate::setRemoteSetupState(RemoteSetupState state)
 {
-    bool allowedTransition = true;
+    bool allowedTransition = false;
     if (m_remoteSetupState == RemoteSetupNone) {
         if (state == RemoteSetupRequested)
             allowedTransition = true;
@@ -1809,7 +1810,8 @@ void DebuggerEngine::checkForReleaseBuild(const DebuggerStartParameters &sp)
     }
     showMessageBox(QMessageBox::Information, tr("Warning"),
                    tr("This does not seem to be a \"Debug\" build.\n"
-                      "Setting breakpoints by file name and line number may fail.\n").append(detailedWarning));
+                      "Setting breakpoints by file name and line number may fail.")
+                   + QLatin1Char('\n') + detailedWarning);
 }
 
 } // namespace Debugger

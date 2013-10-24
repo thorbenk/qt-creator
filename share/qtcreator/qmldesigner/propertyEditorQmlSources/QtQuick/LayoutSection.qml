@@ -41,16 +41,17 @@
 import QtQuick 2.0
 import HelperWidgets 2.0
 import QtQuick.Layouts 1.0
+import QtQuick.Controls 1.0 as Controls
 
 Section {
     anchors.left: parent.left
     anchors.right: parent.right
-    caption: "Layout"
+    caption: qsTr("Layout")
 
     ColumnLayout {
         width: parent.width
         Label {
-            text: "Anchors"
+            text: qsTr("Anchors")
         }
 
         AnchorButtons {
@@ -62,7 +63,6 @@ Section {
             visible: anchorBackend.topAnchored;
 
             IconLabel {
-
                 source:  "../HelperWidgets/images/anchor-top.png"
                 Layout.alignment: Qt.AlignTop
             }
@@ -72,18 +72,25 @@ Section {
                 rows: 2
                 columns: 2
 
-
                 Text {
-                    text: "Target"
+                    text: qsTr("Target")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
-                ComboBox {
-
+                TargetComboBox {
+                    targetName: anchorBackend.topTarget
+                    onCurrentTextChanged: {
+                        anchorBackend.topTarget = currentText
+                    }
                 }
-
 
                 Text {
                     text: "Margin"
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
                 RowLayout {
@@ -104,12 +111,9 @@ Section {
                             iconSource: "../HelperWidgets/images/anchor-bottom.png"
                         }
                     }
-
                 }
-
             }
         }
-
 
         RowLayout {
             visible: anchorBackend.bottomAnchored;
@@ -126,18 +130,25 @@ Section {
                 rows: 2
                 columns: 2
 
-
                 Text {
-                    text: "Target"
+                    text: qsTr("Target")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
-                ComboBox {
-
+                TargetComboBox {
+                    targetName: anchorBackend.bottomTarget
+                    onCurrentTextChanged: {
+                        anchorBackend.bottomTarget = currentText
+                    }
                 }
 
-
                 Text {
-                    text: "Margin"
+                    text: qsTr("Margin")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
                 RowLayout {
@@ -152,16 +163,13 @@ Section {
                         exclusive: true
                         ButtonRowButton {
                             iconSource: "../HelperWidgets/images/anchor-top.png"
-
                         }
 
                         ButtonRowButton {
                             iconSource: "../HelperWidgets/images/anchor-bottom.png"
                         }
                     }
-
                 }
-
             }
         }
 
@@ -180,18 +188,25 @@ Section {
                 rows: 2
                 columns: 2
 
-
                 Text {
-                    text: "Target"
+                    text: qsTr("Target")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
-                ComboBox {
-
+                TargetComboBox {
+                    targetName: anchorBackend.leftTarget
+                    onCurrentTextChanged: {
+                        anchorBackend.leftTarget = currentText
+                    }
                 }
 
-
                 Text {
-                    text: "Margin"
+                    text: qsTr("Margin")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
                 RowLayout {
@@ -199,7 +214,6 @@ Section {
                         maximumValue: 0xffff
                         minimumValue: -0xffff
                         backendValue: backendValues.anchors_leftMargin
-
                     }
 
                     ButtonRow {
@@ -213,9 +227,7 @@ Section {
                             iconSource: "../HelperWidgets/images/anchor-right.png"
                         }
                     }
-
                 }
-
             }
         }
 
@@ -234,18 +246,25 @@ Section {
                 rows: 2
                 columns: 2
 
-
                 Text {
-                    text: "Target"
+                    text: qsTr("Target")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
-                ComboBox {
-
+                TargetComboBox {
+                    targetName: anchorBackend.rightTarget
+                    onCurrentTextChanged: {
+                        anchorBackend.rightTarget = currentText
+                    }
                 }
 
-
                 Text {
-                    text: "Margin"
+                    text: qsTr("Margin")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
                 }
 
                 RowLayout {
@@ -253,7 +272,6 @@ Section {
                         maximumValue: 0xffff
                         minimumValue: -0xffff
                         backendValue: backendValues.anchors_rightMargin
-
                     }
 
                     ButtonRow {
@@ -267,12 +285,122 @@ Section {
                             iconSource: "../HelperWidgets/images/anchor-right.png"
                         }
                     }
-
                 }
-
             }
         }
+        RowLayout {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: anchorBackend.horizontalCentered;
 
+            IconLabel {
+                source:  "../HelperWidgets/images/anchor-horizontal.png"
+                Layout.alignment: Qt.AlignTop
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                rows: 2
+                columns: 2
+
+                Text {
+                    text: qsTr("Target")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
+                }
+
+                TargetComboBox {
+                    targetName: anchorBackend.horizontalTarget
+                    onCurrentTextChanged: {
+                        anchorBackend.horizontalTarget = currentText
+                    }
+                }
+
+                Text {
+                    text: qsTr("Margin")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
+                }
+
+                RowLayout {
+                    SpinBox {
+                        maximumValue: 0xffff
+                        minimumValue: -0xffff
+                        backendValue: backendValues.anchors_horizontalCenterOffset
+                    }
+
+                    ButtonRow {
+                        exclusive: true
+
+                        ButtonRowButton {
+                            iconSource: "../HelperWidgets/images/anchor-left.png"
+                        }
+
+                        ButtonRowButton {
+                            iconSource: "../HelperWidgets/images/anchor-right.png"
+                        }
+                    }
+                }
+            }
+        }
+        RowLayout {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: anchorBackend.verticalCentered;
+
+            IconLabel {
+                source:  "../HelperWidgets/images/anchor-vertical.png"
+                Layout.alignment: Qt.AlignTop
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                rows: 2
+                columns: 2
+
+                Text {
+                    text: qsTr("Target")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
+                }
+
+                TargetComboBox {
+                    targetName: anchorBackend.verticalTarget
+                    onCurrentTextChanged: {
+                        anchorBackend.verticalTarget = currentText
+                    }
+                }
+
+                Text {
+                    text: qsTr("Margin")
+                    color: "#eee"
+                    elide: Text.ElideRight
+                    Layout.minimumWidth: 40
+                }
+
+                RowLayout {
+                    SpinBox {
+                        maximumValue: 0xffff
+                        minimumValue: -0xffff
+                        backendValue: backendValues.anchors_verticalCenterOffset
+                    }
+
+                    ButtonRow {
+                        exclusive: true
+
+                        ButtonRowButton {
+                            iconSource: "../HelperWidgets/images/anchor-top.png"
+                        }
+
+                        ButtonRowButton {
+                            iconSource: "../HelperWidgets/images/anchor-bottom.png"
+                        }
+                    }
+                }
+            }
+        }
     }
-
 }

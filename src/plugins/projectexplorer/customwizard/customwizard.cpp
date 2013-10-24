@@ -145,7 +145,6 @@ void CustomWizard::initWizardDialog(Utils::Wizard *wizard, const QString &defaul
         customPage->setTitle(parameters()->fieldPageTitle);
     foreach (QWizardPage *ep, extensionPages)
         BaseFileWizard::applyExtensionPageShortTitle(wizard, wizard->addPage(ep));
-    Core::BaseFileWizard::setupWizard(wizard);
     if (CustomWizardPrivate::verbose)
         qDebug() << "initWizardDialog" << wizard << wizard->pageIds();
 }
@@ -397,7 +396,7 @@ static QString listWizards()
 }
 
 /*!
-    \brief Reads \c share/qtcreator/templates/wizards and creates all custom wizards.
+    Reads \c share/qtcreator/templates/wizards and creates all custom wizards.
 
     As other plugins might register factories for derived
     classes, call it in extensionsInitialized().
@@ -496,7 +495,7 @@ QList<CustomWizard*> CustomWizard::createWizards()
 
 /*!
     \class ProjectExplorer::CustomProjectWizard
-    \brief A custom project wizard.
+    \brief The CustomProjectWizard class provides a custom project wizard.
 
     Presents a CustomProjectWizardDialog (Project intro page and fields page)
     for wizards of type "project".
@@ -511,7 +510,7 @@ CustomProjectWizard::CustomProjectWizard()
 }
 
 /*!
-    \brief Can be reimplemented to create custom project wizards.
+    Can be reimplemented to create custom project wizards.
 
     initProjectWizardDialog() needs to be called.
 */
@@ -575,7 +574,7 @@ Core::GeneratedFiles CustomProjectWizard::generateFiles(const QWizard *w, QStrin
 }
 
 /*!
-    \brief Utility to open the projects and editors for the files that have
+    Opens the projects and editors for the files that have
     the respective attributes set.
 */
 

@@ -102,6 +102,7 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
 {
     m_parsingDelay.setInterval(1000); // delay parsing by 1s.
 
+    setId(Constants::PROJECT_ID);
     setProjectContext(Context(Constants::PROJECT_ID));
     setProjectLanguages(Context(ProjectExplorer::Constants::LANG_CXX));
 
@@ -114,6 +115,8 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
     connect(&m_parsingDelay, SIGNAL(timeout()), this, SLOT(parseCurrentBuildConfiguration()));
 
     updateDocuments(QSet<QString>() << fileName);
+
+    // NOTE: QbsProjectNode does not use this as a parent!
     m_rootProjectNode = new QbsProjectNode(this); // needs documents to be initialized!
 }
 
@@ -125,16 +128,17 @@ QbsProject::~QbsProject()
         m_qbsSetupProjectJob->cancel();
         delete m_qbsSetupProjectJob;
     }
+
+    // Deleting the root node triggers a few things, make sure rootProjectNode
+    // returns 0 already
+    QbsProjectNode *root = m_rootProjectNode;
+    m_rootProjectNode = 0;
+    delete root;
 }
 
 QString QbsProject::displayName() const
 {
     return m_projectName;
-}
-
-Id QbsProject::id() const
-{
-    return Constants::PROJECT_ID;
 }
 
 IDocument *QbsProject::document() const
@@ -156,21 +160,28 @@ ProjectNode *QbsProject::rootProjectNode() const
     return m_rootProjectNode;
 }
 
+static void collectFilesForProject(const qbs::ProjectData &project, QSet<QString> &result)
+{
+    result.insert(project.location().fileName());
+    foreach (const qbs::ProductData &prd, project.products()) {
+        foreach (const qbs::GroupData &grp, prd.groups()) {
+            foreach (const QString &file, grp.allFilePaths())
+                result.insert(file);
+            result.insert(grp.location().fileName());
+        }
+        result.insert(prd.location().fileName());
+    }
+    foreach (const qbs::ProjectData &subProject, project.subProjects())
+        collectFilesForProject(subProject, result);
+}
+
 QStringList QbsProject::files(Project::FilesMode fileMode) const
 {
     Q_UNUSED(fileMode);
+    if (!m_rootProjectNode || !m_rootProjectNode->qbsProjectData().isValid())
+        return QStringList();
     QSet<QString> result;
-    if (m_rootProjectNode && m_rootProjectNode->qbsProjectData().isValid()) {
-        foreach (const qbs::ProductData &prd, m_rootProjectNode->qbsProjectData().allProducts()) {
-            foreach (const qbs::GroupData &grp, prd.groups()) {
-                foreach (const QString &file, grp.allFilePaths())
-                    result.insert(file);
-                result.insert(grp.location().fileName());
-            }
-            result.insert(prd.location().fileName());
-        }
-        result.insert(m_rootProjectNode->qbsProjectData().location().fileName());
-    }
+    collectFilesForProject(m_rootProjectNode->qbsProjectData(), result);
     return result.toList();
 }
 
@@ -282,6 +293,9 @@ void QbsProject::handleQbsParsingDone(bool success)
     m_qbsUpdateFutureInterface->reportFinished();
     delete m_qbsUpdateFutureInterface;
     m_qbsUpdateFutureInterface = 0;
+
+    if (!project.isValid())
+        return;
 
     m_rootProjectNode->update(project);
 
@@ -422,6 +436,10 @@ void QbsProject::parse(const QVariantMap &config, const Environment &env, const 
         if (canSkip)
             return;
     }
+
+    // Some people don't like it when files are created as a side effect of opening a project,
+    // so do not store the build graph if the build directory does not exist yet.
+    params.setDryRun(!QFileInfo(dir).exists());
 
     params.setBuildRoot(dir);
     params.setProjectFilePath(m_fileName);
@@ -579,6 +597,12 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData &prj)
                     QLatin1String(CONFIG_PRECOMPILEDHEADER)).toString();
 
             CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
+            part->project = this;
+            part->displayName = grp.name();
+            part->projectFile = QString::fromLatin1("%1:%2:%3")
+                    .arg(grp.location().fileName())
+                    .arg(grp.location().line())
+                    .arg(grp.location().column());
             part->evaluateToolchain(ToolChainKitInformation::toolChain(k),
                                     cxxFlags,
                                     cFlags,

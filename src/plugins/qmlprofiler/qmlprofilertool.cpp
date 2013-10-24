@@ -44,7 +44,6 @@
 #include "canvas/qdeclarativecontext2d_p.h"
 #include "canvas/qmlprofilercanvas.h"
 
-#include <qmlprojectmanager/qmlprojectrunconfiguration.h>
 #include <utils/fancymainwindow.h>
 #include <utils/fileinprojectfinder.h>
 #include <utils/qtcassert.h>
@@ -56,8 +55,6 @@
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/localapplicationrunconfiguration.h>
 #include <texteditor/itexteditor.h>
-
-#include <android/androidconstants.h>
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -91,7 +88,6 @@ using namespace QmlProfiler::Internal;
 using namespace QmlProfiler::Constants;
 using namespace QmlDebug;
 using namespace ProjectExplorer;
-using namespace QmlProjectManager;
 
 class QmlProfilerTool::QmlProfilerToolPrivate
 {
@@ -400,8 +396,6 @@ void QmlProfilerTool::clearDisplay()
 
 static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
 {
-    Q_UNUSED(tool);
-
     Id kitId;
     quint16 port;
     Kit *kit = 0;
@@ -433,17 +427,11 @@ static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
     IDevice::ConstPtr device = DeviceKitInformation::device(kit);
     if (device) {
         sp.connParams = device->sshParameters();
-        if (device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE
-                || device->type() == Android::Constants::ANDROID_DEVICE_TYPE) {
-            sp.analyzerHost = QLatin1String("localhost");
-        } else {
-            sp.analyzerHost = sp.connParams.host;
-        }
+        sp.analyzerHost = device->qmlProfilerHost();
     }
     sp.sysroot = SysRootKitInformation::sysRoot(kit).toString();
     sp.analyzerPort = port;
 
-    //AnalyzerRunControl *rc = new AnalyzerRunControl(tool, sp, 0);
     AnalyzerRunControl *rc = tool->createRunControl(sp, 0);
     QObject::connect(AnalyzerManager::stopAction(), SIGNAL(triggered()), rc, SLOT(stopIt()));
 

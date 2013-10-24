@@ -1,12 +1,12 @@
 import qbs.base 1.0
 
-import "../../../qbs/functions.js" as QtcFunctions
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcFunctions
+import QtcPlugin
 
 QtcPlugin {
     name: "ProjectExplorer"
 
-    Depends { name: "Qt"; submodules: ["core", "widgets", "xml", "network", "script"] }
+    Depends { name: "Qt"; submodules: ["widgets", "xml", "network", "script"] }
     Depends { name: "Qt.quick"; condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1"); }
     Depends { name: "Core" }
     Depends { name: "Locator" }
@@ -72,7 +72,10 @@ QtcPlugin {
             "gcctoolchainfactories.h",
             "gnumakeparser.cpp", "gnumakeparser.h",
             "headerpath.h",
+            "importwidget.cpp", "importwidget.h",
             "ioutputparser.cpp", "ioutputparser.h",
+            "ipotentialkit.cpp",
+            "ipotentialkit.h",
             "iprojectmanager.h",
             "iprojectproperties.h",
             "itaskhandler.h",
@@ -95,7 +98,6 @@ QtcPlugin {
             "namedwidget.cpp", "namedwidget.h",
             "nodesvisitor.cpp", "nodesvisitor.h",
             "osparser.cpp", "osparser.h",
-            "outputparser_test.cpp", "outputparser_test.h",
             "pluginfilefactory.cpp", "pluginfilefactory.h",
             "processparameters.cpp", "processparameters.h",
             "processstep.cpp", "processstep.h", "processstep.ui",
@@ -108,6 +110,7 @@ QtcPlugin {
             "projectexplorersettings.h",
             "projectexplorersettingspage.cpp", "projectexplorersettingspage.h", "projectexplorersettingspage.ui",
             "projectfilewizardextension.cpp", "projectfilewizardextension.h",
+            "projectimporter.cpp", "projectimporter.h",
             "projectmacroexpander.cpp", "projectmacroexpander.h",
             "projectmodels.cpp", "projectmodels.h",
             "projectnodes.cpp", "projectnodes.h",
@@ -126,8 +129,9 @@ QtcPlugin {
             "target.cpp", "target.h",
             "targetselector.cpp", "targetselector.h",
             "targetsettingspanel.cpp", "targetsettingspanel.h",
-            "targetsettingswidget.cpp", "targetsettingswidget.h",
-            "targetsettingswidget.ui",
+            "targetsettingswidget.cpp", "targetsettingswidget.h", "targetsettingswidget.ui",
+            "targetsetuppage.cpp", "targetsetuppage.h",
+            "targetsetupwidget.cpp", "targetsetupwidget.h",
             "task.cpp", "task.h",
             "taskhub.cpp", "taskhub.h",
             "taskmodel.cpp", "taskmodel.h",
@@ -136,6 +140,7 @@ QtcPlugin {
             "toolchainconfigwidget.cpp", "toolchainconfigwidget.h",
             "toolchainmanager.cpp", "toolchainmanager.h",
             "toolchainoptionspage.cpp", "toolchainoptionspage.h",
+            "unconfiguredprojectpanel.cpp", "unconfiguredprojectpanel.h",
             "vcsannotatetaskhandler.cpp", "vcsannotatetaskhandler.h",
         ]
     }
@@ -238,15 +243,6 @@ QtcPlugin {
             "targetseparatorbackground.png",
             "targetunselected.png",
             "window.png",
-        ]
-    }
-
-    Group {
-        name: "Publishing"
-        prefix: "publishing/"
-        files: [
-            "ipublishingwizardfactory.h",
-            "publishingwizardselectiondialog.cpp", "publishingwizardselectiondialog.h", "publishingwizardselectiondialog.ui",
         ]
     }
 

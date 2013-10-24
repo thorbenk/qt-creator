@@ -32,6 +32,7 @@
 #include "androidconstants.h"
 #include "androidconfigurations.h"
 #include "androiddeploystepfactory.h"
+#include "androiddeployqtstep.h"
 #include "androiddevice.h"
 #include "androiddevicefactory.h"
 #include "androidmanager.h"
@@ -44,6 +45,7 @@
 #include "androiddeployconfiguration.h"
 #include "androidgdbserverkitinformation.h"
 #include "androidmanifesteditorfactory.h"
+#include "androidpotentialkit.h"
 #ifdef HAVE_QBS
 #  include "androidqbspropertyprovider.h"
 #endif
@@ -74,11 +76,13 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
     addAutoReleasedObject(new Internal::AndroidPackageInstallationFactory);
     addAutoReleasedObject(new Internal::AndroidPackageCreationFactory);
     addAutoReleasedObject(new Internal::AndroidDeployStepFactory);
+    addAutoReleasedObject(new Internal::AndroidDeployQtStepFactory);
     addAutoReleasedObject(new Internal::AndroidSettingsPage);
     addAutoReleasedObject(new Internal::AndroidQtVersionFactory);
     addAutoReleasedObject(new Internal::AndroidToolChainFactory);
     addAutoReleasedObject(new Internal::AndroidDeployConfigurationFactory);
     addAutoReleasedObject(new Internal::AndroidDeviceFactory);
+    addAutoReleasedObject(new Internal::AndroidPotentialKit);
     ProjectExplorer::KitManager::registerKitInformation(new Internal::AndroidGdbServerKitInformation);
 
     // AndroidManifest.xml editor
@@ -100,9 +104,6 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
 
     connect(ProjectExplorer::DeviceManager::instance(), SIGNAL(devicesLoaded()),
             this, SLOT(updateDevice()));
-#ifdef HAVE_QBS
-    addAutoReleasedObject(new Internal::AndroidQBSPropertyProvider);
-#endif
     return true;
 }
 

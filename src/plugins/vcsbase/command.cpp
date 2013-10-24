@@ -42,6 +42,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QFuture>
+#include <QFutureWatcher>
 #include <QtConcurrentRun>
 #include <QFileInfo>
 #include <QCoreApplication>
@@ -78,10 +79,11 @@ class CommandPrivate
 {
 public:
     struct Job {
-        explicit Job(const QStringList &a, int t);
+        explicit Job(const QStringList &a, int t, Utils::ExitCodeInterpreter *interpreter = 0);
 
         QStringList arguments;
         int timeout;
+        Utils::ExitCodeInterpreter *exitCodeInterpreter;
     };
 
     CommandPrivate(const QString &binary,
@@ -100,6 +102,10 @@ public:
     ProgressParser *m_progressParser;
     VcsBase::VcsBaseOutputWindow *m_outputWindow;
     bool m_progressiveOutput;
+    bool m_hadOutput;
+    bool m_preventRepositoryChanged;
+    bool m_aborted;
+    QFutureWatcher<void> m_watcher;
 
     QList<Job> m_jobs;
 
@@ -120,6 +126,9 @@ CommandPrivate::CommandPrivate(const QString &binary,
     m_progressParser(0),
     m_outputWindow(VcsBase::VcsBaseOutputWindow::instance()),
     m_progressiveOutput(false),
+    m_hadOutput(false),
+    m_preventRepositoryChanged(false),
+    m_aborted(false),
     m_lastExecSuccess(false),
     m_lastExecExitCode(-1)
 {
@@ -130,9 +139,10 @@ CommandPrivate::~CommandPrivate()
     delete m_progressParser;
 }
 
-CommandPrivate::Job::Job(const QStringList &a, int t) :
+CommandPrivate::Job::Job(const QStringList &a, int t, Utils::ExitCodeInterpreter *interpreter) :
     arguments(a),
-    timeout(t)
+    timeout(t),
+    exitCodeInterpreter(interpreter)
 {
     // Finished cookie is emitted via queued slot, needs metatype
     static const int qvMetaId = qRegisterMetaType<QVariant>();
@@ -146,6 +156,8 @@ Command::Command(const QString &binary,
                  const QProcessEnvironment &environment) :
     d(new Internal::CommandPrivate(binary, workingDirectory, environment))
 {
+    connect(Core::ICore::instance(), SIGNAL(coreAboutToClose()),
+            this, SLOT(coreAboutToClose()));
 }
 
 Command::~Command()
@@ -188,14 +200,14 @@ void Command::addFlags(unsigned f)
     d->m_flags |= f;
 }
 
-void Command::addJob(const QStringList &arguments)
+void Command::addJob(const QStringList &arguments, Utils::ExitCodeInterpreter *interpreter)
 {
-    addJob(arguments, defaultTimeout());
+    addJob(arguments, defaultTimeout(), interpreter);
 }
 
-void Command::addJob(const QStringList &arguments, int timeout)
+void Command::addJob(const QStringList &arguments, int timeout, Utils::ExitCodeInterpreter *interpreter)
 {
-    d->m_jobs.push_back(Internal::CommandPrivate::Job(arguments, timeout));
+    d->m_jobs.push_back(Internal::CommandPrivate::Job(arguments, timeout, interpreter));
 }
 
 void Command::execute()
@@ -208,6 +220,8 @@ void Command::execute()
 
     // For some reason QtConcurrent::run() only works on this
     QFuture<void> task = QtConcurrent::run(&Command::run, this);
+    d->m_watcher.setFuture(task);
+    connect(&d->m_watcher, SIGNAL(canceled()), this, SLOT(cancel()));
     QString binary = QFileInfo(d->m_binaryPath).baseName();
     if (!binary.isEmpty())
         binary = binary.replace(0, 1, binary[0].toUpper()); // Upper the first letter
@@ -217,9 +231,15 @@ void Command::execute()
         Core::Id::fromString(binary + QLatin1String(".action")));
 }
 
-void Command::terminate()
+void Command::abort()
 {
-    emit doTerminate();
+    d->m_aborted = true;
+    d->m_watcher.future().cancel();
+}
+
+void Command::cancel()
+{
+    emit terminate();
 }
 
 bool Command::lastExecutionSuccess() const
@@ -245,14 +265,18 @@ void Command::run(QFutureInterface<void> &future)
 
     if (d->m_progressParser)
         d->m_progressParser->setFuture(&future);
+    else
+        future.setProgressRange(0, 1);
     const int count = d->m_jobs.size();
     d->m_lastExecExitCode = -1;
     d->m_lastExecSuccess = true;
     for (int j = 0; j < count; j++) {
-        const int timeOutSeconds = d->m_jobs.at(j).timeout;
+        const Internal::CommandPrivate::Job &job = d->m_jobs.at(j);
+        const int timeOutSeconds = job.timeout;
         Utils::SynchronousProcessResponse resp = runVcs(
-                    d->m_jobs.at(j).arguments,
-                    timeOutSeconds >= 0 ? timeOutSeconds * 1000 : -1);
+                    job.arguments,
+                    timeOutSeconds >= 0 ? timeOutSeconds * 1000 : -1,
+                    job.exitCodeInterpreter);
         stdOut += resp.stdOut;
         stdErr += resp.stdErr;
         d->m_lastExecExitCode = resp.exitCode;
@@ -261,7 +285,7 @@ void Command::run(QFutureInterface<void> &future)
             break;
     }
 
-    if (!future.isCanceled()) {
+    if (!d->m_aborted) {
         if (!d->m_progressiveOutput) {
             emit output(stdOut);
             if (!stdErr.isEmpty())
@@ -271,6 +295,7 @@ void Command::run(QFutureInterface<void> &future)
         emit finished(d->m_lastExecSuccess, d->m_lastExecExitCode, cookie());
         if (d->m_lastExecSuccess)
             emit success(cookie());
+        future.setProgressValue(future.progressMaximum());
     }
 
     if (d->m_progressParser)
@@ -309,7 +334,8 @@ signals:
     void appendMessage(const QString &text);
 };
 
-Utils::SynchronousProcessResponse Command::runVcs(const QStringList &arguments, int timeoutMS)
+Utils::SynchronousProcessResponse Command::runVcs(const QStringList &arguments, int timeoutMS,
+                                                  Utils::ExitCodeInterpreter *interpreter)
 {
     Utils::SynchronousProcessResponse response;
     OutputProxy outputProxy;
@@ -353,10 +379,11 @@ Utils::SynchronousProcessResponse Command::runVcs(const QStringList &arguments, 
     //    if (d->m_flags & ExpectRepoChanges)
     //        Core::DocumentManager::expectDirectoryChange(d->m_workingDirectory);
     if (d->m_flags & VcsBasePlugin::FullySynchronously) {
-        response = runSynchronous(arguments, timeoutMS);
+        response = runSynchronous(arguments, timeoutMS, interpreter);
     } else {
         Utils::SynchronousProcess process;
-        connect(this, SIGNAL(doTerminate()), &process, SLOT(terminate()));
+        process.setExitCodeInterpreter(interpreter);
+        connect(this, SIGNAL(terminate()), &process, SLOT(terminate()));
         if (!d->m_workingDirectory.isEmpty())
             process.setWorkingDirectory(d->m_workingDirectory);
 
@@ -396,23 +423,22 @@ Utils::SynchronousProcessResponse Command::runVcs(const QStringList &arguments, 
         response = process.run(d->m_binaryPath, arguments);
     }
 
-    // Success/Fail message in appropriate window?
-    if (response.result == Utils::SynchronousProcessResponse::Finished) {
-        if (d->m_flags & VcsBasePlugin::ShowSuccessMessage)
-            emit outputProxy.appendMessage(response.exitMessage(d->m_binaryPath, timeoutMS));
-    } else if (!(d->m_flags & VcsBasePlugin::SuppressFailMessageInLogWindow)) {
-        emit outputProxy.appendError(response.exitMessage(d->m_binaryPath, timeoutMS));
+    if (!d->m_aborted) {
+        // Success/Fail message in appropriate window?
+        if (response.result == Utils::SynchronousProcessResponse::Finished) {
+            if (d->m_flags & VcsBasePlugin::ShowSuccessMessage)
+                emit outputProxy.appendMessage(response.exitMessage(d->m_binaryPath, timeoutMS));
+        } else if (!(d->m_flags & VcsBasePlugin::SuppressFailMessageInLogWindow)) {
+            emit outputProxy.appendError(response.exitMessage(d->m_binaryPath, timeoutMS));
+        }
     }
-    if (d->m_flags & VcsBasePlugin::ExpectRepoChanges) {
-        // TODO tell the document manager that the directory now received all expected changes
-        // Core::DocumentManager::unexpectDirectoryChange(d->m_workingDirectory);
-        Core::VcsManager::emitRepositoryChanged(d->m_workingDirectory);
-    }
+    emitRepositoryChanged();
 
     return response;
 }
 
-Utils::SynchronousProcessResponse Command::runSynchronous(const QStringList &arguments, int timeoutMS)
+Utils::SynchronousProcessResponse Command::runSynchronous(const QStringList &arguments, int timeoutMS,
+                                                          Utils::ExitCodeInterpreter *interpreter)
 {
     Utils::SynchronousProcessResponse response;
 
@@ -446,36 +472,47 @@ Utils::SynchronousProcessResponse Command::runSynchronous(const QStringList &arg
             !Utils::SynchronousProcess::readDataFromProcess(*process.data(), timeoutMS,
                                                             &stdOut, &stdErr, true);
 
-    OutputProxy outputProxy;
-    if (!stdErr.isEmpty()) {
-        response.stdErr = Utils::SynchronousProcess::normalizeNewlines(
-                    d->m_codec ? d->m_codec->toUnicode(stdErr) : QString::fromLocal8Bit(stdErr));
-        if (!(d->m_flags & VcsBasePlugin::SuppressStdErrInLogWindow))
-            emit outputProxy.append(response.stdErr);
-    }
+    if (!d->m_aborted) {
+        OutputProxy outputProxy;
+        if (!stdErr.isEmpty()) {
+            response.stdErr = Utils::SynchronousProcess::normalizeNewlines(
+                        d->m_codec ? d->m_codec->toUnicode(stdErr) : QString::fromLocal8Bit(stdErr));
+            if (!(d->m_flags & VcsBasePlugin::SuppressStdErrInLogWindow))
+                emit outputProxy.append(response.stdErr);
+        }
 
-    if (!stdOut.isEmpty()) {
-        response.stdOut = Utils::SynchronousProcess::normalizeNewlines(
-                    d->m_codec ? d->m_codec->toUnicode(stdOut) : QString::fromLocal8Bit(stdOut));
-        if (d->m_flags & VcsBasePlugin::ShowStdOutInLogWindow) {
-            if (d->m_flags & VcsBasePlugin::SilentOutput)
-                emit outputProxy.appendSilently(response.stdOut);
-            else
-                emit outputProxy.append(response.stdOut);
+        if (!stdOut.isEmpty()) {
+            response.stdOut = Utils::SynchronousProcess::normalizeNewlines(
+                        d->m_codec ? d->m_codec->toUnicode(stdOut) : QString::fromLocal8Bit(stdOut));
+            if (d->m_flags & VcsBasePlugin::ShowStdOutInLogWindow) {
+                if (d->m_flags & VcsBasePlugin::SilentOutput)
+                    emit outputProxy.appendSilently(response.stdOut);
+                else
+                    emit outputProxy.append(response.stdOut);
+            }
         }
     }
 
+    Utils::ExitCodeInterpreter defaultInterpreter(this);
+    Utils::ExitCodeInterpreter *currentInterpreter = interpreter ? interpreter : &defaultInterpreter;
     // Result
     if (timedOut) {
         response.result = Utils::SynchronousProcessResponse::Hang;
     } else if (process->exitStatus() != QProcess::NormalExit) {
         response.result = Utils::SynchronousProcessResponse::TerminatedAbnormally;
     } else {
-        response.result = process->exitCode() == 0 ?
-                          Utils::SynchronousProcessResponse::Finished :
-                          Utils::SynchronousProcessResponse::FinishedError;
+        response.result = currentInterpreter->interpretExitCode(process->exitCode());
     }
     return response;
+}
+
+void Command::emitRepositoryChanged()
+{
+    if (d->m_preventRepositoryChanged || !(d->m_flags & VcsBasePlugin::ExpectRepoChanges))
+        return;
+    // TODO tell the document manager that the directory now received all expected changes
+    // Core::DocumentManager::unexpectDirectoryChange(d->m_workingDirectory);
+    Core::VcsManager::emitRepositoryChanged(d->m_workingDirectory);
 }
 
 bool Command::runFullySynchronous(const QStringList &arguments, int timeoutMS,
@@ -513,12 +550,7 @@ bool Command::runFullySynchronous(const QStringList &arguments, int timeoutMS,
         return false;
     }
 
-    if (d->m_flags & VcsBasePlugin::ExpectRepoChanges) {
-        // TODO tell the document manager that the directory now received all expected changes
-        // Core::DocumentManager::unexpectDirectoryChange(workingDirectory);
-        Core::VcsManager::emitRepositoryChanged(d->m_workingDirectory);
-    }
-
+    emitRepositoryChanged();
     return process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0;
 }
 
@@ -528,8 +560,10 @@ void Command::bufferedOutput(const QString &text)
         d->m_progressParser->parseProgress(text);
     if (d->m_flags & VcsBasePlugin::ShowStdOutInLogWindow)
         d->m_outputWindow->append(text);
-    if (d->m_progressiveOutput)
+    if (d->m_progressiveOutput) {
         emit output(text);
+        d->m_hadOutput = true;
+    }
 }
 
 void Command::bufferedError(const QString &text)
@@ -538,6 +572,12 @@ void Command::bufferedError(const QString &text)
         d->m_outputWindow->appendError(text);
     if (d->m_progressiveOutput)
         emit errorText(text);
+}
+
+void Command::coreAboutToClose()
+{
+    d->m_preventRepositoryChanged = true;
+    abort();
 }
 
 const QVariant &Command::cookie() const

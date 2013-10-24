@@ -39,6 +39,7 @@
 #include <QGroupBox>
 #include <QRegExp>
 #include <QVBoxLayout>
+#include <QMenu>
 
 namespace Git {
 namespace Internal {
@@ -46,6 +47,7 @@ namespace Internal {
 // ------------------
 GitSubmitEditorWidget::GitSubmitEditorWidget(QWidget *parent) :
     VcsBase::SubmitEditorWidget(parent),
+    m_pushAction(NoPush),
     m_gitSubmitPanel(new QWidget),
     m_logChangeWidget(0),
     m_hasUnmerged(false),
@@ -85,7 +87,8 @@ void GitSubmitEditorWidget::setHasUnmerged(bool e)
 void GitSubmitEditorWidget::initialize(CommitType commitType,
                                        const QString &repository,
                                        const GitSubmitEditorPanelData &data,
-                                       const GitSubmitEditorPanelInfo &info)
+                                       const GitSubmitEditorPanelInfo &info,
+                                       bool enablePush)
 {
     if (m_isInitialized)
         return;
@@ -105,6 +108,14 @@ void GitSubmitEditorWidget::initialize(CommitType commitType,
     insertTopWidget(m_gitSubmitPanel);
     setPanelData(data);
     setPanelInfo(info);
+
+    if (enablePush && commitType != FixupCommit) {
+        QMenu *menu = new QMenu(this);
+        menu->addAction(tr("&Commit only"), this, SLOT(commitOnlySlot()));
+        menu->addAction(tr("Commit and &Push"), this, SLOT(commitAndPushSlot()));
+        menu->addAction(tr("Commit and Push to &Gerrit"), this, SLOT(commitAndPushToGerritSlot()));
+        addSubmitButtonMenu(menu);
+    }
 }
 
 void GitSubmitEditorWidget::refreshLog(const QString &repository)
@@ -119,6 +130,7 @@ GitSubmitEditorPanelData GitSubmitEditorWidget::panelData() const
     rc.author = m_gitSubmitPanelUi.authorLineEdit->text();
     rc.email = m_gitSubmitPanelUi.emailLineEdit->text();
     rc.bypassHooks = m_gitSubmitPanelUi.bypassHooksCheckBox->isChecked();
+    rc.pushAction = m_pushAction;
     return rc;
 }
 
@@ -158,6 +170,16 @@ QString GitSubmitEditorWidget::cleanupDescription(const QString &input) const
 
 }
 
+QString GitSubmitEditorWidget::commitName() const
+{
+    if (m_pushAction == NormalPush)
+        return tr("&Commit and Push");
+    else if (m_pushAction == PushToGerrit)
+        return tr("&Commit and Push to Gerrit");
+
+    return tr("&Commit");
+}
+
 void GitSubmitEditorWidget::authorInformationChanged()
 {
     bool bothEmpty = m_gitSubmitPanelUi.authorLineEdit->text().isEmpty() &&
@@ -168,6 +190,24 @@ void GitSubmitEditorWidget::authorInformationChanged()
     m_gitSubmitPanelUi.invalidEmailLabel->
             setVisible(!emailIsValid() && !bothEmpty);
 
+    updateSubmitAction();
+}
+
+void GitSubmitEditorWidget::commitOnlySlot()
+{
+    m_pushAction = NoPush;
+    updateSubmitAction();
+}
+
+void GitSubmitEditorWidget::commitAndPushSlot()
+{
+    m_pushAction = NormalPush;
+    updateSubmitAction();
+}
+
+void GitSubmitEditorWidget::commitAndPushToGerritSlot()
+{
+    m_pushAction = PushToGerrit;
     updateSubmitAction();
 }
 

@@ -34,12 +34,14 @@
 #include <projectexplorer/baseprojectwizarddialog.h>
 #include <projectexplorer/customwizard/customwizard.h>
 
-namespace ProjectExplorer { class Kit; }
+namespace ProjectExplorer {
+class Kit;
+class TargetSetupPage;
+} // namespace ProjectExplorer
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 
 class Qt4Project;
-class TargetSetupPage;
 
 namespace Internal {
 
@@ -142,13 +144,13 @@ private:
     inline void init(bool showModulesPage);
 
     ModulesPage *m_modulesPage;
-    TargetSetupPage *m_targetSetupPage;
+    ProjectExplorer::TargetSetupPage *m_targetSetupPage;
     QStringList m_selectedModules;
     QStringList m_deselectedModules;
     QList<Core::Id> m_profileIds;
 };
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager
 
 #endif // QTWIZARD_H

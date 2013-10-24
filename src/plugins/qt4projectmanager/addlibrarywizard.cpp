@@ -40,11 +40,11 @@
 #include <QFileInfo>
 #include <QDebug>
 
-using namespace Qt4ProjectManager;
-using namespace Qt4ProjectManager::Internal;
+using namespace QmakeProjectManager;
+using namespace QmakeProjectManager::Internal;
 
 
-const char *qt_file_dialog_filter_reg_exp =
+const char qt_file_dialog_filter_reg_exp[] =
 "^(.*)\\(([a-zA-Z0-9_.*? +;#\\-\\[\\]@\\{\\}/!<>\\$%&=^~:\\|]*)\\)$";
 
 // taken from qfiledialog.cpp
@@ -275,6 +275,7 @@ SummaryPage::SummaryPage(AddLibraryWizard *parent)
     QVBoxLayout *layout = new QVBoxLayout(this);
     m_summaryLabel = new QLabel(this);
     m_snippetLabel = new QLabel(this);
+    m_snippetLabel->setWordWrap(true);
     layout->addWidget(m_summaryLabel);
     layout->addWidget(m_snippetLabel);
     m_summaryLabel->setTextFormat(Qt::RichText);

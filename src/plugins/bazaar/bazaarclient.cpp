@@ -31,6 +31,7 @@
 
 #include <vcsbase/vcsbaseplugin.h>
 #include <vcsbase/vcsbaseeditorparameterwidget.h>
+#include <utils/synchronousprocess.h>
 
 #include <QDir>
 #include <QFileInfo>
@@ -39,6 +40,22 @@
 
 namespace Bazaar {
 namespace Internal {
+
+class BazaarDiffExitCodeInterpreter : public Utils::ExitCodeInterpreter
+{
+    Q_OBJECT
+public:
+    BazaarDiffExitCodeInterpreter(QObject *parent) : Utils::ExitCodeInterpreter(parent) {}
+    Utils::SynchronousProcessResponse::Result interpretExitCode(int code) const;
+
+};
+
+Utils::SynchronousProcessResponse::Result BazaarDiffExitCodeInterpreter::interpretExitCode(int code) const
+{
+    if (code < 0 || code > 2)
+        return Utils::SynchronousProcessResponse::FinishedError;
+    return Utils::SynchronousProcessResponse::Finished;
+}
 
 BazaarClient::BazaarClient(BazaarSettings *settings) :
     VcsBase::VcsBaseClient(settings)
@@ -111,6 +128,16 @@ QString BazaarClient::findTopLevelForFile(const QFileInfo &file) const
                                                                    repositoryCheckFile);
 }
 
+bool BazaarClient::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    QStringList args(QLatin1String("status"));
+    args << fileName;
+    QByteArray stdOut;
+    if (!vcsFullySynchronousExec(workingDirectory, args, &stdOut))
+        return false;
+    return !stdOut.startsWith("unknown");
+}
+
 void BazaarClient::view(const QString &source, const QString &id, const QStringList &extraOptions)
 {
     QStringList args(QLatin1String("log"));
@@ -139,6 +166,16 @@ QString BazaarClient::vcsCommandString(VcsCommand cmd) const
         return QLatin1String("branch");
     default:
         return VcsBaseClient::vcsCommandString(cmd);
+    }
+}
+
+Utils::ExitCodeInterpreter *BazaarClient::exitCodeInterpreter(VcsCommand cmd, QObject *parent) const
+{
+    switch (cmd) {
+    case DiffCommand:
+        return new BazaarDiffExitCodeInterpreter(parent);
+    default:
+        return 0;
     }
 }
 
@@ -219,9 +256,9 @@ public:
                               const BazaarCommandParameters &p, QWidget *parent = 0) :
         VcsBase::VcsBaseEditorParameterWidget(parent), m_client(client), m_params(p)
     {
-        mapSetting(addToggleButton(QLatin1String("-w"), tr("Ignore whitespace")),
+        mapSetting(addToggleButton(QLatin1String("-w"), tr("Ignore Whitespace")),
                    client->settings()->boolPointer(BazaarSettings::diffIgnoreWhiteSpaceKey));
-        mapSetting(addToggleButton(QLatin1String("-B"), tr("Ignore blank lines")),
+        mapSetting(addToggleButton(QLatin1String("-B"), tr("Ignore Blank Lines")),
                    client->settings()->boolPointer(BazaarSettings::diffIgnoreBlankLinesKey));
     }
 

@@ -192,6 +192,7 @@ void dummyStatement(...) {}
 #include <vector>
 
 #include <stdarg.h>
+#include <stdint.h>
 
 #include "../simple/deep/deep/simple_test_app.h"
 
@@ -4167,6 +4168,7 @@ namespace qvariant {
         // FIXME: Known to break
         //QString type = var.typeName();
         var.setValue(my);
+        const char *name = QMetaType::typeName(var.userType());
         BREAK_HERE;
         // Expand my my.0 my.0.value my.1 my.1.value var var.data var.data.0 var.data.0.value var.data.1 var.data.1.value.
         // Check my <2 items> qvariant::MyType.
@@ -4192,7 +4194,7 @@ namespace qvariant {
         var.setValue(my);
         var.setValue(my);
         var.setValue(my);
-        dummyStatement(&var);
+        dummyStatement(&var, &name);
     }
 
     void testQVariant6()
@@ -4709,6 +4711,16 @@ namespace basic {
         dummyStatement(&u64, &s64, &u32, &s32, &u64s, &s64s, &u32s, &s32s);
     }
 
+    void testStdInt()
+    {
+        uint8_t u8 = 64;
+        int8_t s8 =  65;
+        BREAK_HERE;
+        // Check u8 64 uint8_t
+        // Check u8 65 int8_t
+
+        dummyStatement(&u8, &s8);
+    }
 
     void testArray1()
     {
@@ -5477,6 +5489,7 @@ namespace basic {
     {
         testInheritance();
         testInt();
+        testStdInt();
         testReference1();
         testReference2();
         testReference3("hello");

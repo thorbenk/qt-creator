@@ -116,6 +116,7 @@ public:
     ModelNode modelNode(int index) const;
 
     void setComponentNode(const ModelNode &node);
+    void setComponentToMaster();
 
 signals:
     void componentListChanged(const QStringList &componentList);
@@ -125,7 +126,14 @@ private: //functions
     void searchForComponentAndAddToList(const ModelNode &node);
     void searchForComponentAndRemoveFromList(const ModelNode &node);
     void removeSingleNodeFromList(const ModelNode &node);
-    int indexForNode(const ModelNode &node);
+    int indexForNode(const ModelNode &node) const;
+    int indexOfMaster() const;
+    bool hasMasterEntry() const;
+    bool hasEntryForNode(const ModelNode &node) const;
+    void addMasterDocument();
+    void removeMasterDocument();
+    QString descriptionForNode(const ModelNode &node) const;
+    void updateDescription(const ModelNode &node);
 
 private:
     QStandardItemModel *m_standardItemModel;

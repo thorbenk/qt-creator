@@ -457,6 +457,17 @@ public:
 };
 
 /*!
+  Extracts the selected constant and converts it to a parameter of the current function.
+
+  Activates on numeric, bool, character, or string literal in the function body.
+ */
+class ExtractLiteralAsParameter : public CppQuickFixFactory
+{
+public:
+    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
+};
+
+/*!
   Adds getter and setter functions for a member variable
  */
 class GenerateGetterSetter : public CppQuickFixFactory
@@ -582,6 +593,16 @@ public:
 
 private:
     InsertVirtualMethodsDialog *m_dialog;
+};
+
+/*!
+  Optimizes a for loop to avoid permanent condition check and forces to use preincrement
+  or predecrement operators in the expression of the for loop.
+ */
+class OptimizeForLoop : public CppQuickFixFactory
+{
+public:
+    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
 };
 
 } // namespace Internal

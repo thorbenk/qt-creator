@@ -29,10 +29,12 @@
 
 #include "cppeditor.h"
 
+#include "cppautocompleter.h"
 #include "cppeditorconstants.h"
 #include "cppeditorplugin.h"
+#include "cppfollowsymbolundercursor.h"
 #include "cpphighlighter.h"
-#include "cppautocompleter.h"
+#include "cpppreprocessordialog.h"
 #include "cppquickfixassistant.h"
 
 #include <coreplugin/actionmanager/actioncontainer.h>
@@ -51,6 +53,10 @@
 #include <cpptools/doxygengenerator.h>
 #include <cpptools/cpptoolssettings.h>
 #include <cpptools/symbolfinder.h>
+#include <cpptools/cppmodelmanager.h>
+#include <projectexplorer/session.h>
+#include <projectexplorer/projectnodes.h>
+#include <projectexplorer/nodesvisitor.h>
 #include <texteditor/basetextdocument.h>
 #include <texteditor/basetextdocumentlayout.h>
 #include <texteditor/codeassist/basicproposalitem.h>
@@ -77,6 +83,7 @@
 #include <QComboBox>
 #include <QTreeView>
 #include <QSortFilterProxyModel>
+#include <QToolButton>
 
 enum {
     UPDATE_OUTLINE_INTERVAL = 500,
@@ -510,6 +517,7 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
     , m_commentsSettings(CppTools::CppToolsSettings::instance()->commentsSettings())
+    , m_followSymbolUnderCursor(new FollowSymbolUnderCursor(this))
 {
     qRegisterMetaType<SemanticInfo>("CppTools::SemanticInfo");
 
@@ -639,6 +647,10 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(updateUses()));
     connect(this, SIGNAL(textChanged()), this, SLOT(updateUses()));
 
+    QToolButton *hashButton = new QToolButton(this);
+    hashButton->setText(QLatin1String("#"));
+    connect(hashButton, SIGNAL(clicked()), this, SLOT(showPreProcessorWidget()));
+    editor->insertExtraToolBarWidget(TextEditor::BaseTextEditor::Left, hashButton);
     editor->insertExtraToolBarWidget(TextEditor::BaseTextEditor::Left, m_outlineCombo);
 }
 
@@ -687,13 +699,18 @@ void CPPEditorWidget::selectAll()
     BaseTextEditorWidget::selectAll();
 }
 
-CppModelManagerInterface *CPPEditorWidget::modelManager() const
-{
-    return m_modelManager;
-}
-
 void CPPEditorWidget::setMimeType(const QString &mt)
 {
+    const QString &filePath = editor()->document()->filePath();
+    const QString &projectFile = ProjectExplorer::SessionManager::value(
+                QLatin1String(Constants::CPP_PREPROCESSOR_PROJECT_PREFIX) + filePath).toString();
+    const QByteArray &additionalDirectives = ProjectExplorer::SessionManager::value(
+                projectFile + QLatin1Char(',') + filePath).toByteArray();
+
+    QSharedPointer<SnapshotUpdater> updater
+            = m_modelManager->cppEditorSupport(editor())->snapshotUpdater();
+    updater->setEditorDefines(additionalDirectives);
+
     BaseTextEditorWidget::setMimeType(mt);
     setObjCEnabled(mt == QLatin1String(CppTools::Constants::OBJECTIVE_C_SOURCE_MIMETYPE)
                    || mt == QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE));
@@ -785,6 +802,9 @@ const Macro *CPPEditorWidget::findCanonicalMacro(const QTextCursor &cursor, Docu
 
 void CPPEditorWidget::findUsages()
 {
+    if (!m_modelManager)
+        return;
+
     SemanticInfo info = m_lastSemanticInfo;
     info.snapshot = CppModelManagerInterface::instance()->snapshot();
     info.snapshot.insert(info.doc);
@@ -802,6 +822,9 @@ void CPPEditorWidget::findUsages()
 
 void CPPEditorWidget::renameUsagesNow(const QString &replacement)
 {
+    if (!m_modelManager)
+        return;
+
     SemanticInfo info = m_lastSemanticInfo;
     info.snapshot = CppModelManagerInterface::instance()->snapshot();
     info.snapshot.insert(info.doc);
@@ -936,6 +959,9 @@ void CPPEditorWidget::markSymbols(const QTextCursor &tc, const SemanticInfo &inf
 
 void CPPEditorWidget::renameSymbolUnderCursor()
 {
+    if (!m_modelManager)
+        return;
+
     CppEditorSupport *edSup = m_modelManager->cppEditorSupport(editor());
     updateSemanticInfo(edSup->recalculateSemanticInfo(/* emitSignalWhenFinished = */ false));
     abortRename();
@@ -993,7 +1019,7 @@ void CPPEditorWidget::jumpToOutlineElement(int index)
     // the view's currentIndex is updated, so we want to use that.
     // When the scroll wheel was used on the combo box,
     // the view's currentIndex is not updated,
-    // but the passed index to this method is correct.
+    // but the passed index to this function is correct.
     // So, if the view has a current index, we reset it, to be able
     // to distinguish wheel events later
     if (modelIndex.isValid())
@@ -1029,6 +1055,9 @@ bool CPPEditorWidget::sortedOutline() const
 
 void CPPEditorWidget::updateOutlineNow()
 {
+    if (!m_modelManager)
+        return;
+
     const Snapshot snapshot = m_modelManager->snapshot();
     Document::Ptr document = snapshot.document(editorDocument()->filePath());
 
@@ -1121,7 +1150,7 @@ void CPPEditorWidget::updateUses()
         m_highlighter.cancel();
 
     // Block premature semantic info calculation when editor is created.
-    if (m_modelManager->cppEditorSupport(editor())->initialized())
+    if (m_modelManager && m_modelManager->cppEditorSupport(editor())->initialized())
         m_updateUsesTimer->start();
 }
 
@@ -1202,7 +1231,7 @@ void CPPEditorWidget::switchDeclarationDefinition(bool inNextSplit)
     CPPEditorWidget::Link symbolLink;
     if (functionDeclarationSymbol) {
         symbolLink = linkToSymbol(symbolFinder()
-            ->findMatchingDefinition(functionDeclarationSymbol, modelManager()->snapshot()));
+            ->findMatchingDefinition(functionDeclarationSymbol, m_modelManager->snapshot()));
     } else if (functionDefinitionSymbol) {
         const Snapshot snapshot = m_modelManager->snapshot();
         LookupContext context(m_lastSemanticInfo.doc, snapshot);
@@ -1234,418 +1263,21 @@ void CPPEditorWidget::switchDeclarationDefinition(bool inNextSplit)
         openCppEditorAt(symbolLink, inNextSplit != alwaysOpenLinksInNextSplit());
 }
 
-static inline LookupItem skipForwardDeclarations(const QList<LookupItem> &resolvedSymbols)
-{
-    QList<LookupItem> candidates = resolvedSymbols;
-
-    LookupItem result = candidates.first();
-    const FullySpecifiedType ty = result.type().simplified();
-
-    if (ty->isForwardClassDeclarationType()) {
-        while (!candidates.isEmpty()) {
-            LookupItem r = candidates.takeFirst();
-
-            if (!r.type()->isForwardClassDeclarationType()) {
-                result = r;
-                break;
-            }
-        }
-    }
-
-    if (ty->isObjCForwardClassDeclarationType()) {
-        while (!candidates.isEmpty()) {
-            LookupItem r = candidates.takeFirst();
-
-            if (!r.type()->isObjCForwardClassDeclarationType()) {
-                result = r;
-                break;
-            }
-        }
-    }
-
-    if (ty->isObjCForwardProtocolDeclarationType()) {
-        while (!candidates.isEmpty()) {
-            LookupItem r = candidates.takeFirst();
-
-            if (!r.type()->isObjCForwardProtocolDeclarationType()) {
-                result = r;
-                break;
-            }
-        }
-    }
-
-    return result;
-}
-
-CPPEditorWidget::Link CPPEditorWidget::attemptFuncDeclDef(const QTextCursor &cursor,
-                                                          const Document::Ptr &doc,
-                                                          Snapshot snapshot) const
-{
-    snapshot.insert(doc);
-
-    Link result;
-
-    QList<AST *> path = ASTPath(doc)(cursor);
-
-    if (path.size() < 5)
-        return result;
-
-    NameAST *name = path.last()->asName();
-    if (!name)
-        return result;
-
-    if (QualifiedNameAST *qName = path.at(path.size() - 2)->asQualifiedName()) {
-        // TODO: check which part of the qualified name we're on
-        if (qName->unqualified_name != name)
-            return result;
-    }
-
-    for (int i = path.size() - 1; i != -1; --i) {
-        AST *node = path.at(i);
-
-        if (node->asParameterDeclaration() != 0)
-            return result;
-    }
-
-    AST *declParent = 0;
-    DeclaratorAST *decl = 0;
-    for (int i = path.size() - 2; i > 0; --i) {
-        if ((decl = path.at(i)->asDeclarator()) != 0) {
-            declParent = path.at(i - 1);
-            break;
-        }
-    }
-    if (!decl || !declParent)
-        return result;
-    if (!decl->postfix_declarator_list || !decl->postfix_declarator_list->value)
-        return result;
-    FunctionDeclaratorAST *funcDecl = decl->postfix_declarator_list->value->asFunctionDeclarator();
-    if (!funcDecl)
-        return result;
-
-    Symbol *target = 0;
-    if (FunctionDefinitionAST *funDef = declParent->asFunctionDefinition()) {
-        QList<Declaration *> candidates =
-                symbolFinder()->findMatchingDeclaration(LookupContext(doc, snapshot),
-                                                        funDef->symbol);
-        if (!candidates.isEmpty()) // TODO: improve disambiguation
-            target = candidates.first();
-    } else if (declParent->asSimpleDeclaration()) {
-        target = symbolFinder()->findMatchingDefinition(funcDecl->symbol, snapshot);
-    }
-
-    if (target) {
-        result = linkToSymbol(target);
-
-        unsigned startLine, startColumn, endLine, endColumn;
-        doc->translationUnit()->getTokenStartPosition(name->firstToken(), &startLine, &startColumn);
-        doc->translationUnit()->getTokenEndPosition(name->lastToken() - 1, &endLine, &endColumn);
-
-        QTextDocument *textDocument = cursor.document();
-        result.linkTextStart =
-                textDocument->findBlockByNumber(startLine - 1).position() + startColumn - 1;
-        result.linkTextEnd =
-                textDocument->findBlockByNumber(endLine - 1).position() + endColumn - 1;
-    }
-
-    return result;
-}
-
-CPPEditorWidget::Link CPPEditorWidget::findMacroLink(const QByteArray &name) const
-{
-    if (!name.isEmpty()) {
-        if (Document::Ptr doc = m_lastSemanticInfo.doc) {
-            const Snapshot snapshot = m_modelManager->snapshot();
-            QSet<QString> processed;
-            return findMacroLink(name, doc, snapshot, &processed);
-        }
-    }
-
-    return Link();
-}
-
-CPPEditorWidget::Link CPPEditorWidget::findMacroLink(const QByteArray &name,
-                                                     Document::Ptr doc,
-                                                     const Snapshot &snapshot,
-                                                     QSet<QString> *processed) const
-{
-    if (doc && !name.startsWith('<') && !processed->contains(doc->fileName())) {
-        processed->insert(doc->fileName());
-
-        foreach (const Macro &macro, doc->definedMacros()) {
-            if (macro.name() == name) {
-                Link link;
-                link.targetFileName = macro.fileName();
-                link.targetLine = macro.line();
-                return link;
-            }
-        }
-
-        const QList<Document::Include> includes = doc->resolvedIncludes();
-        for (int index = includes.size() - 1; index != -1; --index) {
-            const Document::Include &i = includes.at(index);
-            Link link = findMacroLink(name, snapshot.document(i.resolvedFileName()), snapshot,
-                                      processed);
-            if (link.hasValidTarget())
-                return link;
-        }
-    }
-
-    return Link();
-}
-
-QString CPPEditorWidget::identifierUnderCursor(QTextCursor *macroCursor) const
+QString CPPEditorWidget::identifierUnderCursor(QTextCursor *macroCursor)
 {
     macroCursor->movePosition(QTextCursor::StartOfWord);
     macroCursor->movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
     return macroCursor->selectedText();
 }
 
-CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor, bool resolveTarget)
+CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor, bool resolveTarget,
+                                                  bool inNextSplit)
 {
-    Link link;
-
     if (!m_modelManager)
-        return link;
+        return Link();
 
-    // Move to end of identifier
-    QTextCursor tc = cursor;
-    QChar ch = document()->characterAt(tc.position());
-    while (ch.isLetterOrNumber() || ch == QLatin1Char('_')) {
-        tc.movePosition(QTextCursor::NextCharacter);
-        ch = document()->characterAt(tc.position());
-    }
-
-    const Snapshot &snapshot = m_modelManager->snapshot();
-
-    // Try to macth decl/def. For this we need the semantic doc with the AST.
-    if (m_lastSemanticInfo.doc
-            && m_lastSemanticInfo.doc->translationUnit()
-            && m_lastSemanticInfo.doc->translationUnit()->ast()) {
-        int pos = tc.position();
-        while (document()->characterAt(pos).isSpace())
-            ++pos;
-        if (document()->characterAt(pos) == QLatin1Char('(')) {
-            link = attemptFuncDeclDef(cursor, m_lastSemanticInfo.doc, snapshot);
-            if (link.hasValidLinkText())
-                return link;
-        }
-    }
-
-    int lineNumber = 0, positionInBlock = 0;
-    convertPosition(cursor.position(), &lineNumber, &positionInBlock);
-    const unsigned line = lineNumber;
-    const unsigned column = positionInBlock + 1;
-
-    // Try to find a signal or slot inside SIGNAL() or SLOT()
-    int beginOfToken = 0;
-    int endOfToken = 0;
-
-    SimpleLexer tokenize;
-    tokenize.setQtMocRunEnabled(true);
-    const QString blockText = cursor.block().text();
-    const QList<Token> tokens = tokenize(blockText,
-                                         BackwardsScanner::previousBlockState(cursor.block()));
-
-    bool recognizedQtMethod = false;
-
-    for (int i = 0; i < tokens.size(); ++i) {
-        const Token &tk = tokens.at(i);
-
-        if (((unsigned) positionInBlock) >= tk.begin() && ((unsigned) positionInBlock) <= tk.end()) {
-            if (i >= 2 && tokens.at(i).is(T_IDENTIFIER) && tokens.at(i - 1).is(T_LPAREN)
-                && (tokens.at(i - 2).is(T_SIGNAL) || tokens.at(i - 2).is(T_SLOT))) {
-
-                // token[i] == T_IDENTIFIER
-                // token[i + 1] == T_LPAREN
-                // token[.....] == ....
-                // token[i + n] == T_RPAREN
-
-                if (i + 1 < tokens.size() && tokens.at(i + 1).is(T_LPAREN)) {
-                    // skip matched parenthesis
-                    int j = i - 1;
-                    int depth = 0;
-
-                    for (; j < tokens.size(); ++j) {
-                        if (tokens.at(j).is(T_LPAREN)) {
-                            ++depth;
-                        } else if (tokens.at(j).is(T_RPAREN)) {
-                            if (!--depth)
-                                break;
-                        }
-                    }
-
-                    if (j < tokens.size()) {
-                        QTextBlock block = cursor.block();
-
-                        beginOfToken = block.position() + tokens.at(i).begin();
-                        endOfToken = block.position() + tokens.at(i).end();
-
-                        tc.setPosition(block.position() + tokens.at(j).end());
-                        recognizedQtMethod = true;
-                    }
-                }
-            }
-            break;
-        }
-    }
-
-    // Now we prefer the doc from the snapshot with macros expanded.
-    Document::Ptr doc = snapshot.document(editorDocument()->filePath());
-    if (!doc) {
-        doc = m_lastSemanticInfo.doc;
-        if (!doc)
-            return link;
-    }
-
-    if (!recognizedQtMethod) {
-        const QTextBlock block = tc.block();
-        int pos = cursor.positionInBlock();
-        QChar ch = document()->characterAt(cursor.position());
-        if (pos > 0 && !(ch.isLetterOrNumber() || ch == QLatin1Char('_')))
-            --pos; // positionInBlock points to a delimiter character.
-        const Token tk = SimpleLexer::tokenAt(block.text(), pos,
-                                              BackwardsScanner::previousBlockState(block), true);
-
-        beginOfToken = block.position() + tk.begin();
-        endOfToken = block.position() + tk.end();
-
-        // Handle include directives
-        if (tk.is(T_STRING_LITERAL) || tk.is(T_ANGLE_STRING_LITERAL)) {
-            const unsigned lineno = cursor.blockNumber() + 1;
-            foreach (const Document::Include &incl, doc->resolvedIncludes()) {
-                if (incl.line() == lineno) {
-                    link.targetFileName = incl.resolvedFileName();
-                    link.linkTextStart = beginOfToken + 1;
-                    link.linkTextEnd = endOfToken - 1;
-                    return link;
-                }
-            }
-        }
-
-        if (tk.isNot(T_IDENTIFIER) && tk.kind() < T_FIRST_QT_KEYWORD && tk.kind() > T_LAST_KEYWORD)
-            return link;
-
-        tc.setPosition(endOfToken);
-    }
-
-    // Handle macro uses
-    const Macro *macro = doc->findMacroDefinitionAt(line);
-    if (macro) {
-        QTextCursor macroCursor = cursor;
-        const QByteArray name = identifierUnderCursor(&macroCursor).toLatin1();
-        if (macro->name() == name)
-            return link;    //already on definition!
-    } else {
-        const Document::MacroUse *use = doc->findMacroUseAt(endOfToken - 1);
-        if (use && use->macro().fileName() != CppModelManagerInterface::configurationFileName()) {
-            const Macro &macro = use->macro();
-            link.targetFileName = macro.fileName();
-            link.targetLine = macro.line();
-            link.linkTextStart = use->begin();
-            link.linkTextEnd = use->end();
-            return link;
-        }
-    }
-
-    // Find the last symbol up to the cursor position
-    Scope *scope = doc->scopeAt(line, column);
-    if (!scope)
-        return link;
-
-    // Evaluate the type of the expression under the cursor
-    ExpressionUnderCursor expressionUnderCursor;
-    QString expression = expressionUnderCursor(tc);
-
-    for (int pos = tc.position();; ++pos) {
-        const QChar ch = document()->characterAt(pos);
-        if (ch.isSpace())
-            continue;
-        if (ch == QLatin1Char('(') && !expression.isEmpty()) {
-            tc.setPosition(pos);
-            if (TextEditor::TextBlockUserData::findNextClosingParenthesis(&tc, true))
-                expression.append(tc.selectedText());
-        }
-
-        break;
-    }
-
-    TypeOfExpression typeOfExpression;
-    typeOfExpression.init(doc, snapshot);
-    // make possible to instantiate templates
-    typeOfExpression.setExpandTemplates(true);
-    const QList<LookupItem> resolvedSymbols =
-            typeOfExpression.reference(expression.toUtf8(), scope, TypeOfExpression::Preprocess);
-
-    if (!resolvedSymbols.isEmpty()) {
-        LookupItem result = skipForwardDeclarations(resolvedSymbols);
-
-        foreach (const LookupItem &r, resolvedSymbols) {
-            if (Symbol *d = r.declaration()) {
-                if (d->isDeclaration() || d->isFunction()) {
-                    if (editorDocument()->filePath() == QString::fromUtf8(d->fileName(), d->fileNameLength())) {
-                        if (unsigned(lineNumber) == d->line() && unsigned(positionInBlock) >= d->column()) { // ### TODO: check the end
-                            result = r; // take the symbol under cursor.
-                            break;
-                        }
-                    }
-                } else if (d->isUsingDeclaration()) {
-                    int tokenBeginLineNumber = 0, tokenBeginColumnNumber = 0;
-                    convertPosition(beginOfToken, &tokenBeginLineNumber, &tokenBeginColumnNumber);
-                    if (unsigned(tokenBeginLineNumber) > d->line()
-                            || (unsigned(tokenBeginLineNumber) == d->line()
-                                && unsigned(tokenBeginColumnNumber) > d->column())) {
-                        result = r; // take the symbol under cursor.
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (Symbol *symbol = result.declaration()) {
-            Symbol *def = 0;
-
-            if (resolveTarget) {
-                Symbol *lastVisibleSymbol = doc->lastVisibleSymbolAt(line, column);
-
-                def = findDefinition(symbol, snapshot);
-
-                if (def == lastVisibleSymbol)
-                    def = 0; // jump to declaration then.
-
-                if (symbol->isForwardClassDeclaration())
-                    def = symbolFinder()->findMatchingClassDeclaration(symbol, snapshot);
-            }
-
-            link = linkToSymbol(def ? def : symbol);
-            link.linkTextStart = beginOfToken;
-            link.linkTextEnd = endOfToken;
-            return link;
-        }
-    }
-
-    // Handle macro uses
-    QTextCursor macroCursor = cursor;
-    const QByteArray name = identifierUnderCursor(&macroCursor).toLatin1();
-    link = findMacroLink(name);
-    if (link.hasValidTarget()) {
-        link.linkTextStart = macroCursor.selectionStart();
-        link.linkTextEnd = macroCursor.selectionEnd();
-        return link;
-    }
-
-    return Link();
-}
-
-Symbol *CPPEditorWidget::findDefinition(Symbol *symbol, const Snapshot &snapshot) const
-{
-    if (symbol->isFunction())
-        return 0; // symbol is a function definition.
-
-    else if (!symbol->type()->isFunctionType())
-        return 0; // not a function declaration
-
-    return symbolFinder()->findMatchingDefinition(symbol, snapshot);
+    return m_followSymbolUnderCursor->findLink(cursor, resolveTarget, m_modelManager->snapshot(),
+                                               m_lastSemanticInfo.doc, symbolFinder(), inNextSplit);
 }
 
 unsigned CPPEditorWidget::editorRevision() const
@@ -1992,7 +1624,8 @@ bool CPPEditorWidget::openCppEditorAt(const Link &link, bool inNextSplit)
 
 void CPPEditorWidget::semanticRehighlight(bool force)
 {
-    m_modelManager->cppEditorSupport(editor())->recalculateSemanticInfoDetached(force);
+    if (m_modelManager)
+        m_modelManager->cppEditorSupport(editor())->recalculateSemanticInfoDetached(force);
 }
 
 void CPPEditorWidget::highlighterStarted(QFuture<TextEditor::HighlightingResult> *highlighter,
@@ -2112,14 +1745,17 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     if (kind == TextEditor::Completion) {
         CppEditorSupport *ces = CppModelManagerInterface::instance()->cppEditorSupport(editor());
         CppCompletionAssistProvider *cap = ces->completionAssistProvider();
-        if (cap)
+        if (cap) {
             return cap->createAssistInterface(
-                        ProjectExplorer::ProjectExplorerPlugin::currentProject(),
-                        editor()->document()->filePath(), document(), position(), reason);
+                            ProjectExplorer::ProjectExplorerPlugin::currentProject(),
+                            editor(), document(), position(), reason);
+        }
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || isOutdated())
             return 0;
         return new CppQuickFixAssistInterface(const_cast<CPPEditorWidget *>(this), reason);
+    } else {
+        return BaseTextEditorWidget::createAssistInterface(kind, reason);
     }
     return 0;
 }
@@ -2210,6 +1846,11 @@ void CPPEditorWidget::updateContentsChangedSignal()
 {
     connect(document(), SIGNAL(contentsChange(int,int,int)),
             this, SLOT(onContentsChanged(int,int,int)));
+}
+
+FollowSymbolUnderCursor *CPPEditorWidget::followSymbolUnderCursorDelegate()
+{
+    return m_followSymbolUnderCursor.data();
 }
 
 void CPPEditorWidget::abortDeclDefLink()
@@ -2323,6 +1964,26 @@ bool CPPEditorWidget::isStartOfDoxygenComment(const QTextCursor &cursor) const
 void CPPEditorWidget::onCommentsSettingsChanged(const CppTools::CommentsSettings &settings)
 {
     m_commentsSettings = settings;
+}
+
+void CPPEditorWidget::showPreProcessorWidget()
+{
+    const QString &fileName = editor()->document()->filePath();
+
+    // Check if this editor belongs to a project
+    QList<ProjectPart::Ptr> projectParts = m_modelManager->projectPart(fileName);
+    if (projectParts.isEmpty())
+        projectParts = m_modelManager->projectPartFromDependencies(fileName);
+    if (projectParts.isEmpty())
+        projectParts << m_modelManager->fallbackProjectPart();
+
+    CppPreProcessorDialog preProcessorDialog(this, projectParts);
+    if (preProcessorDialog.exec() == QDialog::Accepted) {
+        QSharedPointer<SnapshotUpdater> updater
+                = m_modelManager->cppEditorSupport(editor())->snapshotUpdater();
+        updater->setEditorDefines(preProcessorDialog.additionalPreProcessorDirectives().toLatin1());
+        updater->update(m_modelManager->workingCopy());
+    }
 }
 
 #include <cppeditor.moc>

@@ -1,6 +1,6 @@
 import qbs.base 1.0
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "Qnx"
@@ -115,6 +115,13 @@ QtcPlugin {
         "blackberrydeviceconnectionmanager.h",
         "blackberrydevicelistdetector.cpp",
         "blackberrydevicelistdetector.h",
+        "blackberryinstallwizard.cpp",
+        "blackberryinstallwizard.h",
+        "blackberryinstallwizardndkpage.ui",
+        "blackberryinstallwizardpages.cpp",
+        "blackberryinstallwizardpages.h",
+        "blackberryinstallwizardprocesspage.ui",
+        "blackberryinstallwizardtargetpage.ui",
         "blackberrylogprocessrunner.cpp",
         "blackberrylogprocessrunner.h",
         "blackberryqtversion.cpp",
@@ -144,8 +151,6 @@ QtcPlugin {
         "blackberryndksettingspage.h",
         "blackberryconfiguration.cpp",
         "blackberryconfiguration.h",
-        "blackberrycsjregistrar.cpp",
-        "blackberrycsjregistrar.h",
         "blackberrycertificate.cpp",
         "blackberrycertificate.h",
         "blackberrykeyspage.cpp",
@@ -153,11 +158,6 @@ QtcPlugin {
         "blackberrykeyswidget.cpp",
         "blackberrykeyswidget.h",
         "blackberrykeyswidget.ui",
-        "blackberrycertificatemodel.cpp",
-        "blackberrycertificatemodel.h",
-        "blackberryregisterkeydialog.cpp",
-        "blackberryregisterkeydialog.h",
-        "blackberryregisterkeydialog.ui",
         "blackberryimportcertificatedialog.cpp",
         "blackberryimportcertificatedialog.h",
         "blackberryimportcertificatedialog.ui",
@@ -180,10 +180,11 @@ QtcPlugin {
         "blackberrysetupwizardpages.cpp",
         "blackberrysetupwizardpages.h",
         "blackberrysetupwizardkeyspage.ui",
+        "blackberrysetupwizardcertificatepage.ui",
         "blackberrysetupwizarddevicepage.ui",
         "blackberrysetupwizardfinishpage.ui",
-        "blackberryutils.cpp",
-        "blackberryutils.h",
+        "blackberrysigningutils.cpp",
+        "blackberrysigningutils.h",
         "pathchooserdelegate.cpp",
         "pathchooserdelegate.h",
         "qnx.qrc",
@@ -213,6 +214,8 @@ QtcPlugin {
         "qnxdeviceconfigurationwizard.h",
         "qnxdeviceconfigurationwizardpages.cpp",
         "qnxdeviceconfigurationwizardpages.h",
+        "qnxdeviceprocesslist.cpp",
+        "qnxdeviceprocesslist.h",
         "qnxdeviceprocesssignaloperation.cpp",
         "qnxdeviceprocesssignaloperation.h",
         "qnxdevicetester.cpp",
@@ -233,7 +236,36 @@ QtcPlugin {
         "qnxruncontrolfactory.h",
         "qnxutils.cpp",
         "qnxutils.h",
+        "slog2inforunner.cpp",
+        "slog2inforunner.h",
         "images/target-small.png",
         "images/target.png",
     ]
+
+    Group {
+        name: "CascadesImport"
+        prefix: "cascadesimport/"
+        files: [
+            "cascadesimport.qrc",
+
+            "srcprojectwizardpage.ui",
+
+            "cascadesimportwizard.cpp",
+            "srcprojectwizardpage.cpp",
+            "fileconverter.cpp",
+            "bardescriptorconverter.cpp",
+            "projectfileconverter.cpp",
+            "importlogconverter.cpp",
+            "importlog.cpp",
+
+            "cascadesimportwizard.h",
+            "srcprojectwizardpage.h",
+            "fileconverter.h",
+            "bardescriptorconverter.h",
+            "projectfileconverter.h",
+            "importlogconverter.h",
+            "importlog.h",
+        ]
+    }
+
 }

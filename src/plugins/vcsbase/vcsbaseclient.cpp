@@ -90,7 +90,8 @@ public:
     VcsBaseClientPrivate(VcsBaseClient *client, VcsBaseClientSettings *settings);
 
     void statusParser(const QString &text);
-    void annotateRevision(QString source, QString change, int lineNumber);
+    void annotateRevision(const QString &workingDirectory, const QString &file,
+                          QString change, int lineNumber);
     void saveSettings();
 
     void bindCommandToEditor(Command *cmd, VcsBaseEditorWidget *editor);
@@ -125,15 +126,15 @@ void VcsBaseClientPrivate::statusParser(const QString &text)
     emit m_client->parsedStatus(lineInfoList);
 }
 
-void VcsBaseClientPrivate::annotateRevision(QString source, QString change, int lineNumber)
+void VcsBaseClientPrivate::annotateRevision(const QString &workingDirectory,  const QString &file,
+                                            QString change, int lineNumber)
 {
     // This might be invoked with a verbose revision description
     // "SHA1 author subject" from the annotation context menu. Strip the rest.
     const int blankPos = change.indexOf(QLatin1Char(' '));
     if (blankPos != -1)
         change.truncate(blankPos);
-    const QFileInfo fi(source);
-    m_client->annotate(fi.absolutePath(), fi.fileName(), change, lineNumber);
+    m_client->annotate(workingDirectory, file, change, lineNumber);
 }
 
 void VcsBaseClientPrivate::saveSettings()
@@ -143,6 +144,7 @@ void VcsBaseClientPrivate::saveSettings()
 
 void VcsBaseClientPrivate::bindCommandToEditor(Command *cmd, VcsBaseEditorWidget *editor)
 {
+    editor->setCommand(cmd);
     QObject::connect(cmd, SIGNAL(finished(bool,int,QVariant)), m_cmdFinishedMapper, SLOT(map()));
     m_cmdFinishedMapper->setMapping(cmd, editor);
 }
@@ -274,7 +276,7 @@ bool VcsBaseClient::synchronousPush(const QString &workingDir,
 
 bool VcsBaseClient::vcsFullySynchronousExec(const QString &workingDir,
                                             const QStringList &args,
-                                            QByteArray *output)
+                                            QByteArray *output) const
 {
     QProcess vcsProcess;
     if (!workingDir.isEmpty())
@@ -353,19 +355,22 @@ void VcsBaseClient::diff(const QString &workingDir, const QStringList &files,
     const QString source = VcsBase::VcsBaseEditorWidget::getSource(workingDir, files);
     VcsBase::VcsBaseEditorWidget *editor = createVcsEditor(kind, title, source, true,
                                                            vcsCmdString.toLatin1().constData(), id);
-    editor->setDiffBaseDirectory(workingDir);
+    editor->setWorkingDirectory(workingDir);
 
-    VcsBaseEditorParameterWidget *paramWidget = createDiffEditor(workingDir, files, extraOptions);
-    if (paramWidget != 0) {
-        connect(editor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)),
-                paramWidget, SLOT(executeCommand()));
+    VcsBaseEditorParameterWidget *paramWidget = editor->configurationWidget();
+    if (!paramWidget && (paramWidget = createDiffEditor(workingDir, files, extraOptions))) {
+        // editor has been just created, createVcsEditor() didn't set a configuration widget yet
+        connect(editor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)), paramWidget, SLOT(executeCommand()));
         editor->setConfigurationWidget(paramWidget);
     }
 
     QStringList args;
     const QStringList paramArgs = paramWidget != 0 ? paramWidget->arguments() : QStringList();
     args << vcsCmdString << extraOptions << paramArgs << files;
-    enqueueJob(createCommand(workingDir, editor), args);
+    QTextCodec *codec = source.isEmpty() ? static_cast<QTextCodec *>(0) : VcsBase::VcsBaseEditorWidget::getCodec(source);
+    Command *command = createCommand(workingDir, editor);
+    command->setCodec(codec);
+    enqueueJob(command, args, exitCodeInterpreter(DiffCommand, command));
 }
 
 void VcsBaseClient::log(const QString &workingDir, const QStringList &files,
@@ -377,14 +382,15 @@ void VcsBaseClient::log(const QString &workingDir, const QStringList &files,
     const QString id = VcsBase::VcsBaseEditorWidget::getTitleId(workingDir, files);
     const QString title = vcsEditorTitle(vcsCmdString, id);
     const QString source = VcsBase::VcsBaseEditorWidget::getSource(workingDir, files);
-
     VcsBase::VcsBaseEditorWidget *editor = createVcsEditor(kind, title, source, true,
                                                            vcsCmdString.toLatin1().constData(), id);
     editor->setFileLogAnnotateEnabled(enableAnnotationContextMenu);
 
-    VcsBaseEditorParameterWidget *paramWidget = createLogEditor(workingDir, files, extraOptions);
-    if (paramWidget != 0)
+    VcsBaseEditorParameterWidget *paramWidget = editor->configurationWidget();
+    if (!paramWidget && (paramWidget = createLogEditor(workingDir, files, extraOptions))) {
+        // editor has been just created, createVcsEditor() didn't set a configuration widget yet
         editor->setConfigurationWidget(paramWidget);
+    }
 
     QStringList args;
     const QStringList paramArgs = paramWidget != 0 ? paramWidget->arguments() : QStringList();
@@ -459,6 +465,13 @@ QString VcsBaseClient::vcsCommandString(VcsCommand cmd) const
     case StatusCommand: return QLatin1String("status");
     }
     return QString();
+}
+
+Utils::ExitCodeInterpreter *VcsBaseClient::exitCodeInterpreter(VcsCommand cmd, QObject *parent) const
+{
+    Q_UNUSED(cmd)
+    Q_UNUSED(parent)
+    return 0;
 }
 
 void VcsBaseClient::import(const QString &repositoryRoot, const QStringList &files,
@@ -565,8 +578,8 @@ VcsBase::VcsBaseEditorWidget *VcsBaseClient::createVcsEditor(Core::Id kind, QStr
         outputEditor = Core::EditorManager::openEditorWithContents(kind, &title, progressMsg.toUtf8());
         outputEditor->document()->setProperty(registerDynamicProperty, dynamicPropertyValue);
         baseEditor = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(outputEditor);
-        connect(baseEditor, SIGNAL(annotateRevisionRequested(QString,QString,int)),
-                this, SLOT(annotateRevision(QString,QString,int)));
+        connect(baseEditor, SIGNAL(annotateRevisionRequested(QString,QString,QString,int)),
+                this, SLOT(annotateRevision(QString,QString,QString,int)));
         QTC_ASSERT(baseEditor, return 0);
         baseEditor->setSource(source);
         if (setSourceCodec)
@@ -605,9 +618,9 @@ Command *VcsBaseClient::createCommand(const QString &workingDirectory,
     return cmd;
 }
 
-void VcsBaseClient::enqueueJob(Command *cmd, const QStringList &args)
+void VcsBaseClient::enqueueJob(Command *cmd, const QStringList &args, Utils::ExitCodeInterpreter *interpreter)
 {
-    cmd->addJob(args);
+    cmd->addJob(args, interpreter);
     cmd->execute();
 }
 

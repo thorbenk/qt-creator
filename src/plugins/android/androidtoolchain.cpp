@@ -124,6 +124,7 @@ void AndroidToolChain::addToEnvironment(Environment &env) const
     if (!javaHome.isEmpty() && QFileInfo(javaHome).exists())
         env.set(QLatin1String("JAVA_HOME"), javaHome);
     env.set(QLatin1String("ANDROID_HOME"), AndroidConfigurations::instance().config().sdkLocation.toString());
+    env.set(QLatin1String("ANDROID_SDK_ROOT"), AndroidConfigurations::instance().config().sdkLocation.toString());
 }
 
 bool AndroidToolChain::operator ==(const ToolChain &tc) const
@@ -228,12 +229,12 @@ QString AndroidToolChain::makeCommand(const Utils::Environment &env) const
     return tmp.isEmpty() ? make : tmp;
 }
 
-QString AndroidToolChain::ndkToolChainVersion()
+QString AndroidToolChain::ndkToolChainVersion() const
 {
     return m_ndkToolChainVersion;
 }
 
-bool AndroidToolChain::secondaryToolChain() const
+bool AndroidToolChain::isSecondaryToolChain() const
 {
     return m_secondaryToolChain;
 }

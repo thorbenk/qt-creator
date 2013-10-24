@@ -52,6 +52,12 @@ struct GitSubmitEditorPanelInfo
 
 QDebug operator<<(QDebug d, const GitSubmitEditorPanelInfo &);
 
+enum PushAction {
+    NoPush,
+    NormalPush,
+    PushToGerrit
+};
+
 struct GitSubmitEditorPanelData
 {
     void clear();
@@ -61,6 +67,7 @@ struct GitSubmitEditorPanelData
     QString author;
     QString email;
     bool bypassHooks;
+    PushAction pushAction;
 };
 
 QDebug operator<<(QDebug d, const GitSubmitEditorPanelData &);
@@ -107,6 +114,7 @@ public:
     QString commitEncoding;
     GitSubmitEditorPanelInfo panelInfo;
     GitSubmitEditorPanelData panelData;
+    bool enablePush;
 
     QList<StateFilePair> files;
 

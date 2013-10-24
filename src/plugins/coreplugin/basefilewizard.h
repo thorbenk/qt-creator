@@ -52,6 +52,8 @@ namespace Utils { class Wizard; }
 
 namespace Core {
 
+class IFileWizardExtension;
+
 class CORE_EXPORT WizardDialogParameters
 {
 public:
@@ -112,13 +114,15 @@ public:
     virtual void runWizard(const QString &path, QWidget *parent, const QString &platform, const QVariantMap &extraValues);
 
     static QString buildFileName(const QString &path, const QString &baseName, const QString &extension);
-    static void setupWizard(QWizard *);
     static void applyExtensionPageShortTitle(Utils::Wizard *wizard, int pageId);
 
 protected:
     typedef QList<QWizardPage *> WizardPageList;
+    typedef QList<Core::IFileWizardExtension*> ExtensionList;
 
     explicit BaseFileWizard(QObject *parent = 0);
+
+    virtual ExtensionList selectExtensions();
 
     virtual QWizard *createWizardDialog(QWidget *parent,
                                         const WizardDialogParameters &wizardDialogParameters) const = 0;

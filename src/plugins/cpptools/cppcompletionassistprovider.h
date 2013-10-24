@@ -44,6 +44,7 @@ class Project;
 }
 
 namespace TextEditor {
+class BaseTextEditor;
 class IAssistInterface;
 }
 
@@ -59,8 +60,8 @@ public:
     virtual bool isActivationCharSequence(const QString &sequence) const;
 
     virtual TextEditor::IAssistInterface *createAssistInterface(
-            ProjectExplorer::Project *project, const QString &filePath, QTextDocument *document,
-            int position, TextEditor::AssistReason reason) const = 0;
+            ProjectExplorer::Project *project, TextEditor::BaseTextEditor *editor,
+            QTextDocument *document, int position, TextEditor::AssistReason reason) const = 0;
 
     static int activationSequenceChar(const QChar &ch, const QChar &ch2,
                                       const QChar &ch3, unsigned *kind,

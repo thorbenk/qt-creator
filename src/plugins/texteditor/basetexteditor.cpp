@@ -498,8 +498,6 @@ BaseTextEditor *BaseTextEditorWidget::editor() const
         d->m_codeAssistant->configure(d->m_editor);
         connect(this, SIGNAL(textChanged()),
                 d->m_editor, SIGNAL(contentsChanged()));
-        connect(this, SIGNAL(changed()),
-                d->m_editor->document(), SIGNAL(changed()));
         connect(qobject_cast<BaseTextDocument *>(d->m_editor->document()),SIGNAL(mimeTypeChanged()),
                 d->m_codeAssistant.data(), SLOT(reconfigure()));
     }
@@ -581,7 +579,6 @@ void BaseTextEditorWidgetPrivate::foldLicenseHeader()
     BaseTextDocumentLayout *documentLayout = qobject_cast<BaseTextDocumentLayout*>(doc->documentLayout());
     QTC_ASSERT(documentLayout, return);
     QTextBlock block = doc->firstBlock();
-    const TabSettings &ts = m_document->tabSettings();
     while (block.isValid() && block.isVisible()) {
         QString text = block.text();
         if (BaseTextDocumentLayout::canFold(block) && block.next().isVisible()) {
@@ -593,7 +590,7 @@ void BaseTextEditorWidgetPrivate::foldLicenseHeader()
                 break;
             }
         }
-        if (ts.firstNonSpace(text) < text.size())
+        if (TabSettings::firstNonSpace(text) < text.size())
             break;
         block = block.next();
     }
@@ -1047,16 +1044,16 @@ void BaseTextEditorWidget::unindent()
 
 void BaseTextEditorWidget::openLinkUnderCursor()
 {
-    Link symbolLink = findLinkAt(textCursor());
-
-    openLink(symbolLink, alwaysOpenLinksInNextSplit());
+    const bool openInNextSplit = alwaysOpenLinksInNextSplit();
+    Link symbolLink = findLinkAt(textCursor(), true, openInNextSplit);
+    openLink(symbolLink, openInNextSplit);
 }
 
 void BaseTextEditorWidget::openLinkUnderCursorInNextSplit()
 {
-    Link symbolLink = findLinkAt(textCursor());
-
-    openLink(symbolLink, !alwaysOpenLinksInNextSplit());
+    const bool openInNextSplit = !alwaysOpenLinksInNextSplit();
+    Link symbolLink = findLinkAt(textCursor(), true, openInNextSplit);
+    openLink(symbolLink, openInNextSplit);
 }
 
 void BaseTextEditorWidget::abortAssist()
@@ -1909,8 +1906,6 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         if (!electricChar.isNull() && d->m_autoCompleter->contextAllowsElectricCharacters(cursor))
             indent(document(), cursor, electricChar);
         if (!autoText.isEmpty()) {
-            if (d->m_document->typingSettings().m_autoIndent)
-                reindent(document(), cursor);
             cursor.setPosition(autoText.length() == 1 ? cursor.position() : cursor.anchor());
         }
 
@@ -2479,6 +2474,7 @@ void BaseTextEditorWidgetPrivate::setupDocumentSignals(const QSharedPointer<Base
     if (!oldDocument.isNull()) {
         q->disconnect(oldDocument->document(), 0, q, 0);
         q->disconnect(oldDocument.data(), 0, q, 0);
+        q->disconnect(q, 0, oldDocument.data(), 0);
     }
 
     QTextDocument *doc = document->document();
@@ -2501,6 +2497,7 @@ void BaseTextEditorWidgetPrivate::setupDocumentSignals(const QSharedPointer<Base
     QObject::connect(documentLayout, SIGNAL(updateExtraArea()), q, SLOT(slotUpdateExtraArea()));
     QObject::connect(q, SIGNAL(requestBlockUpdate(QTextBlock)), documentLayout, SIGNAL(updateBlock(QTextBlock)));
     QObject::connect(doc, SIGNAL(modificationChanged(bool)), q, SIGNAL(changed()));
+    QObject::connect(q, SIGNAL(changed()), document.data(), SIGNAL(changed()));
     QObject::connect(doc, SIGNAL(contentsChange(int,int,int)), q,
         SLOT(editorContentsChange(int,int,int)), Qt::DirectConnection);
     QObject::connect(document.data(), SIGNAL(aboutToReload()), q, SLOT(documentAboutToBeReloaded()));
@@ -4540,8 +4537,6 @@ void BaseTextEditorWidget::setCodeStyle(ICodeStylePreferences *preferences)
                 this, SLOT(setTabSettings(TextEditor::TabSettings)));
         disconnect(d->m_codeStylePreferences, SIGNAL(currentValueChanged(QVariant)),
                 this, SLOT(slotCodeStyleSettingsChanged(QVariant)));
-        disconnect(d->m_codeStylePreferences, SIGNAL(destroyed()),
-                   this, SLOT(onCodeStylePreferencesDestroyed()));
     }
     d->m_codeStylePreferences = preferences;
     if (d->m_codeStylePreferences) {
@@ -4549,23 +4544,9 @@ void BaseTextEditorWidget::setCodeStyle(ICodeStylePreferences *preferences)
                 this, SLOT(setTabSettings(TextEditor::TabSettings)));
         connect(d->m_codeStylePreferences, SIGNAL(currentValueChanged(QVariant)),
                 this, SLOT(slotCodeStyleSettingsChanged(QVariant)));
-        connect(d->m_codeStylePreferences, SIGNAL(destroyed()),
-                this, SLOT(onCodeStylePreferencesDestroyed()));
         setTabSettings(d->m_codeStylePreferences->currentTabSettings());
         slotCodeStyleSettingsChanged(d->m_codeStylePreferences->currentValue());
     }
-}
-
-void BaseTextEditorWidget::onCodeStylePreferencesDestroyed()
-{
-    if (sender() != d->m_codeStylePreferences)
-        return;
-    ICodeStylePreferences *prefs = TextEditorSettings::codeStyle(languageSettingsId());
-    if (prefs == d->m_codeStylePreferences)
-        prefs = 0;
-    // avoid failing disconnects, m_codeStylePreferences has already been reduced to QObject
-    d->m_codeStylePreferences = 0;
-    setCodeStyle(prefs);
 }
 
 void BaseTextEditorWidget::slotCodeStyleSettingsChanged(const QVariant &)
@@ -4805,7 +4786,7 @@ void BaseTextEditorWidget::reindent(QTextDocument *doc, const QTextCursor &curso
     d->m_indenter->reindent(doc, cursor, tabSettings());
 }
 
-BaseTextEditorWidget::Link BaseTextEditorWidget::findLinkAt(const QTextCursor &, bool)
+BaseTextEditorWidget::Link BaseTextEditorWidget::findLinkAt(const QTextCursor &, bool, bool)
 {
     return Link();
 }
@@ -5939,14 +5920,13 @@ QMimeData *BaseTextEditorWidget::createMimeDataFromSelection() const
         selstart.setPosition(cursor.selectionStart());
         QTextCursor selend = cursor;
         selend.setPosition(cursor.selectionEnd());
-        const TabSettings &ts = d->m_document->tabSettings();
 
-        bool startOk = ts.cursorIsAtBeginningOfLine(selstart);
+        bool startOk = TabSettings::cursorIsAtBeginningOfLine(selstart);
         bool multipleBlocks = (selend.block() != selstart.block());
 
         if (startOk && multipleBlocks) {
             selstart.movePosition(QTextCursor::StartOfBlock);
-            if (ts.cursorIsAtBeginningOfLine(selend))
+            if (TabSettings::cursorIsAtBeginningOfLine(selend))
                 selend.movePosition(QTextCursor::StartOfBlock);
             cursor.setPosition(selstart.position());
             cursor.setPosition(selend.position(), QTextCursor::KeepAnchor);
@@ -6030,7 +6010,6 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
         d->m_snippetOverlay->clear();
     }
 
-    const TabSettings &ts = d->m_document->tabSettings();
     const TypingSettings &tps = d->m_document->typingSettings();
     QTextCursor cursor = textCursor();
     if (!tps.m_autoIndent) {
@@ -6044,7 +6023,7 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
     cursor.beginEditBlock();
     cursor.removeSelectedText();
 
-    bool insertAtBeginningOfLine = ts.cursorIsAtBeginningOfLine(cursor);
+    bool insertAtBeginningOfLine = TabSettings::cursorIsAtBeginningOfLine(cursor);
 
     if (insertAtBeginningOfLine
         && source->hasFormat(QLatin1String(kTextBlockMimeType))) {
@@ -6541,11 +6520,11 @@ int BaseTextEditorWidget::rowCount() const
 }
 
 /**
-  Helper method to transform a selected text. If nothing is selected at the moment
+  Helper function to transform a selected text. If nothing is selected at the moment
   the word under the cursor is used.
-  The type of the transformation is determined by the method pointer given.
+  The type of the transformation is determined by the function pointer given.
 
-  @param method     pointer to the QString method to use for the transformation
+  @param method     pointer to the QString function to use for the transformation
 
   @see uppercaseSelection, lowercaseSelection
 */

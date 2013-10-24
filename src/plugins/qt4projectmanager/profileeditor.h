@@ -39,7 +39,7 @@ class FontSettings;
 class TextEditorActionHandler;
 }
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 class ProFileEditorFactory;
@@ -72,7 +72,8 @@ public:
     void unCommentSelection();
 
 protected:
-    virtual Link findLinkAt(const QTextCursor &, bool resolveTarget = true);
+    virtual Link findLinkAt(const QTextCursor &, bool resolveTarget = true,
+                            bool inNextSplit = false);
     TextEditor::BaseTextEditor *createEditor();
     void contextMenuEvent(QContextMenuEvent *);
 
@@ -97,6 +98,6 @@ public:
 };
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager
 
 #endif // PROFILEEDITOR_H

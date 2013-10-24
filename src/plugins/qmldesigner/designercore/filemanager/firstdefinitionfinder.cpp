@@ -38,7 +38,7 @@ using namespace QmlDesigner;
 using namespace QmlJS::AST;
 
 FirstDefinitionFinder::FirstDefinitionFinder(const QString &text):
-        m_doc(Document::create("<internal>", Document::QmlLanguage))
+        m_doc(Document::create("<internal>", Language::Qml))
 {
     m_doc->setSource(text);
     bool ok = m_doc->parseQml();
@@ -53,11 +53,8 @@ FirstDefinitionFinder::FirstDefinitionFinder(const QString &text):
 }
 
 /*!
-  \brief Finds the first object definition inside the object given by offset
-
-
-  \arg the offset of the object to search in
-  \return the offset of the first object definition
+    Finds the first object definition inside the object specified by \a offset.
+    Returns the offset of the first object definition.
   */
 qint32 FirstDefinitionFinder::operator()(quint32 offset)
 {

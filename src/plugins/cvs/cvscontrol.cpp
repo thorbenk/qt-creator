@@ -55,7 +55,7 @@ Core::Id CvsControl::id() const
 
 bool CvsControl::isConfigured() const
 {
-    const QString binary = m_plugin->settings().cvsBinaryPath;
+    const QString binary = m_plugin->settings().binaryPath();
     if (binary.isEmpty())
         return false;
     QFileInfo fi(binary);
@@ -126,29 +126,10 @@ bool CvsControl::vcsCheckout(const QString &, const QByteArray &)
     return false;
 }
 
-QString CvsControl::vcsCreateSnapshot(const QString &)
-{
-    return QString();
-}
-
-QStringList CvsControl::vcsSnapshots(const QString &)
-{
-    return QStringList();
-}
-
-bool CvsControl::vcsRestoreSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
-bool CvsControl::vcsRemoveSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
 bool CvsControl::vcsAnnotate(const QString &file, int line)
 {
-    m_plugin->vcsAnnotate(file, QString(), line);
+    const QFileInfo fi(file);
+    m_plugin->vcsAnnotate(fi.absolutePath(), fi.fileName(), QString(), line);
     return true;
 }
 
@@ -160,6 +141,11 @@ QString CvsControl::vcsOpenText() const
 bool CvsControl::managesDirectory(const QString &directory, QString *topLevel) const
 {
     return m_plugin->managesDirectory(directory, topLevel);
+}
+
+bool CvsControl::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    return m_plugin->managesFile(workingDirectory, fileName);
 }
 
 void CvsControl::emitRepositoryChanged(const QString &s)

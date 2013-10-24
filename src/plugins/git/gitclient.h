@@ -127,12 +127,6 @@ public:
         StashFlag m_flags;
     };
 
-    enum DiffEditorType {
-        DefaultDiffEditor, // value taken from settings
-        SideBySideDiffEditor,
-        SimpleTextDiffEditor
-    };
-
     static const char *stashNamePrefix;
 
     explicit GitClient(GitSettings *settings);
@@ -143,18 +137,15 @@ public:
 
     QString findRepositoryForDirectory(const QString &dir);
     QString findGitDirForRepository(const QString &repositoryDir) const;
+    bool managesFile(const QString &workingDirectory, const QString &fileName) const;
 
-    void diff(const QString &workingDirectory,
-              const QString &fileName,
-              DiffEditorType editorType = DefaultDiffEditor);
+    void diff(const QString &workingDirectory, const QString &fileName);
     void diff(const QString &workingDirectory,
               const QStringList &unstagedFileNames,
-              const QStringList &stagedFileNames = QStringList(),
-              DiffEditorType editorType = DefaultDiffEditor);
+              const QStringList &stagedFileNames = QStringList());
     void diffBranch(const QString &workingDirectory,
                     const QStringList &diffArgs,
-                    const QString &branchName,
-                    DiffEditorType editorType = DefaultDiffEditor);
+                    const QString &branchName);
     void merge(const QString &workingDirectory, const QStringList &unmergedFileNames = QStringList());
 
     void status(const QString &workingDirectory);
@@ -182,7 +173,7 @@ public:
                           const QStringList &files = QStringList(),
                           QString *errorMessage = 0);
     bool synchronousCleanList(const QString &workingDirectory, QStringList *files, QStringList *ignoredFiles, QString *errorMessage);
-    bool synchronousApplyPatch(const QString &workingDirectory, const QString &file, QString *errorMessage);
+    bool synchronousApplyPatch(const QString &workingDirectory, const QString &file, QString *errorMessage, const QStringList &arguments = QStringList());
     bool synchronousInit(const QString &workingDirectory);
     bool synchronousCheckoutFiles(const QString &workingDirectory,
                                   QStringList files = QStringList(),
@@ -341,12 +332,12 @@ public slots:
     void show(const QString &source,
               const QString &id,
               const QStringList &args = QStringList(),
-              const QString &name = QString(),
-              DiffEditorType editorType = DefaultDiffEditor);
+              const QString &name = QString());
     void saveSettings();
 
 private slots:
-    void slotBlameRevisionRequested(const QString &source, QString change, int lineNumber);
+    void slotBlameRevisionRequested(const QString &workingDirectory, const QString &file,
+                                    QString change, int lineNumber);
     void finishSubmoduleUpdate();
     void fetchFinished(const QVariant &cookie);
 

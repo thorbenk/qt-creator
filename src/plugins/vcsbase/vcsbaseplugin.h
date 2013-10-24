@@ -55,7 +55,7 @@ namespace VcsBase {
 namespace Internal { struct State; }
 
 class VcsBaseSubmitEditor;
-struct VcsBasePluginPrivate;
+class VcsBasePluginPrivate;
 class VcsBasePluginStateData;
 class VcsBasePlugin;
 
@@ -137,9 +137,6 @@ public:
     const VcsBasePluginState &currentState() const;
     Core::IVersionControl *versionControl() const;
 
-    // For internal tests: Create actions driving IVersionControl's snapshot interface.
-    QList<QAction*> createSnapShotTestActions();
-
     // Convenience that searches for the repository specifically for version control
     // systems that do not have directories like "CVS" in each managed subdirectory
     // but have a directory at the top of the repository like ".git" containing
@@ -200,7 +197,7 @@ protected:
     // Sets the current submit editor for this specific version control plugin.
     // The plugin automatically checks if the submit editor is closed and calls
     // submitEditorAboutToClose().
-    // The method raiseSubmitEditor can be used to check for a running submit editor and raise it.
+    // The function raiseSubmitEditor can be used to check for a running submit editor and raise it.
     void setSubmitEditor(VcsBaseSubmitEditor *submitEditor);
     // Current submit editor set through setSubmitEditor, if it wasn't closed inbetween
     VcsBaseSubmitEditor *submitEditor() const;
@@ -222,10 +219,6 @@ protected:
 private slots:
     void slotSubmitEditorAboutToClose(VcsBaseSubmitEditor *submitEditor, bool *result);
     void slotStateChanged(const VcsBase::Internal::State &s, Core::IVersionControl *vc);
-    void slotTestSnapshot();
-    void slotTestListSnapshots();
-    void slotTestRestoreSnapshot();
-    void slotTestRemoveSnapshot();
 
 private:
     VcsBasePluginPrivate *d;

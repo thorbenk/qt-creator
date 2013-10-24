@@ -91,18 +91,6 @@ using namespace Utils;
 namespace Debugger {
 namespace Internal {
 
-class GdbToolTipContext : public DebuggerToolTipContext
-{
-public:
-    GdbToolTipContext(const DebuggerToolTipContext &c) :
-        DebuggerToolTipContext(c), editor(0) {}
-
-    QPoint mousePosition;
-    QString expression;
-    QByteArray iname;
-    Core::IEditor *editor;
-};
-
 enum { debugPending = 0 };
 
 #define PENDING_DEBUG(s) do { if (debugPending) qDebug() << s; } while (0)
@@ -1905,7 +1893,7 @@ void GdbEngine::pythonDumpersFailed()
 void GdbEngine::showExecutionError(const QString &message)
 {
     showMessageBox(QMessageBox::Critical, tr("Execution Error"),
-       tr("Cannot continue debugged process:\n") + message);
+       tr("Cannot continue debugged process:") + QLatin1Char('\n') + message);
 }
 
 void GdbEngine::handleExecuteContinue(const GdbResponse &response)
@@ -2308,7 +2296,7 @@ void GdbEngine::handleExecuteNext(const GdbResponse &response)
         notifyInferiorRunFailed();
     } else {
         showMessageBox(QMessageBox::Critical, tr("Execution Error"),
-           tr("Cannot continue debugged process:\n") + QString::fromLocal8Bit(msg));
+           tr("Cannot continue debugged process:") + QLatin1Char('\n') + QString::fromLocal8Bit(msg));
         notifyInferiorIll();
     }
 }
@@ -2416,9 +2404,9 @@ void GdbEngine::handleExecuteReturn(const GdbResponse &response)
 }
 
 /*!
-    \brief Discard the results of all pending watch-updating commands.
+    Discards the results of all pending watch-updating commands.
 
-    This method is called at the beginning of all step/next/finish etc.
+    This function is called at the beginning of all step, next, finish, and so on,
     debugger functions.
     If non-watch-updating commands with call-backs are still in the pipe,
     it will complain.
@@ -3860,7 +3848,7 @@ void GdbEngine::handleMakeSnapshot(const GdbResponse &response)
     } else {
         QByteArray msg = response.data["msg"].data();
         showMessageBox(QMessageBox::Critical, tr("Snapshot Creation Error"),
-            tr("Cannot create snapshot:\n") + QString::fromLocal8Bit(msg));
+            tr("Cannot create snapshot:") + QLatin1Char('\n') + QString::fromLocal8Bit(msg));
     }
 }
 
@@ -3980,12 +3968,9 @@ void GdbEngine::showToolTip()
     }
 
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
-    tw->setIname(m_toolTipContext->iname);
-    tw->setExpression(m_toolTipContext->expression);
     tw->setContext(*m_toolTipContext);
     tw->acquireEngine(this);
-    DebuggerToolTipManager::instance()->showToolTip(m_toolTipContext->mousePosition,
-                                                    m_toolTipContext->editor, tw);
+    DebuggerToolTipManager::showToolTip(m_toolTipContext->mousePosition, tw);
     // Prevent tooltip from re-occurring (classic GDB, QTCREATORBUG-4711).
     m_toolTipContext.reset();
 }
@@ -4033,11 +4018,10 @@ bool GdbEngine::setToolTipExpression(const QPoint &mousePos,
         return true;
     }
 
-    m_toolTipContext.reset(new GdbToolTipContext(context));
+    m_toolTipContext.reset(new DebuggerToolTipContext(context));
     m_toolTipContext->mousePosition = mousePos;
     m_toolTipContext->expression = exp;
     m_toolTipContext->iname = iname;
-    m_toolTipContext->editor = editor;
     // Local variable: Display synchronously.
     if (iname.startsWith("local")) {
         showToolTip();
@@ -4852,8 +4836,15 @@ void GdbEngine::startGdb(const QStringList &args)
     //  template <class T> T foo() { return T(0); }
     //  int main() { return foo<int>(); }
     //  (gdb) call 'int foo<int>'()
-    //  /build/buildd/gdb-6.8/gdb/valops.c:2069: internal-error:
-    postCommand("set overload-resolution off");
+    //  /build/buildd/gdb-6.8/gdb/valops.c:2069: internal-error
+    // This seems to be fixed, however, with 'on' it seems to _require_
+    // explicit casting of function pointers:
+    // GNU gdb (GDB) 7.5.91.20130417-cvs-ubuntu
+    //  (gdb) p &Myns::QMetaType::typeName  -> $1 = (const char *(*)(int)) 0xb7cf73b0 <Myns::QMetaType::typeName(int)>
+    //  (gdb) p Myns::QMetaType::typeName(1024)  -> 31^error,msg="Couldn't find method Myns::QMetaType::typeName"
+    // But we can work around on the dumper side. So let's use the default (i.e. 'on')
+    //postCommand("set overload-resolution off");
+
     //postCommand(_("set demangle-style none"));
     // From the docs:
     //  Stop means reenter debugger if this signal happens (implies print).
@@ -4987,10 +4978,10 @@ void GdbEngine::tryLoadPythonDumpers()
     m_pythonAttemptedToLoad = true;
 
     const QByteArray dumperSourcePath =
-        Core::ICore::resourcePath().toLocal8Bit() + "/dumper/";
+        Core::ICore::resourcePath().toLocal8Bit() + "/debugger/";
 
    postCommand("python sys.path.insert(1, '" + dumperSourcePath + "')", ConsoleCommand);
-   postCommand("python from gbridge import *", ConsoleCommand, CB(handlePythonSetup));
+   postCommand("python from gdbbridge import *", ConsoleCommand, CB(handlePythonSetup));
 }
 
 void GdbEngine::reloadDebuggingHelpers()

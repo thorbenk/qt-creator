@@ -257,6 +257,15 @@ QString MercurialClient::vcsGetRepositoryURL(const QString &directory)
     return QString();
 }
 
+bool MercurialClient::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    QStringList args;
+    args << QLatin1String("status") << QLatin1String("--unknown") << fileName;
+    QByteArray output;
+    vcsFullySynchronousExec(workingDirectory, args, &output);
+    return output.isEmpty();
+}
+
 void MercurialClient::incoming(const QString &repositoryRoot, const QString &repository)
 {
     QStringList args;
@@ -428,9 +437,9 @@ public:
                                  const MercurialDiffParameters &p, QWidget *parent = 0) :
         VcsBase::VcsBaseEditorParameterWidget(parent), m_client(client), m_params(p)
     {
-        mapSetting(addToggleButton(QLatin1String("-w"), tr("Ignore whitespace")),
+        mapSetting(addToggleButton(QLatin1String("-w"), tr("Ignore Whitespace")),
                    client->settings()->boolPointer(MercurialSettings::diffIgnoreWhiteSpaceKey));
-        mapSetting(addToggleButton(QLatin1String("-B"), tr("Ignore blank lines")),
+        mapSetting(addToggleButton(QLatin1String("-B"), tr("Ignore Blank Lines")),
                    client->settings()->boolPointer(MercurialSettings::diffIgnoreBlankLinesKey));
     }
 

@@ -1,8 +1,8 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2013 Research In Motion
+** Copyright (C) 2013 BlackBerry Limited. All rights reserved.
 **
-** Contact: Research In Motion (blackberry-qt@qnx.com)
+** Contact: BlackBerry (qt@blackberry.com)
 ** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
@@ -42,7 +42,6 @@ namespace Qnx {
 namespace Internal {
 
 class BlackBerryConfiguration;
-class BlackBerryCertificate;
 
 class BlackBerryConfigurationManager : public QObject
 {
@@ -58,19 +57,15 @@ public:
     BlackBerryConfiguration *configurationFromEnvFile(const Utils::FileName &envFile) const;
 
     QString barsignerCskPath() const;
+    QString idTokenPath() const;
     QString barsignerDbPath() const;
     QString defaultKeystorePath() const;
     QString defaultDebugTokenPath() const;
     void clearConfigurationSettings(BlackBerryConfiguration *config);
-    void syncCertificates(QList<BlackBerryCertificate*> certificates,
-            BlackBerryCertificate *activeCertificate);
-    void addCertificate(BlackBerryCertificate *certificate);
-    void removeCertificate(BlackBerryCertificate *certificate);
 
-    QList<BlackBerryCertificate*> certificates() const;
-    BlackBerryCertificate *activeCertificate();
+    QList<Utils::EnvironmentItem> defaultQnxEnv();
 
-    QMultiMap<QString, QString> defaultQnxEnv();
+    void loadAutoDetectedConfigurations();
 
 public slots:
     void loadSettings();
@@ -84,13 +79,7 @@ private:
     static BlackBerryConfigurationManager *m_instance;
     QList<BlackBerryConfiguration*> m_configs;
 
-    QList<BlackBerryCertificate*> m_certificates;
-    BlackBerryCertificate *m_activeCertificate;
-
-    void loadCertificates();
     void loadManualConfigurations();
-    void loadAutoDetectedConfigurations();
-    void saveCertificates();
     void saveManualConfigurations();
     void saveActiveConfigurationNdkEnvPath();
     void clearInvalidConfigurations();

@@ -121,6 +121,7 @@ void CppEditor::Internal::registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
 
     plugIn->addAutoReleasedObject(new ApplyDeclDefLinkChanges);
     plugIn->addAutoReleasedObject(new ExtractFunction);
+    plugIn->addAutoReleasedObject(new ExtractLiteralAsParameter);
     plugIn->addAutoReleasedObject(new GenerateGetterSetter);
     plugIn->addAutoReleasedObject(new InsertDeclFromDef);
     plugIn->addAutoReleasedObject(new InsertDefFromDecl);
@@ -131,6 +132,8 @@ void CppEditor::Internal::registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
     plugIn->addAutoReleasedObject(new AssignToLocalVariable);
 
     plugIn->addAutoReleasedObject(new InsertVirtualMethods);
+
+    plugIn->addAutoReleasedObject(new OptimizeForLoop);
 }
 
 // In the following anonymous namespace all functions are collected, which could be of interest for
@@ -1299,14 +1302,14 @@ void TranslateStringLiteral::match(const CppQuickFixInterface &interface,
     QSharedPointer<Control> control = interface->context().bindings()->control();
     const Name *trName = control->identifier("tr");
 
-    // Check whether we are in a method:
+    // Check whether we are in a function:
     const QString description = QApplication::translate("CppTools::QuickFix", "Mark as Translatable");
     for (int i = path.size() - 1; i >= 0; --i) {
         if (FunctionDefinitionAST *definition = path.at(i)->asFunctionDefinition()) {
             Function *function = definition->symbol;
             ClassOrNamespace *b = interface->context().lookupType(function);
             if (b) {
-                // Do we have a tr method?
+                // Do we have a tr function?
                 foreach (const LookupItem &r, b->find(trName)) {
                     Symbol *s = r.declaration();
                     if (s->type()->isFunctionType()) {
@@ -2177,7 +2180,7 @@ void ReformatPointerDeclaration::match(const CppQuickFixInterface &interface,
         PointerDeclarationFormatter::RespectCursor);
 
     if (cursor.hasSelection()) {
-        // This will no work always as expected since this method is only called if
+        // This will no work always as expected since this function is only called if
         // interface-path() is not empty. If the user selects the whole document via
         // ctrl-a and there is an empty line in the end, then the cursor is not on
         // any AST and therefore no quick fix will be triggered.
@@ -2292,9 +2295,16 @@ Enum *findEnum(const QList<LookupItem> &results, const LookupContext &ctxt)
         if (Enum *e = type->asEnumType())
             return e;
         if (const NamedType *namedType = type->asNamedType()) {
-            const QList<LookupItem> candidates =
-                    ctxt.lookup(namedType->name(), result.scope());
-            return findEnum(candidates, ctxt);
+            if (ClassOrNamespace *con = ctxt.lookupType(namedType->name(), result.scope())) {
+                const QList<Enum *> enums = con->unscopedEnums();
+                const Name *referenceName = namedType->name();
+                foreach (Enum *e, enums) {
+                    if (const Name *candidateName = e->name()) {
+                        if (candidateName->isEqualTo(referenceName))
+                            return e;
+                    }
+                }
+            }
         }
     }
 
@@ -3552,6 +3562,326 @@ void ExtractFunction::match(const CppQuickFixInterface &interface, QuickFixOpera
 
 namespace {
 
+struct ReplaceLiteralsResult
+{
+    Token token;
+    QString literalText;
+};
+
+template <class T>
+class ReplaceLiterals : private ASTVisitor
+{
+public:
+    ReplaceLiterals(const CppRefactoringFilePtr &file, ChangeSet *changes, T *literal)
+        : ASTVisitor(file->cppDocument()->translationUnit()), m_file(file), m_changes(changes),
+          m_literal(literal)
+    {
+        m_result.token = m_file->tokenAt(literal->firstToken());
+        m_literalTokenText = m_result.token.spell();
+        m_result.literalText = QLatin1String(m_literalTokenText);
+        if (m_result.token.isCharLiteral()) {
+            m_result.literalText.prepend(QLatin1Char('\''));
+            m_result.literalText.append(QLatin1Char('\''));
+            if (m_result.token.kind() == T_WIDE_CHAR_LITERAL)
+                m_result.literalText.prepend(QLatin1Char('L'));
+            else if (m_result.token.kind() == T_UTF16_CHAR_LITERAL)
+                m_result.literalText.prepend(QLatin1Char('u'));
+            else if (m_result.token.kind() == T_UTF32_CHAR_LITERAL)
+                m_result.literalText.prepend(QLatin1Char('U'));
+        } else if (m_result.token.isStringLiteral()) {
+            m_result.literalText.prepend(QLatin1Char('"'));
+            m_result.literalText.append(QLatin1Char('"'));
+            if (m_result.token.kind() == T_WIDE_STRING_LITERAL)
+                m_result.literalText.prepend(QLatin1Char('L'));
+            else if (m_result.token.kind() == T_UTF16_STRING_LITERAL)
+                m_result.literalText.prepend(QLatin1Char('u'));
+            else if (m_result.token.kind() == T_UTF32_STRING_LITERAL)
+                m_result.literalText.prepend(QLatin1Char('U'));
+        }
+    }
+
+    ReplaceLiteralsResult apply(AST *ast)
+    {
+        ast->accept(this);
+        return m_result;
+    }
+
+private:
+    bool visit(T *ast)
+    {
+        if (ast != m_literal
+                && strcmp(m_file->tokenAt(ast->firstToken()).spell(), m_literalTokenText) != 0) {
+            return true;
+        }
+        int start, end;
+        m_file->startAndEndOf(ast->firstToken(), &start, &end);
+        m_changes->replace(start, end, QLatin1String("newParameter"));
+        return true;
+    }
+
+    const CppRefactoringFilePtr &m_file;
+    ChangeSet *m_changes;
+    T *m_literal;
+    const char *m_literalTokenText;
+    ReplaceLiteralsResult m_result;
+};
+
+class ExtractLiteralAsParameterOp : public CppQuickFixOperation
+{
+public:
+    ExtractLiteralAsParameterOp(const CppQuickFixInterface &interface, int priority,
+                                ExpressionAST *literal, FunctionDefinitionAST *function)
+        : CppQuickFixOperation(interface, priority),
+          m_literal(literal),
+          m_functionDefinition(function)
+    {
+        setDescription(QApplication::translate("CppTools::QuickFix",
+                                               "Extract Constant as Function Parameter"));
+    }
+
+    struct FoundDeclaration
+    {
+        FoundDeclaration()
+            : ast(0)
+        {}
+
+        FunctionDeclaratorAST *ast;
+        CppRefactoringFilePtr file;
+    };
+
+    FoundDeclaration findDeclaration(const CppRefactoringChanges &refactoring,
+                                     FunctionDefinitionAST *ast)
+    {
+        FoundDeclaration result;
+        Function *func = ast->symbol;
+        QString declFileName;
+        if (Class *matchingClass = isMemberFunction(assistInterface()->context(), func)) {
+            // Dealing with member functions
+            const QualifiedNameId *qName = func->name()->asQualifiedNameId();
+            for (Symbol *s = matchingClass->find(qName->identifier()); s; s = s->next()) {
+                if (!s->name()
+                        || !qName->identifier()->isEqualTo(s->identifier())
+                        || !s->type()->isFunctionType()
+                        || !s->type().isEqualTo(func->type())
+                        || s->isFunction()) {
+                    continue;
+                }
+
+                declFileName = QString::fromUtf8(matchingClass->fileName(),
+                                                 matchingClass->fileNameLength());
+
+                result.file = refactoring.file(declFileName);
+                ASTPath astPath(result.file->cppDocument());
+                const QList<AST *> path = astPath(s->line(), s->column());
+                SimpleDeclarationAST *simpleDecl;
+                for (int idx = 0; idx < path.size(); ++idx) {
+                    AST *node = path.at(idx);
+                    simpleDecl = node->asSimpleDeclaration();
+                    if (simpleDecl) {
+                        if (simpleDecl->symbols && !simpleDecl->symbols->next) {
+                            result.ast = functionDeclarator(simpleDecl);
+                            return result;
+                        }
+                    }
+                }
+
+                if (simpleDecl)
+                    break;
+            }
+        } else if (Namespace *matchingNamespace
+                   = isNamespaceFunction(assistInterface()->context(), func)) {
+            // Dealing with free functions and inline member functions.
+            bool isHeaderFile;
+            declFileName = correspondingHeaderOrSource(fileName(), &isHeaderFile);
+            if (!QFile::exists(declFileName))
+                return FoundDeclaration();
+            result.file = refactoring.file(declFileName);
+            if (!result.file)
+                return FoundDeclaration();
+            const LookupContext lc(result.file->cppDocument(), snapshot());
+            const QList<LookupItem> candidates = lc.lookup(func->name(), matchingNamespace);
+            for (int i = 0; i < candidates.size(); ++i) {
+                if (Symbol *s = candidates.at(i).declaration()) {
+                    if (s->asDeclaration()) {
+                        ASTPath astPath(result.file->cppDocument());
+                        const QList<AST *> path = astPath(s->line(), s->column());
+                        for (int idx = 0; idx < path.size(); ++idx) {
+                            AST *node = path.at(idx);
+                            SimpleDeclarationAST *simpleDecl = node->asSimpleDeclaration();
+                            if (simpleDecl) {
+                                result.ast = functionDeclarator(simpleDecl);
+                                return result;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    void perform()
+    {
+        FunctionDeclaratorAST *functionDeclaratorOfDefinition
+                = functionDeclarator(m_functionDefinition);
+        const CppRefactoringChanges refactoring(snapshot());
+        const CppRefactoringFilePtr currentFile = refactoring.file(fileName());
+        deduceTypeNameOfLiteral(currentFile->cppDocument());
+
+        ChangeSet changes;
+        if (NumericLiteralAST *concreteLiteral = m_literal->asNumericLiteral()) {
+            m_literalInfo = ReplaceLiterals<NumericLiteralAST>(currentFile, &changes,
+                                                               concreteLiteral)
+                    .apply(m_functionDefinition->function_body);
+        } else if (StringLiteralAST *concreteLiteral = m_literal->asStringLiteral()) {
+            m_literalInfo = ReplaceLiterals<StringLiteralAST>(currentFile, &changes,
+                                                              concreteLiteral)
+                    .apply(m_functionDefinition->function_body);
+        } else if (BoolLiteralAST *concreteLiteral = m_literal->asBoolLiteral()) {
+            m_literalInfo = ReplaceLiterals<BoolLiteralAST>(currentFile, &changes,
+                                                            concreteLiteral)
+                    .apply(m_functionDefinition->function_body);
+        }
+        const FoundDeclaration functionDeclaration
+                = findDeclaration(refactoring, m_functionDefinition);
+        appendFunctionParameter(functionDeclaratorOfDefinition, currentFile, &changes,
+                !functionDeclaration.ast);
+        if (functionDeclaration.ast) {
+            if (currentFile->fileName() != functionDeclaration.file->fileName()) {
+                ChangeSet declChanges;
+                appendFunctionParameter(functionDeclaration.ast, functionDeclaration.file, &declChanges,
+                                        true);
+                functionDeclaration.file->setChangeSet(declChanges);
+                functionDeclaration.file->apply();
+            } else {
+                appendFunctionParameter(functionDeclaration.ast, currentFile, &changes,
+                                        true);
+            }
+        }
+        currentFile->setChangeSet(changes);
+        currentFile->apply();
+    }
+
+private:
+    bool hasParameters(FunctionDeclaratorAST *ast) const
+    {
+        return ast->parameter_declaration_clause
+                && ast->parameter_declaration_clause->parameter_declaration_list
+                && ast->parameter_declaration_clause->parameter_declaration_list->value;
+    }
+
+    void deduceTypeNameOfLiteral(const Document::Ptr &document)
+    {
+        TypeOfExpression typeOfExpression;
+        typeOfExpression.init(document, snapshot());
+        Overview overview;
+        Scope *scope = m_functionDefinition->symbol->enclosingScope();
+        const QList<LookupItem> items = typeOfExpression(m_literal, document, scope);
+        if (!items.isEmpty())
+            m_typeName = overview.prettyType(items.first().type());
+    }
+
+    QString parameterDeclarationTextToInsert(FunctionDeclaratorAST *ast) const
+    {
+        QString str;
+        if (hasParameters(ast))
+            str = QLatin1String(", ");
+        str += m_typeName;
+        if (!m_typeName.endsWith(QLatin1Char('*')))
+                str += QLatin1Char(' ');
+        str += QLatin1String("newParameter");
+        return str;
+    }
+
+    FunctionDeclaratorAST *functionDeclarator(SimpleDeclarationAST *ast) const
+    {
+        for (DeclaratorListAST *decls = ast->declarator_list; decls; decls = decls->next) {
+            FunctionDeclaratorAST * const functionDeclaratorAST = functionDeclarator(decls->value);
+            if (functionDeclaratorAST)
+                return functionDeclaratorAST;
+        }
+        return 0;
+    }
+
+    FunctionDeclaratorAST *functionDeclarator(DeclaratorAST *ast) const
+    {
+        for (PostfixDeclaratorListAST *pds = ast->postfix_declarator_list; pds; pds = pds->next) {
+            FunctionDeclaratorAST *funcdecl = pds->value->asFunctionDeclarator();
+            if (funcdecl)
+                return funcdecl;
+        }
+        return 0;
+    }
+
+    FunctionDeclaratorAST *functionDeclarator(FunctionDefinitionAST *ast) const
+    {
+        return functionDeclarator(ast->declarator);
+    }
+
+    void appendFunctionParameter(FunctionDeclaratorAST *ast, const CppRefactoringFileConstPtr &file,
+               ChangeSet *changes, bool addDefaultValue)
+    {
+        if (!ast)
+            return;
+        if (m_declarationInsertionString.isEmpty())
+            m_declarationInsertionString = parameterDeclarationTextToInsert(ast);
+        QString insertion = m_declarationInsertionString;
+        if (addDefaultValue)
+            insertion += QLatin1String(" = ") + m_literalInfo.literalText;
+        changes->insert(file->startOf(ast->rparen_token), insertion);
+    }
+
+    ExpressionAST *m_literal;
+    FunctionDefinitionAST *m_functionDefinition;
+    QString m_typeName;
+    QString m_declarationInsertionString;
+    ReplaceLiteralsResult m_literalInfo;
+};
+
+} // anonymous namespace
+
+void ExtractLiteralAsParameter::match(const CppQuickFixInterface &interface,
+        QuickFixOperations &result)
+{
+    const QList<AST *> &path = interface->path();
+    if (path.count() < 2)
+        return;
+
+    AST * const lastAst = path.last();
+    ExpressionAST *literal;
+    if (!((literal = lastAst->asNumericLiteral())
+          || (literal = lastAst->asStringLiteral())
+          || (literal = lastAst->asBoolLiteral()))) {
+            return;
+    }
+
+    FunctionDefinitionAST *function;
+    int i = path.count() - 2;
+    while (!(function = path.at(i)->asFunctionDefinition())) {
+        // Ignore literals in lambda expressions for now.
+        if (path.at(i)->asLambdaExpression())
+            return;
+        if (--i < 0)
+            return;
+    }
+
+    FunctionDeclaratorAST *functionDeclarator
+            = function->declarator->postfix_declarator_list->value->asFunctionDeclarator();
+    if (functionDeclarator
+            && functionDeclarator->parameter_declaration_clause
+            && functionDeclarator->parameter_declaration_clause->dot_dot_dot_token) {
+        // Do not handle functions with ellipsis parameter.
+        return;
+    }
+
+    const int priority = path.size() - 1;
+    QuickFixOperation::Ptr op(
+                new ExtractLiteralAsParameterOp(interface, priority, literal, function));
+    result.append(op);
+}
+
+namespace {
+
 class InsertQtPropertyMembersOp: public CppQuickFixOperation
 {
 public:
@@ -4064,7 +4394,7 @@ void MoveFuncDefToDecl::match(const CppQuickFixInterface &interface, QuickFixOpe
             const CppRefactoringFilePtr declFile = refactoring.file(declFileName);
             ASTPath astPath(declFile->cppDocument());
             const QList<AST *> path = astPath(s->line(), s->column());
-            for (int idx = 0; idx < path.size(); ++idx) {
+            for (int idx = path.size() - 1; idx > 0; --idx) {
                 AST *node = path.at(idx);
                 if (SimpleDeclarationAST *simpleDecl = node->asSimpleDeclaration()) {
                     if (simpleDecl->symbols && !simpleDecl->symbols->next) {
@@ -5049,6 +5379,189 @@ void InsertVirtualMethods::match(const CppQuickFixInterface &interface, QuickFix
         result.append(QuickFixOperation::Ptr(op));
     else
         delete op;
+}
+
+namespace {
+
+class OptimizeForLoopOperation: public CppQuickFixOperation
+{
+public:
+    OptimizeForLoopOperation(const CppQuickFixInterface &interface, const ForStatementAST *forAst,
+                             const bool optimizePostcrement, const ExpressionAST *expression,
+                             const FullySpecifiedType type)
+        : CppQuickFixOperation(interface)
+        , m_forAst(forAst)
+        , m_optimizePostcrement(optimizePostcrement)
+        , m_expression(expression)
+        , m_type(type)
+    {
+        setDescription(QApplication::translate("CppTools::QuickFix", "Optimize for-Loop"));
+    }
+
+    void perform()
+    {
+        QTC_ASSERT(m_forAst, return);
+
+        const QString filename = assistInterface()->currentFile()->fileName();
+        const CppRefactoringChanges refactoring(assistInterface()->snapshot());
+        const CppRefactoringFilePtr file = refactoring.file(filename);
+        ChangeSet change;
+
+        // Optimize post (in|de)crement operator to pre (in|de)crement operator
+        if (m_optimizePostcrement && m_forAst->expression) {
+            PostIncrDecrAST *incrdecr = m_forAst->expression->asPostIncrDecr();
+            if (incrdecr && incrdecr->base_expression && incrdecr->incr_decr_token) {
+                change.flip(file->range(incrdecr->base_expression),
+                            file->range(incrdecr->incr_decr_token));
+            }
+        }
+
+        // Optimize Condition
+        int renamePos = -1;
+        if (m_expression) {
+            QString varName = QLatin1String("total");
+
+            if (file->textOf(m_forAst->initializer).length() == 1) {
+                Overview oo = CppCodeStyleSettings::currentProjectCodeStyleOverview();
+                const QString typeAndName = oo.prettyType(m_type, varName);
+                renamePos = file->endOf(m_forAst->initializer) - 1 + typeAndName.length();
+                change.insert(file->endOf(m_forAst->initializer) - 1, // "-1" because of ";"
+                              typeAndName + QLatin1String(" = ") + file->textOf(m_expression));
+            } else {
+                // Check if varName is already used
+                if (DeclarationStatementAST *ds = m_forAst->initializer->asDeclarationStatement()) {
+                    if (DeclarationAST *decl = ds->declaration) {
+                        if (SimpleDeclarationAST *sdecl = decl->asSimpleDeclaration()) {
+                            for (;;) {
+                                bool match = false;
+                                for (DeclaratorListAST *it = sdecl->declarator_list; it;
+                                     it = it->next) {
+                                    if (file->textOf(it->value->core_declarator) == varName) {
+                                        varName += QLatin1Char('X');
+                                        match = true;
+                                        break;
+                                    }
+                                }
+                                if (!match)
+                                    break;
+                            }
+                        }
+                    }
+                }
+
+                renamePos = file->endOf(m_forAst->initializer) + 1 + varName.length();
+                change.insert(file->endOf(m_forAst->initializer) - 1, // "-1" because of ";"
+                              QLatin1String(", ") + varName + QLatin1String(" = ")
+                              + file->textOf(m_expression));
+            }
+
+            ChangeSet::Range exprRange(file->startOf(m_expression), file->endOf(m_expression));
+            change.replace(exprRange, varName);
+        }
+
+        file->setChangeSet(change);
+        file->apply();
+
+        // Select variable name and trigger symbol rename
+        if (renamePos != -1) {
+            QTextCursor c = file->cursor();
+            c.setPosition(renamePos);
+            assistInterface()->editor()->setTextCursor(c);
+            assistInterface()->editor()->renameSymbolUnderCursor();
+            c.select(QTextCursor::WordUnderCursor);
+            assistInterface()->editor()->setTextCursor(c);
+        }
+    }
+
+private:
+    const ForStatementAST *m_forAst;
+    const bool m_optimizePostcrement;
+    const ExpressionAST *m_expression;
+    const FullySpecifiedType m_type;
+};
+
+} // anonymous namespace
+
+void OptimizeForLoop::match(const CppQuickFixInterface &interface, QuickFixOperations &result)
+{
+    const QList<AST *> path = interface->path();
+    ForStatementAST *forAst = 0;
+    if (!path.isEmpty())
+        forAst = path.last()->asForStatement();
+    if (!forAst || !interface->isCursorOn(forAst))
+        return;
+
+    // Check for optimizing a postcrement
+    const CppRefactoringFilePtr file = interface->currentFile();
+    bool optimizePostcrement = false;
+    if (forAst->expression) {
+        if (PostIncrDecrAST *incrdecr = forAst->expression->asPostIncrDecr()) {
+            const Token t = file->tokenAt(incrdecr->incr_decr_token);
+            if (t.is(T_PLUS_PLUS) || t.is(T_MINUS_MINUS))
+                optimizePostcrement = true;
+        }
+    }
+
+    // Check for optimizing condition
+    bool optimizeCondition = false;
+    FullySpecifiedType conditionType;
+    ExpressionAST *conditionExpression = 0;
+    if (forAst->initializer && forAst->condition) {
+        if (BinaryExpressionAST *binary = forAst->condition->asBinaryExpression()) {
+            // Get the expression against which we should evaluate
+            IdExpressionAST *conditionId = binary->left_expression->asIdExpression();
+            if (conditionId) {
+                conditionExpression = binary->right_expression;
+            } else {
+                conditionId = binary->right_expression->asIdExpression();
+                conditionExpression = binary->left_expression;
+            }
+
+            if (conditionId && conditionExpression
+                    && !(conditionExpression->asNumericLiteral()
+                         || conditionExpression->asStringLiteral()
+                         || conditionExpression->asIdExpression()
+                         || conditionExpression->asUnaryExpression())) {
+                // Determine type of for initializer
+                FullySpecifiedType initializerType;
+                if (DeclarationStatementAST *stmt = forAst->initializer->asDeclarationStatement()) {
+                    if (stmt->declaration) {
+                        if (SimpleDeclarationAST *decl = stmt->declaration->asSimpleDeclaration()) {
+                            if (decl->symbols) {
+                                if (Symbol *symbol = decl->symbols->value)
+                                    initializerType = symbol->type();
+                            }
+                        }
+                    }
+                }
+
+                // Determine type of for condition
+                TypeOfExpression typeOfExpression;
+                typeOfExpression.init(interface->semanticInfo().doc, interface->snapshot(),
+                                      interface->context().bindings());
+                typeOfExpression.setExpandTemplates(true);
+                Scope *scope = file->scopeAt(conditionId->firstToken());
+                const QList<LookupItem> conditionItems = typeOfExpression(
+                            conditionId, interface->semanticInfo().doc, scope);
+                if (!conditionItems.isEmpty())
+                    conditionType = conditionItems.first().type();
+
+                if (conditionType.isValid()
+                        && (file->textOf(forAst->initializer) == QLatin1String(";")
+                            || initializerType == conditionType)) {
+                    optimizeCondition = true;
+                }
+            }
+        }
+    }
+
+    if (optimizePostcrement || optimizeCondition) {
+        OptimizeForLoopOperation *op
+                = new OptimizeForLoopOperation(interface, forAst, optimizePostcrement,
+                                               (optimizeCondition) ? conditionExpression : 0,
+                                               conditionType);
+        result.append(QuickFixOperation::Ptr(op));
+    }
 }
 
 #include "cppquickfixes.moc"

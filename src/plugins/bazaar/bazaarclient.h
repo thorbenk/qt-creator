@@ -57,10 +57,12 @@ public:
     void view(const QString &source, const QString &id,
               const QStringList &extraOptions = QStringList());
     QString findTopLevelForFile(const QFileInfo &file) const;
+    bool managesFile(const QString &workingDirectory, const QString &fileName) const;
 
 protected:
     Core::Id vcsEditorKind(VcsCommand cmd) const;
     QString vcsCommandString(VcsCommand cmd) const;
+    Utils::ExitCodeInterpreter *exitCodeInterpreter(VcsCommand cmd, QObject *parent) const;
     QStringList revisionSpec(const QString &revision) const;
     VcsBase::VcsBaseEditorParameterWidget *createDiffEditor(const QString &workingDir,
                                                             const QStringList &files,

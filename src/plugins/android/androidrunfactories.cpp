@@ -40,15 +40,15 @@
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
 #include <debugger/debuggerconstants.h>
-#include <qt4projectmanager/qt4project.h>
-#include <qt4projectmanager/qt4nodes.h>
+#include <qt4projectmanager/qmakeproject.h>
+#include <qt4projectmanager/qmakenodes.h>
 #include <qtsupport/customexecutablerunconfiguration.h>
 #include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtsupportconstants.h>
 
 
 using namespace ProjectExplorer;
-using namespace Qt4ProjectManager;
+using namespace QmakeProjectManager;
 
 namespace Android {
 namespace Internal {
@@ -94,7 +94,7 @@ QList<Core::Id> AndroidRunConfigurationFactory::availableCreationIds(Target *par
     const Core::Id base = Core::Id(ANDROID_RC_ID_PREFIX);
     foreach (Qt4ProFileNode *node, nodes)
         if (node->projectType() == ApplicationTemplate || node->projectType() == LibraryTemplate)
-            ids << base.withSuffix(node->targetInformation().target);
+            ids << base.withSuffix(node->path());
     return ids;
 }
 
@@ -180,4 +180,4 @@ RunControl *AndroidRunControlFactory::create(RunConfiguration *runConfig,
 }
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace Android

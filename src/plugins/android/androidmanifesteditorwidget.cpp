@@ -44,7 +44,7 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/kitinformation.h>
 #include <texteditor/texteditoractionhandler.h>
-#include <qt4projectmanager/qt4project.h>
+#include <qt4projectmanager/qmakeproject.h>
 
 #include <QLineEdit>
 #include <QFileInfo>
@@ -99,8 +99,7 @@ AndroidManifestEditorWidget::AndroidManifestEditorWidget(QWidget *parent, TextEd
     : TextEditor::PlainTextEditorWidget(parent),
       m_dirty(false),
       m_stayClean(false),
-      m_setAppName(false),
-      m_ah(ah)
+      m_setAppName(false)
 {
     QSharedPointer<AndroidManifestDocument> doc(new AndroidManifestDocument(this));
     doc->setMimeType(QLatin1String(Constants::ANDROID_MANIFEST_MIME_TYPE));
@@ -137,6 +136,7 @@ void AndroidManifestEditorWidget::initializePage()
     // If the user clicks on the mainwidget it gets focus, even though that's not visible
     // This is to prevent the parent, the actual basetexteditorwidget from getting focus
     mainWidget->setFocusPolicy(Qt::WheelFocus);
+    mainWidget->installEventFilter(this);
 
     Core::IContext *myContext = new Core::IContext(this);
     myContext->setWidget(mainWidget);
@@ -155,7 +155,7 @@ void AndroidManifestEditorWidget::initializePage()
         m_packageNameLineEdit = new QLineEdit(packageGroupBox);
         m_packageNameLineEdit->setToolTip(tr(
                     "<p align=\"justify\">Please choose a valid package name "
-                    "for your application (e.g. \"org.example.myapplication\").</p>"
+                    "for your application (for example, \"org.example.myapplication\").</p>"
                     "<p align=\"justify\">Packages are usually defined using a hierarchical naming pattern, "
                     "with levels in the hierarchy separated by periods (.) (pronounced \"dot\").</p>"
                     "<p align=\"justify\">In general, a package name begins with the top level domain name"
@@ -202,8 +202,8 @@ void AndroidManifestEditorWidget::initializePage()
 
         m_androidTargetSdkVersion = new QComboBox(packageGroupBox);
         m_androidTargetSdkVersion->setToolTip(
-                    tr("Sets the targe SDK, set this to the highest tested version."
-                       "This disables compatibility behavior of the system for your application."));
+                  tr("Sets the target SDK. Set this to the highest tested version."
+                     "This disables compatibility behavior of the system for your application."));
         m_androidTargetSdkVersion->addItem(tr("Not set"), 0);
 
         formLayout->addRow(tr("Target SDK:"), m_androidTargetSdkVersion);
@@ -244,7 +244,7 @@ void AndroidManifestEditorWidget::initializePage()
         m_lIconButton = new QToolButton(applicationGroupBox);
         m_lIconButton->setMinimumSize(QSize(48, 48));
         m_lIconButton->setMaximumSize(QSize(48, 48));
-        m_lIconButton->setToolTip(tr("Select low dpi icon"));
+        m_lIconButton->setToolTip(tr("Select low DPI icon."));
         iconLayout->addWidget(m_lIconButton);
 
         iconLayout->addItem(new QSpacerItem(28, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
@@ -252,7 +252,7 @@ void AndroidManifestEditorWidget::initializePage()
         m_mIconButton = new QToolButton(applicationGroupBox);
         m_mIconButton->setMinimumSize(QSize(48, 48));
         m_mIconButton->setMaximumSize(QSize(48, 48));
-        m_mIconButton->setToolTip(tr("Select medium dpi icon"));
+        m_mIconButton->setToolTip(tr("Select medium DPI icon."));
         iconLayout->addWidget(m_mIconButton);
 
         iconLayout->addItem(new QSpacerItem(28, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
@@ -260,7 +260,7 @@ void AndroidManifestEditorWidget::initializePage()
         m_hIconButton = new QToolButton(applicationGroupBox);
         m_hIconButton->setMinimumSize(QSize(48, 48));
         m_hIconButton->setMaximumSize(QSize(48, 48));
-        m_hIconButton->setToolTip(tr("Select high dpi icon"));
+        m_hIconButton->setToolTip(tr("Select high DPI icon."));
         iconLayout->addWidget(m_hIconButton);
 
         formLayout->addRow(tr("Application icon:"), iconLayout);
@@ -460,6 +460,12 @@ bool AndroidManifestEditorWidget::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
+    if (obj == m_overlayWidget)
+        if (event->type() == QEvent::KeyPress
+                || event->type() == QEvent::KeyRelease) {
+            return true;
+        }
+
     return TextEditor::PlainTextEditorWidget::eventFilter(obj, event);
 }
 
@@ -497,6 +503,9 @@ void AndroidManifestEditorWidget::resizeEvent(QResizeEvent *event)
 bool AndroidManifestEditorWidget::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     bool result = PlainTextEditorWidget::open(errorString, fileName, realFileName);
+
+    updateSdkVersions();
+
     if (!result)
         return result;
 
@@ -514,7 +523,6 @@ bool AndroidManifestEditorWidget::open(QString *errorString, const QString &file
     }
     // some error occured
     updateInfoBar(error, errorLine, errorColumn);
-    updateSdkVersions();
     setActivePage(Source);
 
     return true;
@@ -644,13 +652,13 @@ bool AndroidManifestEditorWidget::checkDocument(QDomDocument doc, QString *error
 {
     QDomElement manifest = doc.documentElement();
     if (manifest.tagName() != QLatin1String("manifest")) {
-        *errorMessage = tr("The structure of the android manifest file is corrupt. Expected a top level 'manifest' node.");
+        *errorMessage = tr("The structure of the Android manifest file is corrupted. Expected a top level 'manifest' node.");
         *errorLine = -1;
         *errorColumn = -1;
         return false;
     } else if (manifest.firstChildElement(QLatin1String("application")).firstChildElement(QLatin1String("activity")).isNull()) {
         // missing either application or activity element
-        *errorMessage = tr("The structure of the Android manifest file is corrupt. Expected an 'application' and 'activity' sub node.");
+        *errorMessage = tr("The structure of the Android manifest file is corrupted. Expected an 'application' and 'activity' sub node.");
         *errorLine = -1;
         *errorColumn = -1;
         return false;
@@ -690,7 +698,8 @@ void AndroidManifestEditorWidget::updateInfoBar()
 void AndroidManifestEditorWidget::updateSdkVersions()
 {
     const QString docPath(static_cast<AndroidManifestDocument *>(editor()->document())->filePath());
-    QPair<int, int> apiLevels = AndroidManager::apiLevelRange(androidProject(docPath)->activeTarget());
+    Project *project = androidProject(docPath);
+    QPair<int, int> apiLevels = AndroidManager::apiLevelRange(project ? project->activeTarget() : 0);
     for (int i = apiLevels.first; i < apiLevels.second + 1; ++i)
         m_androidMinSdkVersion->addItem(tr("API %1: %2")
                                         .arg(i)
@@ -709,9 +718,9 @@ void AndroidManifestEditorWidget::updateInfoBar(const QString &errorMessage, int
     Core::InfoBar *infoBar = editorDocument()->infoBar();
     QString text;
     if (line < 0)
-        text = tr("Could not parse file: '%1'").arg(errorMessage);
+        text = tr("Could not parse file: '%1'.").arg(errorMessage);
     else
-        text = tr("%2: Could not parse file: '%1'").arg(errorMessage).arg(line);
+        text = tr("%2: Could not parse file: '%1'.").arg(errorMessage).arg(line);
     Core::InfoBarEntry infoBarEntry(infoBarId, text);
     infoBarEntry.setCustomButtonInfo(tr("Goto error"), this, SLOT(gotoError()));
     infoBar->removeInfo(infoBarId);
@@ -858,6 +867,20 @@ void setUsesSdk(QDomDocument &doc, QDomElement &manifest, int minimumSdk, int ta
     }
 }
 
+int extractVersion(const QString &string)
+{
+    if (!string.startsWith(QLatin1String("API")))
+        return 0;
+    int index = string.indexOf(QLatin1Char(':'));
+    if (index == -1)
+        return 0;
+#if QT_VERSION < 0x050000
+    return string.mid(4, index - 4).toInt();
+#else
+    return string.midRef(4, index - 4).toInt();
+#endif
+}
+
 void AndroidManifestEditorWidget::syncToEditor()
 {
     QDomDocument doc;
@@ -872,8 +895,8 @@ void AndroidManifestEditorWidget::syncToEditor()
     manifest.setAttribute(QLatin1String("android:versionCode"), m_versionCode->value());
     manifest.setAttribute(QLatin1String("android:versionName"), m_versionNameLinedit->text());
 
-    setUsesSdk(doc, manifest, m_androidMinSdkVersion->currentText().toInt(),
-               m_androidTargetSdkVersion->currentText().toInt());
+    setUsesSdk(doc, manifest, extractVersion(m_androidMinSdkVersion->currentText()),
+               extractVersion(m_androidTargetSdkVersion->currentText()));
 
     setAndroidAppLibName(doc, manifest.firstChildElement(QLatin1String("application"))
                                       .firstChildElement(QLatin1String("activity")),

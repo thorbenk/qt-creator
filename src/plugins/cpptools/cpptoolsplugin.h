@@ -153,6 +153,8 @@ private slots:
     void test_completion_recursive_using_declarations1();
     void test_completion_recursive_using_declarations2();
     void test_completion_recursive_using_typedef_declarations();
+    void test_completion_recursive_typedefs_in_templates1();
+    void test_completion_recursive_typedefs_in_templates2();
     void test_completion_prefix_first_QTCREATORBUG_8737();
     void test_completion_prefix_first_QTCREATORBUG_9236();
 
@@ -211,6 +213,9 @@ private slots:
     void test_modelmanager_extraeditorsupport_uiFiles();
     void test_modelmanager_gc_if_last_cppeditor_closed();
     void test_modelmanager_dont_gc_opened_files();
+    void test_modelmanager_defines_per_project();
+    void test_modelmanager_defines_per_project_pch();
+    void test_modelmanager_defines_per_editor();
 
     void test_cpplocatorfilters_CppLocatorFilter();
     void test_cpplocatorfilters_CppLocatorFilter_data();

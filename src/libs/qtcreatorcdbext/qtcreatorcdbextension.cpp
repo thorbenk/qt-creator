@@ -42,12 +42,10 @@
 
 /*!
     \group qtcreatorcdbext
-    \title Qt Creator CDB extension
+    \title Qt Creator CDB Extensions
 
-    \brief  QtCreatorCDB ext is an extension loaded into CDB.exe (see cdbengine.cpp).
-
-
-    It provides
+    Qt Creator CDB extensions are loaded into CDB.exe (see cdbengine.cpp).
+    They provide the following features:
 
     \list
     \li Notification about the state of the debugging session:
@@ -277,7 +275,7 @@ extern "C" HRESULT CALLBACK pid(CIDebugClient *client, PCSTR args)
 
     int token;
     commandTokens<StringList>(args, &token);
-    dprintf("Qt Creator CDB extension version 2.8 %d bit built %s.\n",
+    dprintf("Qt Creator CDB extension version 3.0 %d bit built %s.\n",
             sizeof(void *) * 8, __DATE__);
     if (const ULONG pid = currentProcessId(client))
         ExtensionContext::instance().report('R', token, 0, "pid", "%u", pid);

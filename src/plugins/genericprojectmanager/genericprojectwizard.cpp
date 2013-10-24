@@ -131,7 +131,6 @@ QWizard *GenericProjectWizard::createWizardDialog(QWidget *parent,
                                                   const Core::WizardDialogParameters &wizardDialogParameters) const
 {
     GenericProjectWizardDialog *wizard = new GenericProjectWizardDialog(parent);
-    setupWizard(wizard);
 
     wizard->setPath(wizardDialogParameters.defaultPath());
 
@@ -164,11 +163,15 @@ Core::GeneratedFiles GenericProjectWizard::generateFiles(const QWizard *w,
 
     QStringList includePaths;
     foreach (const QString &path, paths) {
-        QFileInfo fileInfo(dir, path);
+        QFileInfo fileInfo(path);
         QDir thisDir(fileInfo.absoluteFilePath());
 
-        if (! thisDir.entryList(nameFilters, QDir::Files).isEmpty())
-            includePaths.append(path);
+        if (! thisDir.entryList(nameFilters, QDir::Files).isEmpty()) {
+            QString relative = dir.relativeFilePath(path);
+            if (relative.isEmpty())
+                relative = QLatin1String(".");
+            includePaths.append(relative);
+        }
     }
 
     Core::GeneratedFile generatedCreatorFile(creatorFileName);

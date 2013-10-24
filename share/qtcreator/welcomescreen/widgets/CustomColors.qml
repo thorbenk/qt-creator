@@ -30,8 +30,8 @@
 import QtQuick 2.1
 
 QtObject {
-    property color linkColor: "#445ba8"
+    property color linkColor: "#328930"
     //property color linkColor: "#70b332"
     //property color strongForegroundColor: "#58595b"
-    property color strongForegroundColor: "#445ba8"
+    property color strongForegroundColor: "#328930"
 }

@@ -1,6 +1,6 @@
 import qbs.base 1.0
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "Git"
@@ -29,6 +29,7 @@ QtcPlugin {
         "branchmodel.h",
         "changeselectiondialog.cpp",
         "changeselectiondialog.h",
+        "changeselectiondialog.ui",
         "clonewizard.cpp",
         "clonewizard.h",
         "clonewizardpage.cpp",

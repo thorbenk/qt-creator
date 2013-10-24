@@ -193,7 +193,7 @@ void SourcePathMappingModel::setTarget(int row, const QString &t)
     \brief The DebuggerSourcePathMappingWidget class is a widget for maintaining
     a set of source path mappings for the debugger.
 
-    Path mappings to be applied using source path substitution in gdb.
+    Path mappings to be applied using source path substitution in GDB.
 */
 
 DebuggerSourcePathMappingWidget::DebuggerSourcePathMappingWidget(QWidget *parent) :
@@ -431,7 +431,7 @@ DebuggerSourcePathMappingWidget::SourcePathMap
     //        We could query the QtVersion for this information directly, but then we
     //        will need to add a dependency on QtSupport to the debugger.
     //
-    //        The profile could also get a method to extract the required information from
+    //        The profile could also get a function to extract the required information from
     //        its information to avoid this dependency (as we do for the environment).
     const QString qtInstallPath = findQtInstallPath(qmake);
     SourcePathMap rc = in;

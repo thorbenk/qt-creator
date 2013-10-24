@@ -561,9 +561,10 @@ bool ExternalToolRunner::resolve()
         if (m_resolvedExecutable.isEmpty()) {
             m_hasError = true;
             for (int i = 0; i < expandedExecutables.size(); ++i) {
-                m_errorString += tr("Could not find executable for '%1' (expanded '%2')\n")
+                m_errorString += tr("Could not find executable for '%1' (expanded '%2')")
                         .arg(m_tool->executables().at(i))
                         .arg(expandedExecutables.at(i));
+                m_errorString += QLatin1Char('\n');
             }
             if (!m_errorString.isEmpty())
                 m_errorString.chop(1);
@@ -624,14 +625,13 @@ void ExternalToolRunner::started()
 
 void ExternalToolRunner::finished(int exitCode, QProcess::ExitStatus status)
 {
-    if (status == QProcess::NormalExit && exitCode == 0) {
-        if (m_tool->outputHandling() == ExternalTool::ReplaceSelection
-                || m_tool->errorHandling() == ExternalTool::ReplaceSelection) {
-            ExternalToolManager::emitReplaceSelectionRequested(m_processOutput);
-        }
-        if (m_tool->modifiesCurrentDocument())
-            DocumentManager::unexpectFileChange(m_expectedFileName);
+    if (status == QProcess::NormalExit && exitCode == 0
+            &&  (m_tool->outputHandling() == ExternalTool::ReplaceSelection
+                 || m_tool->errorHandling() == ExternalTool::ReplaceSelection)) {
+        ExternalToolManager::emitReplaceSelectionRequested(m_processOutput);
     }
+    if (m_tool->modifiesCurrentDocument())
+        DocumentManager::unexpectFileChange(m_expectedFileName);
     MessageManager::write(
                 tr("'%1' finished").arg(m_resolvedExecutable), MessageManager::Silent);
     deleteLater();

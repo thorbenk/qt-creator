@@ -1,8 +1,8 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2013 Research In Motion
+** Copyright (C) 2013 BlackBerry Limited. All rights reserved.
 **
-** Contact: Research In Motion (blackberry-qt@qnx.com)
+** Contact: BlackBerry (qt@blackberry.com)
 ** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
@@ -32,6 +32,7 @@
 #include "blackberrycertificate.h"
 #include "blackberryconfiguration.h"
 #include "blackberryconfigurationmanager.h"
+#include "blackberryndkprocess.h"
 
 #include <utils/hostosinfo.h>
 
@@ -50,6 +51,7 @@ BlackBerryCertificate::BlackBerryCertificate(const QString &fileName,
     m_storePass(storePass),
     m_process(new QProcess(this))
 {
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
 }
 
 void BlackBerryCertificate::load()
@@ -142,9 +144,11 @@ void BlackBerryCertificate::loadFinished()
     while (!processOutput.atEnd()) {
         QString chunk = processOutput.readLine();
 
-        if (chunk.contains(
-                QLatin1String("Error: Failed to decrypt keystore, invalid password"))) {
+        if (chunk.contains(QLatin1String("invalid password"))) {
             status = WrongPassword;
+            break;
+        } else if (chunk.contains(QLatin1String("must be at least 6 characters"))) {
+            status = PasswordTooSmall;
             break;
         } else if (chunk.startsWith(QLatin1String("Owner:"))) {
             chunk.remove(QLatin1String("Owner:"));
@@ -179,18 +183,7 @@ void BlackBerryCertificate::processError()
 
 QString BlackBerryCertificate::command() const
 {
-    QString command;
-    // TOOD: Give user choice to select NDK from where to get commands
-    QMultiMap<QString, QString> qnxEnv = BlackBerryConfigurationManager::instance().defaultQnxEnv();
-    if (!qnxEnv.isEmpty()) {
-        command = qnxEnv.value(QLatin1String("QNX_HOST"))
-                + QLatin1String("/usr/bin/blackberry-keytool");
-
-        if (Utils::HostOsInfo::isWindowsHost())
-            command += QLatin1String(".bat");
-    }
-
-    return command;
+    return BlackBerryNdkProcess::resolveNdkToolPath(QLatin1String("blackberry-keytool"));
 }
 
 } // namespace Internal

@@ -63,9 +63,11 @@ public:
 
     void setSource(const char *source, unsigned size);
 
-    unsigned tokenCount() const { return unsigned(_tokens->size()); }
-    const Token &tokenAt(unsigned index) const { return _tokens->at(index); }
-    int tokenKind(unsigned index) const { return _tokens->at(index).f.kind; }
+    unsigned tokenCount() const { return _tokens ? unsigned(_tokens->size()) : unsigned(0); }
+    const Token &tokenAt(unsigned index) const
+    { return _tokens && index < tokenCount() ? (*_tokens)[index] : nullToken; }
+
+    int tokenKind(unsigned index) const { return tokenAt(index).f.kind; }
     const char *spell(unsigned index) const;
 
     unsigned commentCount() const;
@@ -86,15 +88,6 @@ public:
         f._blockErrors = block;
         return previous;
     }
-
-    bool qtMocRunEnabled() const;
-    void setQtMocRunEnabled(bool onoff);
-
-    bool cxx0xEnabled() const;
-    void setCxxOxEnabled(bool onoff);
-
-    bool objCEnabled() const;
-    void setObjCEnabled(bool onoff);
 
     void warning(unsigned index, const char *fmt, ...);
     void error(unsigned index, const char *fmt, ...);
@@ -151,6 +144,9 @@ public:
 
     bool maybeSplitGreaterGreaterToken(unsigned tokenIndex);
 
+    LanguageFeatures languageFeatures() const { return _languageFeatures; }
+    void setLanguageFeatures(LanguageFeatures features) { _languageFeatures = features; }
+
 private:
     struct PPLine {
         unsigned offset;
@@ -173,10 +169,13 @@ private:
         { return offset < other.offset; }
     };
 
+    void releaseTokensAndComments();
     unsigned findLineNumber(unsigned offset) const;
     unsigned findColumnNumber(unsigned offset, unsigned lineNumber) const;
     PPLine findPreprocessorLine(unsigned offset) const;
     void showErrorLine(unsigned index, unsigned column, FILE *out);
+
+    static const Token nullToken;
 
     Control *_control;
     const StringLiteral *_fileId;
@@ -203,14 +202,12 @@ private:
         unsigned _parsed: 1;
         unsigned _blockErrors: 1;
         unsigned _skipFunctionBody: 1;
-        unsigned _qtMocRunEnabled: 1;
-        unsigned _cxx0xEnabled: 1;
-        unsigned _objCEnabled: 1;
     };
     union {
         unsigned _flags;
         Flags f;
     };
+    LanguageFeatures _languageFeatures;
 };
 
 } // namespace CPlusPlus

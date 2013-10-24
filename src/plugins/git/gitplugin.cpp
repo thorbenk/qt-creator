@@ -60,6 +60,7 @@
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/vcsmanager.h>
+#include <coreplugin/coreconstants.h>
 
 #include <utils/qtcassert.h>
 #include <utils/parameteraction.h>
@@ -249,6 +250,7 @@ ActionCommandPair
 {
     const ActionCommandPair rc = createRepositoryAction(ac, text, id, context, addToLocator);
     connect(rc.first, SIGNAL(triggered()), this, pluginSlot);
+    rc.first->setData(id.uniqueIdentifier());
     return rc;
 }
 
@@ -669,18 +671,6 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
     connect(repositoryAction, SIGNAL(triggered()), this, SLOT(createRepository()));
     gitContainer->addAction(createRepositoryCommand);
 
-    if (0) {
-        const QList<QAction*> snapShotActions = createSnapShotTestActions();
-        const int count = snapShotActions.size();
-        for (int i = 0; i < count; i++) {
-            Core::Command *tCommand
-                    = Core::ActionManager::registerAction(snapShotActions.at(i),
-                                                    Core::Id("Git.Snapshot.").withSuffix(i),
-                                                    globalcontext);
-            gitContainer->addAction(tCommand);
-        }
-    }
-
     // Submit editor
     Core::Context submitContext(Constants::C_GITSUBMITEDITOR);
     m_submitCurrentAction = new QAction(VcsBase::VcsBaseSubmitEditor::submitIcon(), tr("Commit"), this);
@@ -813,6 +803,34 @@ void GitPlugin::undoUnstagedFileChanges()
     undoFileChanges(false);
 }
 
+class ResetItemDelegate : public LogItemDelegate
+{
+public:
+    ResetItemDelegate(LogChangeWidget *widget) : LogItemDelegate(widget) {}
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+    {
+        QStyleOptionViewItem o = option;
+        if (index.row() < currentRow())
+            o.font.setStrikeOut(true);
+        QStyledItemDelegate::paint(painter, o, index);
+    }
+};
+
+class RebaseItemDelegate : public IconItemDelegate
+{
+public:
+    RebaseItemDelegate(LogChangeWidget *widget)
+        : IconItemDelegate(widget, QLatin1String(Core::Constants::ICON_UNDO))
+    {
+    }
+
+protected:
+    bool hasIcon(int row) const
+    {
+        return row <= currentRow();
+    }
+};
+
 void GitPlugin::resetRepository()
 {
     if (!ensureAllDocumentsSaved())
@@ -821,7 +839,8 @@ void GitPlugin::resetRepository()
     QTC_ASSERT(state.hasTopLevel(), return);
     QString topLevel = state.topLevel();
 
-    LogChangeDialog dialog(true);
+    LogChangeDialog dialog(true, Core::ICore::mainWindow());
+    ResetItemDelegate delegate(dialog.widget());
     dialog.setWindowTitle(tr("Undo Changes to %1").arg(QDir::toNativeSeparators(topLevel)));
     if (dialog.runDialog(topLevel))
         m_gitClient->reset(topLevel, dialog.resetFlag(), dialog.commit());
@@ -838,7 +857,8 @@ void GitPlugin::startRebase()
         return;
     if (!m_gitClient->beginStashScope(topLevel, QLatin1String("Rebase-i")))
         return;
-    LogChangeDialog dialog(false);
+    LogChangeDialog dialog(false, Core::ICore::mainWindow());
+    RebaseItemDelegate delegate(dialog.widget());
     dialog.setWindowTitle(tr("Interactive Rebase"));
     if (dialog.runDialog(topLevel, QString(), false))
         m_gitClient->interactiveRebase(topLevel, dialog.commit(), false);
@@ -852,7 +872,9 @@ void GitPlugin::startChangeRelatedAction()
     if (!state.hasTopLevel())
         return;
 
-    ChangeSelectionDialog dialog(state.topLevel(), Core::ICore::mainWindow());
+    QAction *action = qobject_cast<QAction *>(sender());
+    Core::Id id = action ? Core::Id::fromUniqueIdentifier(action->data().toInt()) : Core::Id();
+    ChangeSelectionDialog dialog(state.topLevel(), id, Core::ICore::mainWindow());
 
     int result = dialog.exec();
 
@@ -1072,15 +1094,15 @@ bool GitPlugin::submitEditorAboutToClose()
         return true;
     // Prompt user. Force a prompt unless submit was actually invoked (that
     // is, the editor was closed or shutdown).
-    bool *promptData = m_settings.boolPointer(GitSettings::promptOnSubmitKey);
     VcsBase::VcsBaseSubmitEditor::PromptSubmitResult answer;
     if (editor->forceClose()) {
         answer = VcsBase::VcsBaseSubmitEditor::SubmitDiscarded;
     } else {
+        bool promptData = false;
         answer = editor->promptSubmit(tr("Closing Git Editor"),
                      tr("Do you want to commit the change?"),
                      tr("Git will not accept this commit. Do you want to continue to edit it?"),
-                     promptData, !m_submitActionTriggered, false);
+                     &promptData, !m_submitActionTriggered, false);
     }
     m_submitActionTriggered = false;
     switch (answer) {
@@ -1108,17 +1130,22 @@ bool GitPlugin::submitEditorAboutToClose()
                                                 commitType, amendSHA1,
                                                 m_commitMessageFileName, model);
     }
-    if (closeEditor) {
-        cleanCommitMessageFile();
-        if (commitType == FixupCommit) {
-            if (!m_gitClient->beginStashScope(m_submitRepository, QLatin1String("Rebase-fixup"), NoPrompt))
-                return false;
-            m_gitClient->interactiveRebase(m_submitRepository, amendSHA1, true);
-        } else {
-            m_gitClient->continueCommandIfNeeded(m_submitRepository);
-        }
+    if (!closeEditor)
+        return false;
+    cleanCommitMessageFile();
+    if (commitType == FixupCommit) {
+        if (!m_gitClient->beginStashScope(m_submitRepository, QLatin1String("Rebase-fixup"), NoPrompt))
+            return false;
+        m_gitClient->interactiveRebase(m_submitRepository, amendSHA1, true);
+    } else {
+        m_gitClient->continueCommandIfNeeded(m_submitRepository);
+        if (editor->panelData().pushAction == NormalPush)
+            m_gitClient->push(m_submitRepository);
+        else if (editor->panelData().pushAction == PushToGerrit)
+            connect(editor, SIGNAL(destroyed()), this, SLOT(delayedPushToGerrit()));
     }
-    return closeEditor;
+
+    return true;
 }
 
 void GitPlugin::fetch()
@@ -1344,7 +1371,7 @@ void GitPlugin::stashSnapshot()
         m_stashDialog->refresh(state.topLevel(), true);
 }
 
-// Create a non-modal dialog with refresh method or raise if it exists
+// Create a non-modal dialog with refresh function or raise if it exists
 template <class NonModalDialog>
     inline void showNonModalDialog(const QString &topLevel,
                                    QPointer<NonModalDialog> &dialog)
@@ -1440,6 +1467,11 @@ void GitPlugin::updateContinueAndAbortCommands()
         m_continueRevertAction->setVisible(false);
         m_continueRebaseAction->setVisible(false);
     }
+}
+
+void GitPlugin::delayedPushToGerrit()
+{
+    m_gerritPlugin->push(m_submitRepository);
 }
 
 void GitPlugin::updateBranches(const QString &repository)

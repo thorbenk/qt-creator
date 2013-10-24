@@ -1,6 +1,6 @@
 import qbs.base 1.0
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "CVS"
@@ -20,6 +20,8 @@ QtcPlugin {
         "checkoutwizardpage.cpp",
         "checkoutwizardpage.h",
         "cvs.qrc",
+        "cvsclient.cpp",
+        "cvsclient.h",
         "cvsconstants.h",
         "cvscontrol.cpp",
         "cvscontrol.h",

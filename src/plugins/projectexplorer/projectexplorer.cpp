@@ -37,6 +37,7 @@
 #include "projectexplorersettings.h"
 #include "projectmacroexpander.h"
 #include "removetaskhandler.h"
+#include "unconfiguredprojectpanel.h"
 #include "kitmanager.h"
 #include "kitoptionspage.h"
 #include "target.h"
@@ -80,8 +81,6 @@
 #include "devicesupport/desktopdevicefactory.h"
 #include "devicesupport/devicemanager.h"
 #include "devicesupport/devicesettingspage.h"
-#include "publishing/ipublishingwizardfactory.h"
-#include "publishing/publishingwizardselectiondialog.h"
 
 #ifdef Q_OS_WIN
 #    include "windebuginterface.h"
@@ -96,6 +95,7 @@
 #endif
 
 #include <extensionsystem/pluginspec.h>
+#include <extensionsystem/pluginmanager.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/id.h>
@@ -114,6 +114,7 @@
 #include <coreplugin/variablemanager.h>
 #include <coreplugin/fileutils.h>
 #include <coreplugin/removefiledialog.h>
+#include <texteditor/findinfiles.h>
 #include <utils/qtcassert.h>
 #include <utils/parameteraction.h>
 
@@ -132,12 +133,13 @@
 
 /*!
     \namespace ProjectExplorer
-    ProjectExplorer plugin namespace
+    The ProjectExplorer namespace contains the classes to explore projects.
 */
 
 /*!
     \namespace ProjectExplorer::Internal
-    Internal namespace of the ProjectExplorer plugin
+    The ProjectExplorer::Internal namespace is the internal namespace of the
+    ProjectExplorer plugin.
     \internal
 */
 
@@ -187,7 +189,6 @@ struct ProjectExplorerPluginPrivate {
     Utils::ParameterAction *m_deployAction;
     QAction *m_deployActionContextMenu;
     QAction *m_deploySessionAction;
-    Utils::ParameterAction *m_publishAction;
     Utils::ParameterAction *m_cleanAction;
     QAction *m_cleanActionContextMenu;
     QAction *m_cleanSessionAction;
@@ -427,6 +428,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     addAutoReleasedObject(new DependenciesPanelFactory);
 
     addAutoReleasedObject(new ProcessStepFactory);
+    addAutoReleasedObject(new UnconfiguredProjectPanel);
 
     addAutoReleasedObject(new AllProjectsFind);
     addAutoReleasedObject(new CurrentProjectFind);
@@ -580,8 +582,10 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
                        projecTreeContext);
     mfileContextMenu->addAction(cmd, Constants::G_FILE_OPEN);
 
-    d->m_searchOnFileSystem = new QAction(FolderNavigationWidget::msgFindOnFileSystem(), this);
+    d->m_searchOnFileSystem = new QAction(FileUtils::msgFindInDirectory(), this);
     cmd = ActionManager::registerAction(d->m_searchOnFileSystem, ProjectExplorer::Constants::SEARCHONFILESYSTEM, projecTreeContext);
+
+    mfileContextMenu->addAction(cmd, Constants::G_FILE_OTHER);
     mfolderContextMenu->addAction(cmd, Constants::G_FOLDER_CONFIG);
     msubProjectContextMenu->addAction(cmd, Constants::G_PROJECT_LAST);
     mprojectContextMenu->addAction(cmd, Constants::G_PROJECT_LAST);
@@ -729,14 +733,6 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     // Run without deployment action
     d->m_runWithoutDeployAction = new QAction(tr("Run Without Deployment"), this);
     cmd = ActionManager::registerAction(d->m_runWithoutDeployAction, Constants::RUNWITHOUTDEPLOY, globalcontext);
-    mbuild->addAction(cmd, Constants::G_BUILD_RUN);
-
-    // Publish action
-    d->m_publishAction = new Utils::ParameterAction(tr("Publish Project..."), tr("Publish Project \"%1\"..."),
-                                                    Utils::ParameterAction::AlwaysEnabled, this);
-    cmd = ActionManager::registerAction(d->m_publishAction, Constants::PUBLISH, globalcontext);
-    cmd->setAttribute(Command::CA_UpdateText);
-    cmd->setDescription(d->m_publishAction->text());
     mbuild->addAction(cmd, Constants::G_BUILD_RUN);
 
     // build action (context menu)
@@ -954,7 +950,6 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     connect(d->m_deployAction, SIGNAL(triggered()), this, SLOT(deployProject()));
     connect(d->m_deployActionContextMenu, SIGNAL(triggered()), this, SLOT(deployProjectContextMenu()));
     connect(d->m_deploySessionAction, SIGNAL(triggered()), this, SLOT(deploySession()));
-    connect(d->m_publishAction, SIGNAL(triggered()), this, SLOT(publishProject()));
     connect(d->m_cleanProjectOnlyAction, SIGNAL(triggered()), this, SLOT(cleanProjectOnly()));
     connect(d->m_cleanAction, SIGNAL(triggered()), this, SLOT(cleanProject()));
     connect(d->m_cleanActionContextMenu, SIGNAL(triggered()), this, SLOT(cleanProjectContextMenu()));
@@ -1244,19 +1239,6 @@ void ProjectExplorerPlugin::setStartupProject(Project *project)
     updateActions();
 }
 
-void ProjectExplorerPlugin::publishProject()
-{
-    const Project * const project = SessionManager::startupProject();
-    QTC_ASSERT(project, return);
-    PublishingWizardSelectionDialog selectionDialog(project);
-    if (selectionDialog.exec() == QDialog::Accepted) {
-        QWizard * const publishingWizard
-            = selectionDialog.createSelectedWizard();
-        publishingWizard->exec();
-        delete publishingWizard;
-    }
-}
-
 void ProjectExplorerPlugin::savePersistentSettings()
 {
     if (debug)
@@ -1513,7 +1495,7 @@ static inline QStringList projectFileGlobs()
 }
 
 /*!
-    This method is connected to the ICore::coreOpened signal.  If
+    This function is connected to the ICore::coreOpened signal.  If
     there was no session explicitly loaded, it creates an empty new
     default session and puts the list of recent projects and sessions
     onto the welcome page.
@@ -1651,7 +1633,7 @@ void ProjectExplorerPlugin::buildStateChanged(Project * pro)
 {
     if (debug) {
         qDebug() << "buildStateChanged";
-        qDebug() << pro->document()->filePath() << "isBuilding()" << BuildManager::isBuilding(pro);
+        qDebug() << pro->projectFilePath() << "isBuilding()" << BuildManager::isBuilding(pro);
     }
     Q_UNUSED(pro)
     updateActions();
@@ -1854,7 +1836,6 @@ void ProjectExplorerPlugin::updateActions()
     d->m_buildAction->setParameter(projectName);
     d->m_rebuildAction->setParameter(projectName);
     d->m_cleanAction->setParameter(projectName);
-    d->m_publishAction->setParameter(projectName);
 
     d->m_buildAction->setEnabled(buildActionState.first);
     d->m_rebuildAction->setEnabled(buildActionState.first);
@@ -1907,19 +1888,6 @@ void ProjectExplorerPlugin::updateActions()
     d->m_cleanSessionAction->setToolTip(buildSessionState.second);
 
     d->m_cancelBuildAction->setEnabled(BuildManager::isBuilding());
-
-    bool canPublish = false;
-    if (project) {
-        const QList<IPublishingWizardFactory *> &factories
-                = ExtensionSystem::PluginManager::getObjects<IPublishingWizardFactory>();
-        foreach (const IPublishingWizardFactory *const factory, factories) {
-            if (factory->canCreateWizard(project)) {
-                canPublish = true;
-                break;
-            }
-        }
-    }
-    d->m_publishAction->setEnabled(canPublish);
 
     const bool hasProjects = SessionManager::hasProjects();
     d->m_projectSelectorAction->setEnabled(hasProjects);
@@ -2017,8 +1985,8 @@ int ProjectExplorerPlugin::queue(QList<Project *> projects, QList<Id> stepIds)
 
     foreach (Project *pro, projects)
         if (pro && pro->needsConfiguration())
-            preambleMessage.append(tr("The project %1 is not configured, skipping it.\n")
-                                   .arg(pro->displayName()));
+            preambleMessage.append(tr("The project %1 is not configured, skipping it.")
+                                   .arg(pro->displayName()) + QLatin1Char('\n'));
     foreach (Id id, stepIds) {
         foreach (Project *pro, projects) {
             if (!pro || !pro->activeTarget())
@@ -2236,9 +2204,10 @@ QPair<bool, QString> ProjectExplorerPlugin::buildSettingsEnabledForSession()
                     && project->activeTarget()->activeBuildConfiguration()
                     && !project->activeTarget()->activeBuildConfiguration()->isEnabled()) {
                 result.first = false;
-                result.second += tr("Building '%1' is disabled: %2\n")
+                result.second += tr("Building '%1' is disabled: %2")
                         .arg(project->displayName(),
                              project->activeTarget()->activeBuildConfiguration()->disabledReason());
+                result.second += QLatin1Char('\n');
             }
         }
     }
@@ -2820,7 +2789,8 @@ void ProjectExplorerPlugin::addExistingFiles(ProjectNode *projectNode, const QSt
     projectNode->addFiles(fileNames, &notAdded);
 
     if (!notAdded.isEmpty()) {
-        QString message = tr("Could not add following files to project %1:\n").arg(projectNode->displayName());
+        QString message = tr("Could not add following files to project %1:").arg(projectNode->displayName());
+        message += QLatin1Char('\n');
         QString files = notAdded.join(QString(QLatin1Char('\n')));
         QMessageBox::warning(ICore::mainWindow(), tr("Adding Files to Project Failed"),
                              message + files);
@@ -2852,7 +2822,7 @@ void ProjectExplorerPlugin::openFile()
 void ProjectExplorerPlugin::searchOnFileSystem()
 {
     QTC_ASSERT(d->m_currentNode, return);
-    FolderNavigationWidget::findOnFileSystem(pathFor(d->m_currentNode));
+    TextEditor::FindInFiles::findOnFileSystem(pathFor(d->m_currentNode));
 }
 
 void ProjectExplorerPlugin::showInGraphicalShell()

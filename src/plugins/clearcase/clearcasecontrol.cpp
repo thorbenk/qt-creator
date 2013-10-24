@@ -134,6 +134,11 @@ bool ClearCaseControl::managesDirectory(const QString &directory, QString *topLe
     return m_plugin->managesDirectory(directory, topLevel);
 }
 
+bool ClearCaseControl::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    return m_plugin->managesFile(workingDirectory, fileName);
+}
+
 bool ClearCaseControl::vcsAnnotate(const QString &file, int line)
 {
     const QFileInfo fi(file);
@@ -177,26 +182,6 @@ bool ClearCaseControl::vcsCheckout(const QString & /*directory*/, const QByteArr
 }
 
 bool ClearCaseControl::vcsCreateRepository(const QString &)
-{
-    return false;
-}
-
-QString ClearCaseControl::vcsCreateSnapshot(const QString &)
-{
-    return QString();
-}
-
-QStringList ClearCaseControl::vcsSnapshots(const QString &)
-{
-    return QStringList();
-}
-
-bool ClearCaseControl::vcsRestoreSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
-bool ClearCaseControl::vcsRemoveSnapshot(const QString &, const QString &)
 {
     return false;
 }

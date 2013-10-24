@@ -40,6 +40,7 @@
 #include <qmljs/qmljsscopechain.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
+#include <languageutils/fakemetaobject.h>
 
 namespace QmlDesigner {
 
@@ -65,7 +66,7 @@ The object can be invalid - you can check this by calling isValid().
 The object is invalid if you ask for meta information for
 an non-existing qml property. Also the node meta info can become invalid
 if the enclosing type is deregistered from the meta type system (e.g.
-a sub component qml file is deleted). Trying to call any accessor methods on an invalid
+a sub component qml file is deleted). Trying to call any accessor functions on an invalid
 NodeMetaInfo object will result in an InvalidMetaInfoException being thrown.
 
 \see QmlDesigner::MetaInfo, QmlDesigner::PropertyMetaInfo, QmlDesigner::EnumeratorMetaInfo
@@ -544,7 +545,7 @@ NodeMetaInfoPrivate::NodeMetaInfoPrivate(Model *model, TypeName type, int maj, i
                     m_isFileComponent = true;
                     const Imports *imports = context()->imports(document());
                     ImportInfo importInfo = imports->info(lookupNameComponent().last(), context().data());
-                    if (importInfo.isValid() && importInfo.type() == ImportInfo::LibraryImport) {
+                    if (importInfo.isValid() && importInfo.type() == ImportType::Library) {
                         m_majorVersion = importInfo.version().majorVersion();
                         m_minorVersion = importInfo.version().minorVersion();
                     }
@@ -775,8 +776,20 @@ QString NodeMetaInfoPrivate::propertyEnumScope(const PropertyName &propertyName)
         return QString();
     const CppComponentValue *definedIn = 0;
     qmlObjectValue->getEnum(propertyType(propertyName), &definedIn);
-    if (definedIn)
+    if (definedIn) {
+        QString nonCppPackage;
+        foreach (const LanguageUtils::FakeMetaObject::Export &qmlExport, definedIn->metaObject()->exports()) {
+            if (qmlExport.package != QLatin1String("<cpp>"))
+                nonCppPackage = qmlExport.package;
+        }
+
+        const LanguageUtils::FakeMetaObject::Export qmlExport =
+                definedIn->metaObject()->exportInPackage(nonCppPackage);
+        if (qmlExport.isValid())
+            return qmlExport.type;
+
         return definedIn->className();
+    }
 
     return QString();
 }
@@ -937,9 +950,9 @@ QString NodeMetaInfoPrivate::importDirectoryPath() const
         const Imports *imports = context()->imports(document());
         ImportInfo importInfo = imports->info(lookupNameComponent().last(), context().data());
 
-        if (importInfo.type() == ImportInfo::DirectoryImport) {
+        if (importInfo.type() == ImportType::Directory) {
             return importInfo.path();
-        } else if (importInfo.type() == ImportInfo::LibraryImport) {
+        } else if (importInfo.type() == ImportType::Library) {
             if (modelManager) {
                 foreach (const QString &importPath, modelManager->importPaths()) {
                     const QString targetPath = QDir(importPath).filePath(importInfo.path());

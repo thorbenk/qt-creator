@@ -1,8 +1,8 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2013 Research In Motion
+** Copyright (C) 2012, 2013 BlackBerry Limited. All rights reserved.
 **
-** Contact: Research In Motion (blackberry-qt@qnx.com)
+** Contact: BlackBerry (qt@blackberry.com)
 ** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
@@ -75,7 +75,7 @@ BlackBerryDeviceConfigurationWizardSetupPage::BlackBerryDeviceConfigurationWizar
 
 {
     m_ui->setupUi(this);
-    setTitle(tr("Connection Details"));
+    setTitle(tr("Connection"));
 
     connect(m_ui->deviceListWidget, SIGNAL(itemSelectionChanged()), this, SLOT(onDeviceSelectionChanged()));
     connect(m_deviceListDetector, SIGNAL(deviceDetected(QString,QString,bool)),
@@ -225,7 +225,7 @@ BlackBerryDeviceConfigurationWizardQueryPage::BlackBerryDeviceConfigurationWizar
     , m_deviceInformation(new BlackBerryDeviceInformation(this))
 {
     m_ui->setupUi(this);
-    setTitle(tr("Query Device Information"));
+    setTitle(tr("Device Information"));
     m_ui->progressBar->setMaximum(Done);
 
     connect(m_deviceInformation,SIGNAL(finished(int)),this,SLOT(processQueryFinished(int)));
@@ -426,7 +426,7 @@ QString BlackBerryDeviceConfigurationWizardConfigPage::debugToken() const
 BlackBerryDeviceConfigurationWizardFinalPage::BlackBerryDeviceConfigurationWizardFinalPage(QWidget *parent)
     : QWizardPage(parent)
 {
-    setTitle(tr("Setup Finished"));
+    setTitle(tr("Summary"));
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     QLabel *label = new QLabel(tr("The new device configuration will be created now."), this);

@@ -52,6 +52,11 @@
             2.3.3, or later. You must install the Qt for Android SDK to develop
             for Android devices.
 
+        \li \l{Connecting Bare Metal Devices}
+
+            You can connect bare metal devices to the development PC and use \QC
+            to debug applications on them with GDB or a hardware debugger.
+
         \li \l{Connecting BlackBerry 10 Devices}
 
             \QC enables you to develop, deploy and debug your Qt applications
@@ -62,23 +67,14 @@
         \li \l{Connecting Embedded Linux Devices}
 
             If you have a tool chain for building applications for embedded
-            Linux devices (with no MADDE support) installed on the development
+            Linux devices installed on the development
             PC, you can add it and the device to \QC.
 
-        \li \l{Connecting Maemo Devices}
+        \li \l{Connecting iOS Devices}
 
-            Maemo 5 (Fremantle) is a Linux-based software platform developed by
-            Nokia and delivered on the Nokia N900. Use a connectivity tool (Mad
-            Developer) to create the device-side end point for USB and WLAN
-            connections.
-
-       \li \l{Connecting MeeGo Harmattan Devices}
-
-            MeeGo Harmattan is a Linux-based software platform developed by
-            Nokia and preinstalled on Nokia N950 and Nokia N9. It enables
-            developers to create applications using the Qt framework.
-            Use the SDK Connectivity tool that is preinstalled on the device to
-            create the device-side end point for USB and WLAN connections.
+            You use the tools delivered with Xcode to connect devices to \QC.
+            \QC detects the tools and configured devices automatically and uses
+            the tools to build, deploy, and run applications.
 
         \li \l{Connecting QNX Devices}
 

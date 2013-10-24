@@ -47,12 +47,11 @@ ModificationGroupException::ModificationGroupException(int line,
                                                    const QString &file)
  : Exception(line, function, file)
 {
+    createWarning();
 }
 
 /*!
-\brief Returns the type of this exception
-
-\returns the type as a string
+    Returns the type of the exception as a string.
 */
 QString ModificationGroupException::type() const
 {

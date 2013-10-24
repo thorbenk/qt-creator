@@ -11,12 +11,17 @@ HEADERS += projectexplorer.h \
     environmentaspect.h \
     environmentaspectwidget.h \
     gcctoolchain.h \
+    importwidget.h \
     localapplicationrunconfiguration.h \
     localenvironmentaspect.h \
     osparser.h \
     projectexplorer_export.h \
+    projectimporter.h \
     projectwindow.h \
     removetaskhandler.h \
+    targetsetuppage.h \
+    targetsetupwidget.h \
+    unconfiguredprojectpanel.h \
     kit.h \
     kitchooser.h \
     kitconfigwidget.h \
@@ -100,8 +105,6 @@ HEADERS += projectexplorer.h \
     taskhub.h \
     localapplicationruncontrol.h \
     metatypedeclarations.h \
-    publishing/publishingwizardselectiondialog.h \
-    publishing/ipublishingwizardfactory.h \
     headerpath.h \
     gcctoolchainfactories.h \
     appoutputpane.h \
@@ -137,7 +140,8 @@ HEADERS += projectexplorer.h \
     customtoolchain.h \
     projectmacroexpander.h \
     customparser.h \
-    customparserconfigdialog.h
+    customparserconfigdialog.h \
+    ipotentialkit.h
 
 SOURCES += projectexplorer.cpp \
     abi.cpp \
@@ -147,11 +151,16 @@ SOURCES += projectexplorer.cpp \
     environmentaspect.cpp \
     environmentaspectwidget.cpp \
     gcctoolchain.cpp \
+    importwidget.cpp \
     localapplicationrunconfiguration.cpp \
     localenvironmentaspect.cpp \
     osparser.cpp \
+    projectimporter.cpp \
     projectwindow.cpp \
     removetaskhandler.cpp \
+    targetsetuppage.cpp \
+    targetsetupwidget.cpp \
+    unconfiguredprojectpanel.cpp \
     kit.cpp \
     kitchooser.cpp \
     kitconfigwidget.cpp \
@@ -229,7 +238,6 @@ SOURCES += projectexplorer.cpp \
     taskhub.cpp \
     processparameters.cpp \
     localapplicationruncontrol.cpp \
-    publishing/publishingwizardselectiondialog.cpp \
     appoutputpane.cpp \
     codestylesettingspropertiespage.cpp \
     settingsaccessor.cpp \
@@ -260,7 +268,8 @@ SOURCES += projectexplorer.cpp \
     customtoolchain.cpp \
     projectmacroexpander.cpp \
     customparser.cpp \
-    customparserconfigdialog.cpp
+    customparserconfigdialog.cpp \
+    ipotentialkit.cpp
 
 FORMS += processstep.ui \
     editorsettingspropertiespage.ui \
@@ -269,7 +278,6 @@ FORMS += processstep.ui \
     projectexplorersettingspage.ui \
     targetsettingswidget.ui \
     doubletabwidget.ui \
-    publishing/publishingwizardselectiondialog.ui \
     codestylesettingspropertiespage.ui \
     devicesupport/devicefactoryselectiondialog.ui \
     devicesupport/devicesettingswidget.ui \

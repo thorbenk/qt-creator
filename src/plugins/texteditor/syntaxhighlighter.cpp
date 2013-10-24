@@ -342,7 +342,7 @@ SyntaxHighlighter::SyntaxHighlighter(BaseTextDocument *parent)
 }
 
 /*!
-    Constructs a SyntaxHighlighter and installs it on \a parent 's
+    Constructs a SyntaxHighlighter and installs it on \a parent's
     QTextDocument. The specified QTextEdit also becomes the owner of
     the SyntaxHighlighter.
 */
@@ -354,7 +354,7 @@ SyntaxHighlighter::SyntaxHighlighter(QTextEdit *parent)
 }
 
 /*!
-    Destructor. Uninstalls this syntax highlighter from the text document.
+    Destructor that uninstalls this syntax highlighter from the text document.
 */
 SyntaxHighlighter::~SyntaxHighlighter()
 {
@@ -693,7 +693,7 @@ static bool byStartOfRange(const QTextLayout::FormatRange &range, const QTextLay
 }
 
 // The formats is passed in by reference in order to prevent unnecessary copying of its items.
-// After this method returns, the list is modified, and should be considered invalidated!
+// After this function returns, the list is modified, and should be considered invalidated!
 void SyntaxHighlighter::setExtraAdditionalFormats(const QTextBlock& block,
                                                   QList<QTextLayout::FormatRange> &formats)
 {

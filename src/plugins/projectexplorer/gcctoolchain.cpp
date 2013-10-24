@@ -67,8 +67,6 @@ static const char compilerPlatformLinkerFlagsKeyC[] = "ProjectExplorer.GccToolCh
 static const char targetAbiKeyC[] = "ProjectExplorer.GccToolChain.TargetAbi";
 static const char supportedAbisKeyC[] = "ProjectExplorer.GccToolChain.SupportedAbis";
 
-static const char LEGACY_MAEMO_ID[] = "Qt4ProjectManager.ToolChain.Maemo:";
-
 static QByteArray runGcc(const FileName &gcc, const QStringList &arguments, const QStringList &env)
 {
     if (gcc.isEmpty() || !gcc.toFileInfo().isExecutable())
@@ -611,7 +609,7 @@ void GccToolChain::setPlatformCodeGenFlags(const QStringList &flags)
 }
 
 /*!
-    \brief code gen flags that have to be passed to the compiler
+    Code gen flags that have to be passed to the compiler.
  */
 QStringList GccToolChain::platformCodeGenFlags() const
 {
@@ -627,9 +625,9 @@ void GccToolChain::setPlatformLinkerFlags(const QStringList &flags)
 }
 
 /*!
-    \brief flags that have to be passed to the linker
+    Flags that have to be passed to the linker.
 
-    for example -arch armv7...
+    For example: \c{-arch armv7}
  */
 QStringList GccToolChain::platformLinkerFlags() const
 {
@@ -748,8 +746,7 @@ QList<ToolChain *> GccToolChainFactory::autoDetect()
 bool GccToolChainFactory::canRestore(const QVariantMap &data)
 {
     const QString id = idFromMap(data);
-    return id.startsWith(QLatin1String(Constants::GCC_TOOLCHAIN_ID) + QLatin1Char(':'))
-            || id.startsWith(QLatin1String(LEGACY_MAEMO_ID));
+    return id.startsWith(QLatin1String(Constants::GCC_TOOLCHAIN_ID) + QLatin1Char(':'));
 }
 
 ToolChain *GccToolChainFactory::restore(const QVariantMap &data)
@@ -758,11 +755,6 @@ ToolChain *GccToolChainFactory::restore(const QVariantMap &data)
     // Updating from 2.5:
     QVariantMap updated = data;
     QString id = idFromMap(updated);
-    if (id.startsWith(QLatin1String(LEGACY_MAEMO_ID))) {
-        id = QString::fromLatin1(Constants::GCC_TOOLCHAIN_ID).append(id.mid(id.indexOf(QLatin1Char(':'))));
-        idToMap(updated, id);
-        autoDetectionToMap(updated, false);
-    }
     if (tc->fromMap(updated))
         return tc;
 
@@ -1016,7 +1008,8 @@ QList<FileName> ClangToolChain::suggestedMkspecList() const
     if (abi.os() == Abi::MacOS)
         return QList<FileName>()
                 << FileName::fromString(QLatin1String("macx-clang"))
-                << FileName::fromString(QLatin1String("unsupported/macx-clang"));
+                << FileName::fromString(QLatin1String("unsupported/macx-clang"))
+                << FileName::fromString(QLatin1String("macx-ios-clang"));
     else if (abi.os() == Abi::LinuxOS)
         return QList<FileName>()
                 << FileName::fromString(QLatin1String("linux-clang"))
@@ -1375,10 +1368,6 @@ void ProjectExplorerPlugin::testGccAbiGuessing_data()
             << QByteArray("#define __ARM_64 1\n#define __Something\n")
             << (QStringList());
 
-    QTest::newRow("Maemo 1")
-            << QString::fromLatin1("arm-none-linux-gnueabi")
-            << QByteArray("")
-            << (QStringList() << QLatin1String("arm-linux-generic-elf-32bit"));
     QTest::newRow("Linux 1 (32bit intel)")
             << QString::fromLatin1("i686-linux-gnu")
             << QByteArray("")

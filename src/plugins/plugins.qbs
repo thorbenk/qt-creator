@@ -33,9 +33,9 @@ Project {
         "helloworld/helloworld.qbs",
         "help/help.qbs",
         "imageviewer/imageviewer.qbs",
+        "ios/ios.qbs",
         "locator/locator.qbs",
         "macros/macros.qbs",
-        "madde/madde.qbs",
         "mercurial/mercurial.qbs",
         "perforce/perforce.qbs",
         "projectexplorer/projectexplorer.qbs",
@@ -59,5 +59,5 @@ Project {
         "valgrind/valgrind.qbs",
         "vcsbase/vcsbase.qbs",
         "welcome/welcome.qbs"
-    ]
+    ].concat(project.additionalPlugins)
 }

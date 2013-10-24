@@ -250,18 +250,18 @@ ProjectExplorer::BuildInfo *QbsBuildConfigurationFactory::createBuildInfo(const 
     info->buildDirectory = buildDirectory;
     info->kitId = k->id();
     info->type = type;
+    info->supportsShadowBuild = true;
     return info;
 }
 
-bool QbsBuildConfigurationFactory::canCreate(const ProjectExplorer::Target *parent) const
+int QbsBuildConfigurationFactory::priority(const ProjectExplorer::Target *parent) const
 {
-    return canHandle(parent);
+    return canHandle(parent) ? 0 : -1;
 }
 
 QList<ProjectExplorer::BuildInfo *> QbsBuildConfigurationFactory::availableBuilds(const ProjectExplorer::Target *parent) const
 {
     QList<ProjectExplorer::BuildInfo *> result;
-    QTC_ASSERT(canCreate(parent), return result);
 
     const Utils::FileName buildDirectory = QbsProject::defaultBuildDirectory(parent->project()->projectFilePath());
 
@@ -272,10 +272,34 @@ QList<ProjectExplorer::BuildInfo *> QbsBuildConfigurationFactory::availableBuild
     return result;
 }
 
+int QbsBuildConfigurationFactory::priority(const ProjectExplorer::Kit *k, const QString &projectPath) const
+{
+    return (k && Core::MimeDatabase::findByFile(QFileInfo(projectPath))
+            .matchesType(QLatin1String(Constants::MIME_TYPE))) ? 0 : -1;
+}
+
+QList<ProjectExplorer::BuildInfo *> QbsBuildConfigurationFactory::availableSetups(const ProjectExplorer::Kit *k, const QString &projectPath) const
+{
+    QList<ProjectExplorer::BuildInfo *> result;
+
+    const Utils::FileName buildDirectory = QbsProject::defaultBuildDirectory(projectPath);
+
+    ProjectExplorer::BuildInfo *info = createBuildInfo(k, buildDirectory, ProjectExplorer::BuildConfiguration::Debug);
+    //: The name of the debug build configuration created by default for a qbs project.
+    info->displayName = tr("Debug");
+    result << info;
+
+    info = createBuildInfo(k, buildDirectory, ProjectExplorer::BuildConfiguration::Release);
+    //: The name of the release build configuration created by default for a qbs project.
+    info->displayName = tr("Release");
+    result << info;
+
+    return result;
+}
+
 ProjectExplorer::BuildConfiguration *QbsBuildConfigurationFactory::create(ProjectExplorer::Target *parent,
                                                                           const ProjectExplorer::BuildInfo *info) const
 {
-    QTC_ASSERT(canCreate(parent), return 0);
     QTC_ASSERT(info->factory() == this, return 0);
     QTC_ASSERT(info->kitId == parent->kit()->id(), return 0);
     QTC_ASSERT(!info->displayName.isEmpty(), return 0);

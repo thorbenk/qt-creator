@@ -133,7 +133,6 @@ void LldbEngine::setupEngine()
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
 
     m_lldbCmd = startParameters().debuggerCommand;
-    showMessage(_("STARTING LLDB ") + m_lldbCmd);
 
     connect(&m_lldbProc, SIGNAL(error(QProcess::ProcessError)),
         SLOT(handleLldbError(QProcess::ProcessError)));
@@ -147,11 +146,17 @@ void LldbEngine::setupEngine()
     connect(this, SIGNAL(outputReady(QByteArray)),
         SLOT(handleResponse(QByteArray)), Qt::QueuedConnection);
 
-    m_lldbProc.start(_("python"), QStringList() << _("-i")
-        << (Core::ICore::resourcePath() + _("/dumper/lbridge.py")) << m_lldbCmd);
+    QStringList args;
+    args.append(_("-i"));
+    args.append(Core::ICore::resourcePath() + _("/debugger/lldbbridge.py"));
+    args.append(m_lldbCmd);
+    showMessage(_("STARTING LLDB ") + args.join(QLatin1String(" ")));
+    m_lldbProc.setEnvironment(startParameters().environment.toStringList());
+
+    m_lldbProc.start(_("python"), args);
 
     if (!m_lldbProc.waitForStarted()) {
-        const QString msg = tr("Unable to start lldb '%1': %2")
+        const QString msg = tr("Unable to start LLDB '%1': %2")
             .arg(m_lldbCmd, m_lldbProc.errorString());
         notifyEngineSetupFailed();
         showMessage(_("ADAPTER START FAILED"));
@@ -162,9 +167,13 @@ void LldbEngine::setupEngine()
 
 void LldbEngine::setupInferior()
 {
-    QString executable = QFileInfo(startParameters().executable).absoluteFilePath();
-    runCommand(Command("setupInferior").arg("executable", executable));
-
+    const DebuggerStartParameters &sp = startParameters();
+    Command cmd("setupInferior");
+    cmd.arg("executable", QFileInfo(sp.executable).absoluteFilePath());
+    cmd.arg("startMode", sp.startMode);
+    cmd.arg("processArgs", sp.processArgs);
+    cmd.arg("attachPid", sp.attachPID);
+    runCommand(cmd);
     requestUpdateWatchers();
 }
 
@@ -774,7 +783,7 @@ void LldbEngine::handleLldbError(QProcess::ProcessError error)
     default:
         //setState(EngineShutdownRequested, true);
         m_lldbProc.kill();
-        showMessageBox(QMessageBox::Critical, tr("Lldb I/O Error"),
+        showMessageBox(QMessageBox::Critical, tr("LLDB I/O Error"),
                        errorMessage(error));
         break;
     }
@@ -784,12 +793,12 @@ QString LldbEngine::errorMessage(QProcess::ProcessError error) const
 {
     switch (error) {
         case QProcess::FailedToStart:
-            return tr("The Lldb process failed to start. Either the "
+            return tr("The LLDB process failed to start. Either the "
                 "invoked program '%1' is missing, or you may have insufficient "
                 "permissions to invoke the program.")
                 .arg(m_lldbCmd);
         case QProcess::Crashed:
-            return tr("The Lldb process crashed some time after starting "
+            return tr("The LLDB process crashed some time after starting "
                 "successfully.");
         case QProcess::Timedout:
             return tr("The last waitFor...() function timed out. "
@@ -797,7 +806,7 @@ QString LldbEngine::errorMessage(QProcess::ProcessError error) const
                 "waitFor...() again.");
         case QProcess::WriteError:
             return tr("An error occurred when attempting to write "
-                "to the Lldb process. For example, the process may not be running, "
+                "to the LLDB process. For example, the process may not be running, "
                 "or it may have closed its input channel.");
         case QProcess::ReadError:
             return tr("An error occurred when attempting to read from "

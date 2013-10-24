@@ -61,10 +61,7 @@ SOURCES += qnxplugin.cpp \
     bardescriptorpermissionsmodel.cpp \
     blackberrykeyswidget.cpp \
     blackberrykeyspage.cpp \
-    blackberrycsjregistrar.cpp \
     blackberrycertificate.cpp \
-    blackberrycertificatemodel.cpp \
-    blackberryregisterkeydialog.cpp \
     blackberryimportcertificatedialog.cpp \
     blackberrycreatecertificatedialog.cpp \
     blackberrydebugtokenrequester.cpp \
@@ -91,12 +88,16 @@ SOURCES += qnxplugin.cpp \
     bardescriptoreditorabstractpanelwidget.cpp \
     blackberrysetupwizard.cpp \
     blackberrysetupwizardpages.cpp \
-    blackberryutils.cpp \
+    blackberrysigningutils.cpp \
     qnxdevicetester.cpp \
     blackberryconfigurationmanager.cpp \
     blackberrydevicelistdetector.cpp \
     blackberrylogprocessrunner.cpp \
-    qnxdeviceprocesssignaloperation.cpp
+    blackberryinstallwizardpages.cpp \
+    blackberryinstallwizard.cpp \
+    qnxdeviceprocesssignaloperation.cpp \
+    qnxdeviceprocesslist.cpp \
+    slog2inforunner.cpp
 
 HEADERS += qnxplugin.h\
     qnxconstants.h \
@@ -157,10 +158,7 @@ HEADERS += qnxplugin.h\
     bardescriptorpermissionsmodel.h \
     blackberrykeyswidget.h \
     blackberrykeyspage.h \
-    blackberrycsjregistrar.h \
     blackberrycertificate.h \
-    blackberrycertificatemodel.h \
-    blackberryregisterkeydialog.h \
     blackberryimportcertificatedialog.h \
     blackberrycreatecertificatedialog.h \
     blackberrydebugtokenrequester.h \
@@ -187,12 +185,17 @@ HEADERS += qnxplugin.h\
     bardescriptoreditorabstractpanelwidget.h \
     blackberrysetupwizard.h \
     blackberrysetupwizardpages.h \
-    blackberryutils.h \
+    blackberrysigningutils.h \
     qnxdevicetester.h \
     blackberryconfigurationmanager.h \
     blackberrydevicelistdetector.h \
     blackberrylogprocessrunner.h \
-    qnxdeviceprocesssignaloperation.h
+    blackberryinstallwizardpages.h \
+    blackberryinstallwizard.h \
+    qnxdeviceprocesssignaloperation.h \
+    qnxdeviceprocesslist.h \
+    slog2inforunner.h
+
 
 FORMS += \
     blackberrydeviceconfigurationwizardsetuppage.ui \
@@ -202,7 +205,6 @@ FORMS += \
     qnxbaseqtconfigwidget.ui \
     blackberryndksettingswidget.ui \
     blackberrykeyswidget.ui \
-    blackberryregisterkeydialog.ui \
     blackberryimportcertificatedialog.ui \
     blackberrycreatecertificatedialog.ui \
     blackberrydebugtokenrequestdialog.ui \
@@ -216,12 +218,17 @@ FORMS += \
     bardescriptoreditorenvironmentwidget.ui \
     bardescriptoreditorassetswidget.ui \
     blackberrysetupwizardkeyspage.ui \
+    blackberrysetupwizardcertificatepage.ui \
     blackberrysetupwizarddevicepage.ui \
     blackberrysetupwizardfinishpage.ui \
     blackberrydeviceconfigurationwizardconfigpage.ui \
-    blackberrydeviceconfigurationwizardquerypage.ui
+    blackberrydeviceconfigurationwizardquerypage.ui \
+    blackberryinstallwizardtargetpage.ui \
+    blackberryinstallwizardndkpage.ui \
+    blackberryinstallwizardprocesspage.ui
 
 include(../../private_headers.pri)
+include(./cascadesimport/cascadesimport.pri)
 
 greaterThan(QT_MAJOR_VERSION, 4) {
     QT += gui-private

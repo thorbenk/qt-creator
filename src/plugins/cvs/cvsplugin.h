@@ -56,6 +56,7 @@ namespace Internal {
 struct CvsDiffParameters;
 class CvsSubmitEditor;
 class CvsControl;
+class CvsClient;
 
 struct CvsResponse
 {
@@ -79,8 +80,6 @@ public:
 
     bool initialize(const QStringList &arguments, QString *errorMessage);
 
-    void cvsDiff(const QString &workingDir, const QStringList &files);
-
     CvsSubmitEditor *openCVSSubmitEditor(const QString &fileName);
 
     CvsSettings settings() const;
@@ -90,13 +89,15 @@ public:
     bool vcsAdd(const QString &workingDir, const QString &fileName);
     bool vcsDelete(const QString &workingDir, const QString &fileName);
     bool managesDirectory(const QString &directory, QString *topLevel = 0) const;
+    bool managesFile(const QString &workingDirectory, const QString &fileName) const;
     // cvs 'edit' is used to implement 'open' (cvsnt).
     bool edit(const QString &topLevel, const QStringList &files);
 
     static CvsPlugin *instance();
 
 public slots:
-    void vcsAnnotate(const QString &file, const QString &revision /* = QString() */, int lineNumber);
+    void vcsAnnotate(const QString &workingDirectory, const QString &file,
+                     const QString &revision, int lineNumber);
 
 private slots:
     void addCurrentFile();
@@ -122,7 +123,6 @@ private slots:
     void editCurrentFile();
     void uneditCurrentFile();
     void uneditCurrentRepository();
-    void cvsDiff(const Cvs::Internal::CvsDiffParameters &p);
 #ifdef WITH_TESTS
     void testDiffFileResolving_data();
     void testDiffFileResolving();
@@ -142,7 +142,8 @@ private:
     CvsResponse runCvs(const QString &workingDirectory,
                        const QStringList &arguments,
                        int timeOut,
-                       unsigned flags, QTextCodec *outputCodec = 0);
+                       unsigned flags,
+                       QTextCodec *outputCodec = 0) const;
 
     void annotate(const QString &workingDir, const QString &file,
                   const QString &revision = QString(), int lineNumber= -1);
@@ -165,6 +166,8 @@ private:
     inline CvsControl *cvsVersionControl() const;
 
     CvsSettings m_settings;
+    CvsClient *m_client;
+
     QString m_commitMessageFileName;
     QString m_commitRepository;
 

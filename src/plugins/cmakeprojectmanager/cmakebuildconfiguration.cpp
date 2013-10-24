@@ -122,17 +122,37 @@ CMakeBuildConfigurationFactory::~CMakeBuildConfigurationFactory()
 {
 }
 
-bool CMakeBuildConfigurationFactory::canCreate(const ProjectExplorer::Target *parent) const
+int CMakeBuildConfigurationFactory::priority(const ProjectExplorer::Target *parent) const
 {
-    return canHandle(parent);
+    return canHandle(parent) ? 0 : -1;
 }
 
 QList<ProjectExplorer::BuildInfo *> CMakeBuildConfigurationFactory::availableBuilds(const ProjectExplorer::Target *parent) const
 {
     QList<ProjectExplorer::BuildInfo *> result;
-    QTC_ASSERT(canCreate(parent), return result);
 
-    CMakeBuildInfo *info = createBuildInfo(parent->kit(), parent->project()->projectDirectory());
+    CMakeBuildInfo *info = createBuildInfo(parent->kit(),
+                                           parent->project()->projectDirectory());
+    result << info;
+    return result;
+}
+
+int CMakeBuildConfigurationFactory::priority(const ProjectExplorer::Kit *k, const QString &projectPath) const
+{
+    return (k && Core::MimeDatabase::findByFile(QFileInfo(projectPath))
+            .matchesType(QLatin1String(Constants::CMAKEMIMETYPE))) ? 0 : -1;
+}
+
+QList<ProjectExplorer::BuildInfo *> CMakeBuildConfigurationFactory::availableSetups(const ProjectExplorer::Kit *k,
+                                                                                    const QString &projectPath) const
+{
+    QList<ProjectExplorer::BuildInfo *> result;
+    CMakeBuildInfo *info = createBuildInfo(k, ProjectExplorer::Project::projectDirectory(projectPath));
+    //: The name of the build configuration created by default for a cmake project.
+    info->displayName = tr("Default");
+    info->buildDirectory
+            = Utils::FileName::fromString(CMakeProject::shadowBuildDirectory(projectPath, k,
+                                                                             info->displayName));
     result << info;
     return result;
 }
@@ -140,7 +160,6 @@ QList<ProjectExplorer::BuildInfo *> CMakeBuildConfigurationFactory::availableBui
 ProjectExplorer::BuildConfiguration *CMakeBuildConfigurationFactory::create(ProjectExplorer::Target *parent,
                                                                             const ProjectExplorer::BuildInfo *info) const
 {
-    QTC_ASSERT(canCreate(parent), return 0);
     QTC_ASSERT(info->factory() == this, return 0);
     QTC_ASSERT(info->kitId == parent->kit()->id(), return 0);
     QTC_ASSERT(!info->displayName.isEmpty(), return 0);
@@ -234,6 +253,7 @@ CMakeBuildInfo *CMakeBuildConfigurationFactory::createBuildInfo(const ProjectExp
     k->addToEnvironment(info->environment);
     info->useNinja = false;
     info->sourceDirectory = sourceDir;
+    info->supportsShadowBuild = true;
 
     return info;
 }

@@ -36,14 +36,15 @@
 #include "androidmanager.h"
 #include "androidgdbserverkitinformation.h"
 #include "androidtoolchain.h"
+#include "certificatesmodel.h"
 
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/runconfiguration.h>
 #include <projectexplorer/target.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qt4projectmanager/qt4project.h>
-#include <qt4projectmanager/qt4nodes.h>
+#include <qt4projectmanager/qmakebuildconfiguration.h>
+#include <qt4projectmanager/qmakeproject.h>
+#include <qt4projectmanager/qmakenodes.h>
 #include <qtsupport/qtkitinformation.h>
 
 #include <coreplugin/icore.h>
@@ -71,48 +72,7 @@ namespace {
     const QLatin1String CertificateSeparator("*******************************************");
 }
 
-using namespace Qt4ProjectManager;
-
-class CertificatesModel: public QAbstractListModel
-{
-public:
-    CertificatesModel(const QString &rowCertificates, QObject *parent)
-        : QAbstractListModel(parent)
-    {
-        int from = rowCertificates.indexOf(AliasString);
-        QPair<QString, QString> item;
-        while (from > -1) {
-            from += 11;// strlen(AliasString);
-            const int eol = rowCertificates.indexOf(QLatin1Char('\n'), from);
-            item.first = rowCertificates.mid(from, eol - from).trimmed();
-            const int eoc = rowCertificates.indexOf(CertificateSeparator, eol);
-            item.second = rowCertificates.mid(eol + 1, eoc - eol - 2).trimmed();
-            from = rowCertificates.indexOf(AliasString, eoc);
-            m_certs.push_back(item);
-        }
-    }
-
-protected:
-    int rowCount(const QModelIndex &parent = QModelIndex()) const
-    {
-        if (parent.isValid())
-            return 0;
-        return m_certs.size();
-    }
-
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const
-    {
-        if (!index.isValid() || (role != Qt::DisplayRole && role != Qt::ToolTipRole))
-            return QVariant();
-        if (role == Qt::DisplayRole)
-            return m_certs[index.row()].first;
-        return m_certs[index.row()].second;
-    }
-
-private:
-    QVector<QPair<QString, QString> > m_certs;
-};
-
+using namespace QmakeProjectManager;
 
 AndroidPackageCreationStep::AndroidPackageCreationStep(BuildStepList *bsl)
     : BuildStep(bsl, CreatePackageId)
@@ -149,7 +109,7 @@ bool AndroidPackageCreationStep::init()
     // Copying
     m_androidDir = AndroidManager::dirPath(target());
     Utils::FileName path = m_androidDir;
-    QString androidTargetArch = project->rootQt4ProjectNode()->singleVariableValue(Qt4ProjectManager::AndroidArchVar);
+    QString androidTargetArch = project->rootQt4ProjectNode()->singleVariableValue(QmakeProjectManager::AndroidArchVar);
     if (androidTargetArch.isEmpty()) {
         raiseError(tr("Cannot create Android package: No ANDROID_TARGET_ARCH set in make spec."));
         return false;
@@ -475,7 +435,7 @@ void AndroidPackageCreationStep::collectFiles(QList<DeployItem> *deployList,
         return;
 
     Qt4Project *project = static_cast<Qt4Project *>(target()->project());
-    QString androidTargetArch = project->rootQt4ProjectNode()->singleVariableValue(Qt4ProjectManager::AndroidArchVar);
+    QString androidTargetArch = project->rootQt4ProjectNode()->singleVariableValue(QmakeProjectManager::AndroidArchVar);
 
     QString androidAssetsPath = m_androidDir.toString() + QLatin1String("/assets/");
     QString androidJarPath = m_androidDir.toString() + QLatin1String("/libs/");
@@ -653,7 +613,7 @@ bool AndroidPackageCreationStep::createPackage()
     emit addOutput(tr("Copy Qt app & libs to Android package ..."), MessageOutput);
 
     QStringList build;
-    build << QLatin1String("-quiet");
+    build << QLatin1String("-silent");
     build << QLatin1String("clean");
     QFile::remove(m_gdbServerDestination.toString());
     if (m_signPackageForRun) {
@@ -922,4 +882,4 @@ void AndroidPackageCreationStep::raiseError(const QString &shortMsg,
 const Core::Id AndroidPackageCreationStep::CreatePackageId("Qt4ProjectManager.AndroidPackageCreationStep");
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace Android

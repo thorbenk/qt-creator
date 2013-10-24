@@ -30,6 +30,8 @@
 #ifndef CHANGESELECTIONDIALOG_H
 #define CHANGESELECTIONDIALOG_H
 
+#include <coreplugin/id.h>
+
 #include <QDialog>
 #include <QProcessEnvironment>
 
@@ -52,11 +54,13 @@ enum ChangeCommand {
     Show
 };
 
+namespace Ui { class ChangeSelectionDialog; }
+
 class ChangeSelectionDialog : public QDialog
 {
     Q_OBJECT
 public:
-    ChangeSelectionDialog(const QString &workingDirectory, QWidget *parent);
+    ChangeSelectionDialog(const QString &workingDirectory, Core::Id id, QWidget *parent);
     ~ChangeSelectionDialog();
 
     QString change() const;
@@ -77,21 +81,11 @@ private slots:
 private:
     void enableButtons(bool b);
 
+    Ui::ChangeSelectionDialog *m_ui;
+
     QProcess *m_process;
     QString m_gitBinaryPath;
     QProcessEnvironment m_gitEnvironment;
-
-    QLineEdit *m_workingDirEdit;
-    QLineEdit *m_changeNumberEdit;
-    QPushButton *m_selectDirButton;
-    QPushButton *m_selectFromHistoryButton;
-    QPushButton *m_showButton;
-    QPushButton *m_cherryPickButton;
-    QPushButton *m_revertButton;
-    QPushButton *m_checkoutButton;
-    QPushButton *m_closeButton;
-    QPlainTextEdit *m_detailsText;
-
     ChangeCommand m_command;
 };
 

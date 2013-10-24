@@ -69,6 +69,7 @@ GenericProject::GenericProject(Manager *manager, const QString &fileName)
     : m_manager(manager),
       m_fileName(fileName)
 {
+    setId(Constants::GENERICPROJECT_ID);
     setProjectContext(Context(GenericProjectManager::Constants::PROJECTCONTEXT));
     setProjectLanguages(Context(ProjectExplorer::Constants::LANG_CXX));
 
@@ -250,6 +251,11 @@ void GenericProject::refresh(RefreshOptions options)
         CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
         pinfo.clearProjectParts();
         CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
+        part->project = this;
+        part->displayName = displayName();
+        part->projectFile = projectFilePath();
+
+        part->includePaths += projectIncludePaths();
 
         Kit *k = activeTarget() ? activeTarget()->kit() : KitManager::defaultKit();
         if (ToolChain *tc = ToolChainKitInformation::toolChain(k)) {
@@ -259,7 +265,6 @@ void GenericProject::refresh(RefreshOptions options)
         }
 
         part->cxxVersion = CppTools::ProjectPart::CXX11; // assume C++11
-        part->includePaths += allIncludePaths();
         part->defines += m_defines;
 
         // ### add _defines.
@@ -333,15 +338,6 @@ QStringList GenericProject::processEntries(const QStringList &paths,
     return absolutePaths;
 }
 
-QStringList GenericProject::allIncludePaths() const
-{
-    QStringList paths;
-    paths += m_includePaths;
-    paths += m_projectIncludePaths;
-    paths.removeDuplicates();
-    return paths;
-}
-
 QStringList GenericProject::projectIncludePaths() const
 {
     return m_projectIncludePaths;
@@ -352,16 +348,6 @@ QStringList GenericProject::files() const
     return m_files;
 }
 
-QStringList GenericProject::includePaths() const
-{
-    return m_includePaths;
-}
-
-void GenericProject::setIncludePaths(const QStringList &includePaths)
-{
-    m_includePaths = includePaths;
-}
-
 QByteArray GenericProject::defines() const
 {
     return m_defines;
@@ -370,11 +356,6 @@ QByteArray GenericProject::defines() const
 QString GenericProject::displayName() const
 {
     return m_projectName;
-}
-
-Id GenericProject::id() const
-{
-    return Id(Constants::GENERICPROJECT_ID);
 }
 
 IDocument *GenericProject::document() const
@@ -420,14 +401,11 @@ bool GenericProject::fromMap(const QVariantMap &map)
     foreach (Target *t, targetList) {
         if (!t->activeBuildConfiguration()) {
             removeTarget(t);
-            delete t;
             continue;
         }
         if (!t->activeRunConfiguration())
             t->addRunConfiguration(new QtSupport::CustomExecutableRunConfiguration(t));
     }
-
-    setIncludePaths(allIncludePaths());
 
     refresh(Everything);
     return true;

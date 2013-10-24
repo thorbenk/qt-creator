@@ -1,5 +1,5 @@
 import qbs.base 1.0
-import "../QtcLibrary.qbs" as QtcLibrary
+import QtcLibrary
 
 QtcLibrary {
     name: "QmlJS"
@@ -28,6 +28,7 @@ QtcLibrary {
             "qmljscheck.cpp", "qmljscheck.h",
             "qmljscodeformatter.cpp", "qmljscodeformatter.h",
             "qmljscompletioncontextfinder.cpp", "qmljscompletioncontextfinder.h",
+            "qmljsconstants.h",
             "qmljscontext.cpp", "qmljscontext.h",
             "qmljsdelta.cpp", "qmljsdelta.h",
             "qmljsdocument.cpp", "qmljsdocument.h",

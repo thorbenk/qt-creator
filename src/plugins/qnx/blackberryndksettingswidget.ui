@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>773</width>
-    <height>443</height>
+    <height>495</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -163,7 +163,7 @@
          <item>
           <widget class="QPushButton" name="addNdkButton">
            <property name="text">
-            <string>Add </string>
+            <string>Add</string>
            </property>
           </widget>
          </item>

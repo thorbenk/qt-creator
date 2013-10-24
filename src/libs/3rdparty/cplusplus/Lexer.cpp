@@ -81,24 +81,6 @@ int Lexer::state() const
 void Lexer::setState(int state)
 { _state = state; }
 
-bool Lexer::qtMocRunEnabled() const
-{ return f._qtMocRunEnabled; }
-
-void Lexer::setQtMocRunEnabled(bool onoff)
-{ f._qtMocRunEnabled = onoff; }
-
-bool Lexer::cxx0xEnabled() const
-{ return f._cxx0xEnabled; }
-
-void Lexer::setCxxOxEnabled(bool onoff)
-{ f._cxx0xEnabled = onoff; }
-
-bool Lexer::objCEnabled() const
-{ return f._objCEnabled; }
-
-void Lexer::setObjCEnabled(bool onoff)
-{ f._objCEnabled = onoff; }
-
 bool Lexer::isIncremental() const
 { return f._isIncremental; }
 
@@ -269,6 +251,9 @@ void Lexer::scan_helper(Token *tok)
         if (_yychar == ':') {
             yyinp();
             tok->f.kind = T_COLON_COLON;
+        } else if (_yychar == '>') {
+            yyinp();
+            tok->f.kind = T_RBRACKET;
         } else {
             tok->f.kind = T_COLON;
         }
@@ -428,6 +413,12 @@ void Lexer::scan_helper(Token *tok)
         if (_yychar == '=') {
             yyinp();
             tok->f.kind = T_PERCENT_EQUAL;
+        } else if (_yychar == '>') {
+            yyinp();
+            tok->f.kind = T_RBRACE;
+        } else if (_yychar == ':') {
+            yyinp();
+            tok->f.kind = T_POUND;
         } else {
             tok->f.kind = T_PERCENT;
         }
@@ -515,6 +506,12 @@ void Lexer::scan_helper(Token *tok)
         } else if (_yychar == '=') {
             yyinp();
             tok->f.kind = T_LESS_EQUAL;
+        } else if (_yychar == ':') {
+            yyinp();
+            tok->f.kind = T_LBRACKET;
+        } else if (_yychar == '%') {
+            yyinp();
+            tok->f.kind = T_LBRACE;
         } else {
             tok->f.kind = T_LESS;
         }
@@ -542,7 +539,7 @@ void Lexer::scan_helper(Token *tok)
         break;
 
     default: {
-        if (f._objCEnabled) {
+        if (_languageFeatures.objCEnabled) {
             if (ch == '@' && _yychar >= 'a' && _yychar <= 'z') {
                 const char *yytext = _currentChar;
 
@@ -765,7 +762,7 @@ void Lexer::scanIdentifier(Token *tok, unsigned extraProcessedChars)
         yyinp();
     int yylen = _currentChar - yytext;
     if (f._scanKeywords)
-        tok->f.kind = classify(yytext, yylen, f._qtMocRunEnabled, f._cxx0xEnabled);
+        tok->f.kind = classify(yytext, yylen, _languageFeatures);
     else
         tok->f.kind = T_IDENTIFIER;
 

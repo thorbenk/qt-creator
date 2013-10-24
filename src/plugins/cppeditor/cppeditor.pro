@@ -9,16 +9,24 @@ HEADERS += cppeditorplugin.h \
     cppeditor.h \
     cppelementevaluator.h \
     cppfilewizard.h \
+    cppfollowsymbolundercursor.h \
     cppfunctiondecldeflink.h \
-    cpphighlighter.h \
     cpphighlighterfactory.h \
+    cpphighlighter.h \
     cpphoverhandler.h \
     cppoutline.h \
     cppquickfixassistant.h \
     cppquickfixes.h \
     cppquickfix.h \
     cppsnippetprovider.h \
-    cpptypehierarchy.h
+    cpptypehierarchy.h \
+    cppincludehierarchy.h \
+    cppincludehierarchymodel.h \
+    cppincludehierarchyitem.h \
+    cppincludehierarchytreeview.h \
+    cppvirtualfunctionassistprovider.h \
+    cppvirtualfunctionproposalitem.h \
+    cpppreprocessordialog.h
 
 SOURCES += cppeditorplugin.cpp \
     cppautocompleter.cpp \
@@ -26,6 +34,7 @@ SOURCES += cppeditorplugin.cpp \
     cppeditor.cpp \
     cppelementevaluator.cpp \
     cppfilewizard.cpp \
+    cppfollowsymbolundercursor.cpp \
     cppfunctiondecldeflink.cpp \
     cpphighlighter.cpp \
     cpphighlighterfactory.cpp \
@@ -35,7 +44,14 @@ SOURCES += cppeditorplugin.cpp \
     cppquickfix.cpp \
     cppquickfixes.cpp \
     cppsnippetprovider.cpp \
-    cpptypehierarchy.cpp
+    cpptypehierarchy.cpp \
+    cppincludehierarchy.cpp \
+    cppincludehierarchymodel.cpp \
+    cppincludehierarchyitem.cpp \
+    cppincludehierarchytreeview.cpp \
+    cppvirtualfunctionassistprovider.cpp \
+    cppvirtualfunctionproposalitem.cpp \
+    cpppreprocessordialog.cpp
 
 RESOURCES += cppeditor.qrc
 
@@ -51,3 +67,6 @@ equals(TEST, 1) {
 
     DEFINES += SRCDIR=\\\"$$PWD\\\"
 }
+
+FORMS += \
+    cpppreprocessordialog.ui

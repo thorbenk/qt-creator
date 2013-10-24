@@ -1,6 +1,6 @@
 import qbs.base 1.0
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "Android"
@@ -8,10 +8,6 @@ QtcPlugin {
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "Qt4ProjectManager" }
-    Depends {
-        name: "QbsProjectManager"
-        condition: project.buildQbsProjectManager
-    }
     Depends { name: "Debugger" }
     Depends { name: "QmlDebug" }
     Depends { name: "QtSupport" }
@@ -22,8 +18,6 @@ QtcPlugin {
 
     property bool enable: false
     pluginspecreplacements: ({"ANDROID_EXPERIMENTAL_STR": (enable ? "false": "true")})
-
-    cpp.defines: base.concat(project.buildQbsProjectManager ? ['HAVE_QBS'] : [])
 
     files: [
         "addnewavddialog.ui",
@@ -36,6 +30,8 @@ QtcPlugin {
         "androidcreatekeystorecertificate.cpp",
         "androidcreatekeystorecertificate.h",
         "androidcreatekeystorecertificate.ui",
+        "androiddeployqtstep.cpp",
+        "androiddeployqtstep.h",
         "androiddebugsupport.cpp",
         "androiddebugsupport.h",
         "androiddevicedialog.cpp",
@@ -50,12 +46,17 @@ QtcPlugin {
         "androiddeploystepwidget.cpp",
         "androiddeploystepwidget.h",
         "androiddeploystepwidget.ui",
+        "androiddeployqtwidget.cpp",
+        "androiddeployqtwidget.h",
+        "androiddeployqtwidget.ui",
         "androiddevice.cpp",
         "androiddevice.h",
         "androiddevicefactory.cpp",
         "androiddevicefactory.h",
         "androiderrormessage.h",
         "androiderrormessage.cpp",
+        "androidextralibrarylistmodel.cpp",
+        "androidextralibrarylistmodel.h",
         "androidgdbserverkitinformation.cpp",
         "androidgdbserverkitinformation.h",
         "androidglobal.h",
@@ -82,6 +83,8 @@ QtcPlugin {
         "androidpackageinstallationstep.h",
         "androidplugin.cpp",
         "androidplugin.h",
+        "androidpotentialkit.cpp",
+        "androidpotentialkit.h",
         "androidqtversion.cpp",
         "androidqtversion.h",
         "androidqtversionfactory.cpp",
@@ -103,16 +106,11 @@ QtcPlugin {
         "androidsettingswidget.ui",
         "androidtoolchain.cpp",
         "androidtoolchain.h",
+        "certificatesmodel.cpp",
+        "certificatesmodel.h",
+        "createandroidmanifestwizard.cpp",
+        "createandroidmanifestwizard.h",
         "javaparser.cpp",
         "javaparser.h",
     ]
-
-    Group {
-        name: "Qbs Support"
-        condition: project.buildQbsProjectManager
-        files: [
-            "androidqbspropertyprovider.cpp",
-            "androidqbspropertyprovider.h",
-        ]
-    }
 }

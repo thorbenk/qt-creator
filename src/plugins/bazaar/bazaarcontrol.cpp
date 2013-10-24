@@ -61,6 +61,11 @@ bool BazaarControl::managesDirectory(const QString &directory, QString *topLevel
     return !topLevelFound.isEmpty();
 }
 
+bool BazaarControl::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    return m_bazaarClient->managesFile(workingDirectory, fileName);
+}
+
 bool BazaarControl::isConfigured() const
 {
     const QString binary = m_bazaarClient->settings()->binaryPath();
@@ -120,26 +125,6 @@ bool BazaarControl::vcsMove(const QString &from, const QString &to)
 bool BazaarControl::vcsCreateRepository(const QString &directory)
 {
     return m_bazaarClient->synchronousCreateRepository(directory);
-}
-
-QString BazaarControl::vcsCreateSnapshot(const QString &)
-{
-    return QString();
-}
-
-QStringList BazaarControl::vcsSnapshots(const QString &)
-{
-    return QStringList();
-}
-
-bool BazaarControl::vcsRestoreSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
-bool BazaarControl::vcsRemoveSnapshot(const QString &, const QString &)
-{
-    return false;
 }
 
 bool BazaarControl::vcsAnnotate(const QString &file, int line)

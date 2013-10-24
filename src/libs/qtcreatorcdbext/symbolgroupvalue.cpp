@@ -66,7 +66,8 @@ typedef std::vector<int>::size_type VectorIndexType;
     if (SymbolGroupValue sizeV = container["d"]["size"])
       int size = sizeV.intValue()
     \endcode
-    etc. \ingroup qtcreatorcdbext */
+    \ingroup qtcreatorcdbext
+    */
 
 unsigned SymbolGroupValue::verbose = 0;
 
@@ -691,7 +692,8 @@ static inline std::string resolveQtSymbol(const char *symbolC,
 
     Namespace, modules, and basic class
     names containing the module for fast lookup.
-    \ingroup qtcreatorcdbext */
+    \ingroup qtcreatorcdbext
+*/
 
 const QtInfo &QtInfo::get(const SymbolGroupValueContext &ctx)
 {
@@ -2601,7 +2603,8 @@ static inline bool dumpQSharedPointer(const SymbolGroupValue &v, std::wostream &
     if (strongRef < 0 || weakRef < 0)
         return false;
     str << L"References: " << strongRef << '/' << weakRef;
-    *specialInfoIn = valueV.node();
+    if (specialInfoIn)
+        *specialInfoIn = valueV.node();
     return true;
 }
 

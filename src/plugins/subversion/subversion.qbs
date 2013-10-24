@@ -1,6 +1,6 @@
 import qbs.base 1.0
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "Subversion"
@@ -23,6 +23,8 @@ QtcPlugin {
         "settingspage.h",
         "settingspage.ui",
         "subversion.qrc",
+        "subversionclient.cpp",
+        "subversionclient.h",
         "subversionconstants.h",
         "subversioncontrol.cpp",
         "subversioncontrol.h",

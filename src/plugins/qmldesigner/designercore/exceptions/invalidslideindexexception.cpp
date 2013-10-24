@@ -41,18 +41,18 @@ namespace QmlDesigner {
 /*!
     Constructs an exception. \a line uses the __LINE__ macro,
     \a function uses the __FUNCTION__ or the Q_FUNC_INFO macro, and \a file uses
+    the __FILE__ macro.
 */
 InvalidSlideIndexException::InvalidSlideIndexException(int line,
                                                        const QString &function,
                                                        const QString &file)
   : Exception(line, function, file)
 {
+    createWarning();
 }
 
 /*!
-\brief Returns the type of this exception
-
-\returns the type as a string
+    Returns the type of the exception as a string.
 */
 QString InvalidSlideIndexException::type() const
 {

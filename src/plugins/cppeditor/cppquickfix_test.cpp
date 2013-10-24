@@ -34,11 +34,10 @@
 #include "cppquickfixassistant.h"
 #include "cppquickfixes.h"
 
-#include <cpptools/cpppreprocessertesthelper.h>
-
 #include <cpptools/cppcodestylepreferences.h>
 #include <cpptools/cppmodelmanager.h>
 #include <cpptools/cpppreprocessor.h>
+#include <cpptools/cpppreprocessertesthelper.h>
 #include <cpptools/cpptoolssettings.h>
 #include <cpptools/includeutils.h>
 
@@ -349,6 +348,186 @@ private:
 };
 
 } // anonymous namespace
+
+/// Checks: All enum values are added as case statements for a blank switch.
+void CppEditorPlugin::test_quickfix_CompleteSwitchCaseStatement_basic1()
+{
+    const QByteArray original =
+        "enum EnumType { V1, V2 };\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    EnumType t;\n"
+        "    @switch (t) {\n"
+        "    }\n"
+        "}\n";
+        ;
+    const QByteArray expected =
+        "enum EnumType { V1, V2 };\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    EnumType t;\n"
+        "    switch (t) {\n"
+        "    case V1:\n"
+        "        break;\n"
+        "    case V2:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        ;
+
+    CompleteSwitchCaseStatement factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Checks: All enum values are added as case statements for a blank switch with a default case.
+void CppEditorPlugin::test_quickfix_CompleteSwitchCaseStatement_basic2()
+{
+    const QByteArray original =
+        "enum EnumType { V1, V2 };\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    EnumType t;\n"
+        "    @switch (t) {\n"
+        "    default:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n";
+        ;
+    const QByteArray expected =
+        "enum EnumType { V1, V2 };\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    EnumType t;\n"
+        "    switch (t) {\n"
+        "    case V1:\n"
+        "        break;\n"
+        "    case V2:\n"
+        "        break;\n"
+        "    default:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        ;
+
+    CompleteSwitchCaseStatement factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Checks: The missing enum value is added.
+void CppEditorPlugin::test_quickfix_CompleteSwitchCaseStatement_oneValueMissing()
+{
+    const QByteArray original =
+        "enum EnumType { V1, V2 };\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    EnumType t;\n"
+        "    @switch (t) {\n"
+        "    case V2:\n"
+        "        break;\n"
+        "    default:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n";
+        ;
+    const QByteArray expected =
+        "enum EnumType { V1, V2 };\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    EnumType t;\n"
+        "    switch (t) {\n"
+        "    case V1:\n"
+        "        break;\n"
+        "    case V2:\n"
+        "        break;\n"
+        "    default:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        ;
+
+    CompleteSwitchCaseStatement factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Checks: Find the correct enum type despite there being a declaration with the same name.
+void CppEditorPlugin::test_quickfix_CompleteSwitchCaseStatement_QTCREATORBUG10366_1()
+{
+    const QByteArray original =
+        "enum test { TEST_1, TEST_2 };\n"
+        "\n"
+        "void f() {\n"
+        "    enum test test;\n"
+        "    @switch (test) {\n"
+        "    }\n"
+        "}\n"
+        ;
+    const QByteArray expected =
+        "enum test { TEST_1, TEST_2 };\n"
+        "\n"
+        "void f() {\n"
+        "    enum test test;\n"
+        "    switch (test) {\n"
+        "    case TEST_1:\n"
+        "        break;\n"
+        "    case TEST_2:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        ;
+
+    CompleteSwitchCaseStatement factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Checks: Find the correct enum type despite there being a declaration with the same name.
+void CppEditorPlugin::test_quickfix_CompleteSwitchCaseStatement_QTCREATORBUG10366_2()
+{
+    const QByteArray original =
+        "enum test1 { Wrong11, Wrong12 };\n"
+        "enum test { Right1, Right2 };\n"
+        "enum test2 { Wrong21, Wrong22 };\n"
+        "\n"
+        "int main() {\n"
+        "    enum test test;\n"
+        "    @switch (test) {\n"
+        "    }\n"
+        "}\n"
+        ;
+    const QByteArray expected =
+        "enum test1 { Wrong11, Wrong12 };\n"
+        "enum test { Right1, Right2 };\n"
+        "enum test2 { Wrong21, Wrong22 };\n"
+        "\n"
+        "int main() {\n"
+        "    enum test test;\n"
+        "    switch (test) {\n"
+        "    case Right1:\n"
+        "        break;\n"
+        "    case Right2:\n"
+        "        break;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        ;
+
+    CompleteSwitchCaseStatement factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
 
 /// Checks:
 /// 1. If the name does not start with ("m_" or "_") and does not
@@ -3047,6 +3226,33 @@ void CppEditorPlugin::test_quickfix_MoveFuncDefToDecl_CtorWithInitialization()
     data.run(&factory);
 }
 
+/// Check: Definition should not be placed behind the variable. QTCREATORBUG-10303
+void CppEditorPlugin::test_quickfix_MoveFuncDefToDecl_structWithAssignedVariable()
+{
+    QByteArray original =
+        "struct Foo\n"
+        "{\n"
+        "    void foo();\n"
+        "} bar;\n\n"
+        "void Foo::fo@o()\n"
+        "{\n"
+        "    return;\n"
+        "}";
+
+    QByteArray expected =
+        "struct Foo\n"
+        "{\n"
+        "    void foo()\n"
+        "    {\n"
+        "        return;\n"
+        "    }\n"
+        "} bar;\n\n\n";
+
+    MoveFuncDefToDecl factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
 /// Check: Add local variable for a free function.
 void CppEditorPlugin::test_quickfix_AssignToLocalVariable_freeFunction()
 {
@@ -3322,6 +3528,189 @@ void CppEditorPlugin::test_quickfix_AssignToLocalVariable_noSignatureMatch()
     const QByteArray expected = original + "\n";
 
     AssignToLocalVariable factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_typeDeduction_data()
+{
+    QTest::addColumn<QByteArray>("typeString");
+    QTest::addColumn<QByteArray>("literal");
+    QTest::newRow("int")
+            << QByteArray("int ") << QByteArray("156");
+    QTest::newRow("unsigned int")
+            << QByteArray("unsigned int ") << QByteArray("156u");
+    QTest::newRow("long")
+            << QByteArray("long ") << QByteArray("156l");
+    QTest::newRow("unsigned long")
+            << QByteArray("unsigned long ") << QByteArray("156ul");
+    QTest::newRow("long long")
+            << QByteArray("long long ") << QByteArray("156ll");
+    QTest::newRow("unsigned long long")
+            << QByteArray("unsigned long long ") << QByteArray("156ull");
+    QTest::newRow("float")
+            << QByteArray("float ") << QByteArray("3.14159f");
+    QTest::newRow("double")
+            << QByteArray("double ") << QByteArray("3.14159");
+    QTest::newRow("long double")
+            << QByteArray("long double ") << QByteArray("3.14159L");
+    QTest::newRow("bool")
+            << QByteArray("bool ") << QByteArray("true");
+    QTest::newRow("bool")
+            << QByteArray("bool ") << QByteArray("false");
+    QTest::newRow("char")
+            << QByteArray("char ") << QByteArray("'X'");
+    QTest::newRow("wchar_t")
+            << QByteArray("wchar_t ") << QByteArray("L'X'");
+    QTest::newRow("char16_t")
+            << QByteArray("char16_t ") << QByteArray("u'X'");
+    QTest::newRow("char32_t")
+            << QByteArray("char32_t ") << QByteArray("U'X'");
+    QTest::newRow("const char *")
+            << QByteArray("const char *") << QByteArray("\"narf\"");
+    QTest::newRow("const wchar_t *")
+            << QByteArray("const wchar_t *") << QByteArray("L\"narf\"");
+    QTest::newRow("const char16_t *")
+            << QByteArray("const char16_t *") << QByteArray("u\"narf\"");
+    QTest::newRow("const char32_t *")
+            << QByteArray("const char32_t *") << QByteArray("U\"narf\"");
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_typeDeduction()
+{
+    QFETCH(QByteArray, typeString);
+    QFETCH(QByteArray, literal);
+    const QByteArray original = QByteArray("void foo() {return @") + literal + QByteArray(";}");
+    const QByteArray expected = QByteArray("void foo(") + typeString + QByteArray("newParameter = ")
+            + literal + QByteArray(") {return newParameter;}\n");
+
+    if (literal == "3.14159") {
+        qWarning("Literal 3.14159 is wrongly reported as int. Skipping.");
+        return;
+    } else if (literal == "3.14159L") {
+        qWarning("Literal 3.14159L is wrongly reported as long. Skipping.");
+        return;
+    }
+
+    ExtractLiteralAsParameter factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_freeFunction()
+{
+    const QByteArray original =
+        "void foo(const char *a, long b = 1)\n"
+        "{return 1@56 + 123 + 156;}";
+    const QByteArray expected =
+        "void foo(const char *a, long b = 1, int newParameter = 156)\n"
+        "{return newParameter + 123 + newParameter;}\n";
+
+    ExtractLiteralAsParameter factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_freeFunction_separateFiles()
+{
+    QList<TestDocumentPtr> testFiles;
+    QByteArray original;
+    QByteArray expected;
+
+    // Header File
+    original =
+        "void foo(const char *a, long b = 1);";
+    expected =
+        "void foo(const char *a, long b = 1, int newParameter = 156);\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.h"));
+
+    // Source File
+    original =
+        "void foo(const char *a, long b)\n"
+        "{return 1@56 + 123 + 156;}";
+    expected =
+        "void foo(const char *a, long b, int newParameter)\n"
+        "{return newParameter + 123 + newParameter;}\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.cpp"));
+
+    ExtractLiteralAsParameter factory;
+    TestCase data(testFiles);
+    data.run(&factory);
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_memberFunction()
+{
+    const QByteArray original =
+        "class Narf {\n"
+        "public:\n"
+        "    int zort();\n"
+        "};\n\n"
+        "int Narf::zort()\n"
+        "{ return 15@5 + 1; }";
+    const QByteArray expected =
+        "class Narf {\n"
+        "public:\n"
+        "    int zort(int newParameter = 155);\n"
+        "};\n\n"
+        "int Narf::zort(int newParameter)\n"
+        "{ return newParameter + 1; }\n";
+
+    ExtractLiteralAsParameter factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_memberFunction_separateFiles()
+{
+    QList<TestDocumentPtr> testFiles;
+    QByteArray original;
+    QByteArray expected;
+
+    // Header File
+    original =
+        "class Narf {\n"
+        "public:\n"
+        "    int zort();\n"
+        "};";
+    expected =
+        "class Narf {\n"
+        "public:\n"
+        "    int zort(int newParameter = 155);\n"
+        "};\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.h"));
+
+    // Source File
+    original =
+        "#include \"file.h\"\n\n"
+        "int Narf::zort()\n"
+        "{ return 15@5 + 1; }";
+    expected =
+        "#include \"file.h\"\n\n"
+        "int Narf::zort(int newParameter)\n"
+        "{ return newParameter + 1; }\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.cpp"));
+
+    ExtractLiteralAsParameter factory;
+    TestCase data(testFiles);
+    data.run(&factory);
+}
+
+void CppEditorPlugin::test_quickfix_ExtractLiteralAsParameter_memberFunctionInline()
+{
+    const QByteArray original =
+        "class Narf {\n"
+        "public:\n"
+        "    int zort()\n"
+        "    { return 15@5 + 1; }\n"
+        "};";
+    const QByteArray expected =
+        "class Narf {\n"
+        "public:\n"
+        "    int zort(int newParameter = 155)\n"
+        "    { return newParameter + 1; }\n"
+        "};\n";
+
+    ExtractLiteralAsParameter factory;
     TestCase data(original, expected);
     data.run(&factory);
 }
@@ -3766,5 +4155,95 @@ void CppEditorPlugin::test_quickfix_InsertVirtualMethods_BaseClassInNamespace()
     InsertVirtualMethods factory(new InsertVirtualMethodsDialogTest(
                                      InsertVirtualMethodsDialog::ModeImplementationFile, true));
     TestCase data(testFiles);
+    data.run(&factory);
+}
+
+/// Check: optimize postcrement
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_postcrement()
+{
+    const QByteArray original = "void foo() {f@or (int i = 0; i < 3; i++) {}}\n";
+    const QByteArray expected = "void foo() {for (int i = 0; i < 3; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: optimize condition
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_condition()
+{
+    const QByteArray original = "void foo() {f@or (int i = 0; i < 3 + 5; ++i) {}}\n";
+    const QByteArray expected = "void foo() {for (int i = 0, total = 3 + 5; i < total; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: optimize fliped condition
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_flipedCondition()
+{
+    const QByteArray original = "void foo() {f@or (int i = 0; 3 + 5 > i; ++i) {}}\n";
+    const QByteArray expected = "void foo() {for (int i = 0, total = 3 + 5; total > i; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: if "total" used, create other name.
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_alterVariableName()
+{
+    const QByteArray original = "void foo() {f@or (int i = 0, total = 0; i < 3 + 5; ++i) {}}\n";
+    const QByteArray expected = "void foo() {for (int i = 0, total = 0, totalX = 3 + 5; i < totalX; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: optimize postcrement and condition
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_optimizeBoth()
+{
+    const QByteArray original = "void foo() {f@or (int i = 0; i < 3 + 5; i++) {}}\n";
+    const QByteArray expected = "void foo() {for (int i = 0, total = 3 + 5; i < total; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: empty initializier
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_emptyInitializer()
+{
+    const QByteArray original = "int i; void foo() {f@or (; i < 3 + 5; ++i) {}}\n";
+    const QByteArray expected = "int i; void foo() {for (int total = 3 + 5; i < total; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: wrong initializier type -> no trigger
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_wrongInitializer()
+{
+    const QByteArray original = "int i; void foo() {f@or (double a = 0; i < 3 + 5; ++i) {}}\n";
+    const QByteArray expected = "int i; void foo() {f@or (double a = 0; i < 3 + 5; ++i) {}}\n\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: No trigger when numeric
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_noTriggerNumeric1()
+{
+    const QByteArray original = "void foo() {fo@r (int i = 0; i < 3; ++i) {}}\n";
+    const QByteArray expected = original + "\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check: No trigger when numeric
+void CppEditorPlugin::test_quickfix_OptimizeForLoop_noTriggerNumeric2()
+{
+    const QByteArray original = "void foo() {fo@r (int i = 0; i < -3; ++i) {}}\n";
+    const QByteArray expected = original + "\n";
+    OptimizeForLoop factory;
+    TestCase data(original, expected);
     data.run(&factory);
 }

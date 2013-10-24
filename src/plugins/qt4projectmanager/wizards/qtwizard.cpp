@@ -30,17 +30,17 @@
 #include "qtwizard.h"
 
 #include "modulespage.h"
-#include "targetsetuppage.h"
 
-#include <qt4projectmanager/qt4project.h>
-#include <qt4projectmanager/qt4projectmanager.h>
-#include <qt4projectmanager/qt4projectmanagerconstants.h>
+#include <qt4projectmanager/qmakeproject.h>
+#include <qt4projectmanager/qmakeprojectmanager.h>
+#include <qt4projectmanager/qmakeprojectmanagerconstants.h>
 
 #include <coreplugin/icore.h>
 
 #include <cpptools/cpptoolsconstants.h>
 
 #include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/targetsetuppage.h>
 #include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtsupportconstants.h>
 
@@ -50,8 +50,8 @@
 #include <QVariant>
 
 using namespace ProjectExplorer;
-using namespace Qt4ProjectManager;
-using namespace Qt4ProjectManager::Internal;
+using namespace QmakeProjectManager;
+using namespace QmakeProjectManager::Internal;
 
 // -------------------- QtWizard
 QtWizard::QtWizard()
@@ -212,7 +212,7 @@ int BaseQt4ProjectWizardDialog::addModulesPage(int id)
 
 int BaseQt4ProjectWizardDialog::addTargetSetupPage(bool mobile, int id)
 {
-    m_targetSetupPage = new TargetSetupPage;
+    m_targetSetupPage = new ProjectExplorer::TargetSetupPage;
     const QString platform = selectedPlatform();
     Core::FeatureSet features = mobile ? Core::FeatureSet(QtSupport::Constants::FEATURE_MOBILE)
                                        : Core::FeatureSet(QtSupport::Constants::FEATURE_DESKTOP);
@@ -323,5 +323,5 @@ void BaseQt4ProjectWizardDialog::generateProfileName(const QString &name, const 
         QDir::cleanPath(path + QLatin1Char('/') + name + QLatin1Char('/')
                         + name + QLatin1String(".pro"));
 
-    m_targetSetupPage->setProFilePath(proFile);
+    m_targetSetupPage->setProjectPath(proFile);
 }

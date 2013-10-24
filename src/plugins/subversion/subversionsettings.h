@@ -42,6 +42,7 @@ public:
     static const QLatin1String userKey;
     static const QLatin1String passwordKey;
     static const QLatin1String spaceIgnorantAnnotationKey;
+    static const QLatin1String diffIgnoreWhiteSpaceKey;
 
     SubversionSettings();
     bool hasAuthentication() const;

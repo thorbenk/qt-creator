@@ -80,7 +80,6 @@ public:
     ~CMakeProject();
 
     QString displayName() const;
-    Core::Id id() const;
     Core::IDocument *document() const;
     CMakeManager *projectManager() const;
 
@@ -93,8 +92,8 @@ public:
 
     CMakeBuildTarget buildTargetForTitle(const QString &title);
 
-    QString shadowBuildDirectory(const QString &projectFilePath, const ProjectExplorer::Kit *k,
-                                 const QString &bcName);
+    static QString shadowBuildDirectory(const QString &projectFilePath, const ProjectExplorer::Kit *k,
+                                        const QString &bcName);
 
     bool isProjectFile(const QString &fileName);
 

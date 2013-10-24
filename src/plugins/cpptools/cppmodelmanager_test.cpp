@@ -28,8 +28,8 @@
 ****************************************************************************/
 
 #include "cpptoolsplugin.h"
-
 #include "cpppreprocessor.h"
+#include "cpptoolseditorsupport.h"
 #include "modelmanagertesthelper.h"
 
 #include <coreplugin/editormanager/editormanager.h>
@@ -60,21 +60,23 @@ Q_DECLARE_METATYPE(QList<ProjectFile>)
 
 namespace {
 
+inline QString _(const QByteArray &ba) { return QString::fromLatin1(ba, ba.size()); }
+
 class MyTestDataDir : public Core::Internal::Tests::TestDataDir
 {
 public:
     MyTestDataDir(const QString &dir)
-        : TestDataDir(QLatin1String(SRCDIR "/../../../tests/cppmodelmanager/") + dir)
+        : TestDataDir(_(SRCDIR "/../../../tests/cppmodelmanager/") + dir)
     {}
 
     QString includeDir(bool cleaned = true) const
-    { return directory(QLatin1String("include"), cleaned); }
+    { return directory(_("include"), cleaned); }
 
     QString frameworksDir(bool cleaned = true) const
-    { return directory(QLatin1String("frameworks"), cleaned); }
+    { return directory(_("frameworks"), cleaned); }
 
     QString fileFromSourcesDir(const QString &fileName) const
-    { return directory(QLatin1String("sources")) + fileName; }
+    { return directory(_("sources")) + fileName; }
 };
 
 // TODO: When possible, use this helper class in all tests
@@ -121,7 +123,7 @@ public:
     ExampleProjectConfigurator(const QString &projectFile,
                                ProjectExplorerPlugin *projectExplorer)
     {
-        const QString projectUserFile = projectFile + QLatin1String(".user");
+        const QString projectUserFile = projectFile + _(".user");
         QVERIFY(!QFileInfo(projectUserFile).exists());
 
         // Open project
@@ -206,9 +208,9 @@ void CppToolsPlugin::test_modelmanager_paths_are_clean()
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata"));
+    const MyTestDataDir testDataDir(_("testdata"));
 
-    Project *project = helper.createProject(QLatin1String("test_modelmanager_paths_are_clean"));
+    Project *project = helper.createProject(_("test_modelmanager_paths_are_clean"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -240,9 +242,9 @@ void CppToolsPlugin::test_modelmanager_framework_headers()
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata"));
+    const MyTestDataDir testDataDir(_("testdata"));
 
-    Project *project = helper.createProject(QLatin1String("test_modelmanager_framework_headers"));
+    Project *project = helper.createProject(_("test_modelmanager_framework_headers"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -253,7 +255,7 @@ void CppToolsPlugin::test_modelmanager_framework_headers()
     part->includePaths << testDataDir.includeDir();
     part->frameworkPaths << testDataDir.frameworksDir();
     const QString &source = testDataDir.fileFromSourcesDir(
-        QLatin1String("test_modelmanager_framework_headers.cpp"));
+        _("test_modelmanager_framework_headers.cpp"));
     part->files << ProjectFile(source, ProjectFile::CXXSource);
     pi.appendProjectPart(part);
 
@@ -285,15 +287,13 @@ void CppToolsPlugin::test_modelmanager_refresh_also_includes_of_project_files()
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata"));
+    const MyTestDataDir testDataDir(_("testdata"));
 
-    const QString testCpp(testDataDir.fileFromSourcesDir(
-        QLatin1String("test_modelmanager_refresh.cpp")));
-    const QString testHeader(testDataDir.fileFromSourcesDir(
-        QLatin1String("test_modelmanager_refresh.h")));
+    const QString testCpp(testDataDir.fileFromSourcesDir(_("test_modelmanager_refresh.cpp")));
+    const QString testHeader(testDataDir.fileFromSourcesDir( _("test_modelmanager_refresh.h")));
 
     Project *project = helper.createProject(
-                QLatin1String("test_modelmanager_refresh_also_includes_of_project_files"));
+                _("test_modelmanager_refresh_also_includes_of_project_files"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -348,14 +348,13 @@ void CppToolsPlugin::test_modelmanager_refresh_several_times()
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata_refresh"));
+    const MyTestDataDir testDataDir(_("testdata_refresh"));
 
-    const QString testHeader1(testDataDir.file(QLatin1String("defines.h")));
-    const QString testHeader2(testDataDir.file(QLatin1String("header.h")));
-    const QString testCpp(testDataDir.file(QLatin1String("source.cpp")));
+    const QString testHeader1(testDataDir.file(_("defines.h")));
+    const QString testHeader2(testDataDir.file(_("header.h")));
+    const QString testCpp(testDataDir.file(_("source.cpp")));
 
-    Project *project = helper.createProject(
-                QLatin1String("test_modelmanager_refresh_several_times"));
+    Project *project = helper.createProject(_("test_modelmanager_refresh_several_times"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -419,10 +418,10 @@ void CppToolsPlugin::test_modelmanager_refresh_test_for_changes()
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata_refresh"));
-    const QString testCpp(testDataDir.file(QLatin1String("source.cpp")));
+    const MyTestDataDir testDataDir(_("testdata_refresh"));
+    const QString testCpp(testDataDir.file(_("source.cpp")));
 
-    Project *project = helper.createProject(QLatin1String("test_modelmanager_refresh_2"));
+    Project *project = helper.createProject(_("test_modelmanager_refresh_2"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -451,13 +450,13 @@ void CppToolsPlugin::test_modelmanager_refresh_added_and_purge_removed()
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata_refresh"));
+    const MyTestDataDir testDataDir(_("testdata_refresh"));
 
-    const QString testHeader1(testDataDir.file(QLatin1String("header.h")));
-    const QString testHeader2(testDataDir.file(QLatin1String("defines.h")));
-    const QString testCpp(testDataDir.file(QLatin1String("source.cpp")));
+    const QString testHeader1(testDataDir.file(_("header.h")));
+    const QString testHeader2(testDataDir.file(_("defines.h")));
+    const QString testCpp(testDataDir.file(_("source.cpp")));
 
-    Project *project = helper.createProject(QLatin1String("test_modelmanager_refresh_3"));
+    Project *project = helper.createProject(_("test_modelmanager_refresh_3"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -516,8 +515,7 @@ void CppToolsPlugin::test_modelmanager_refresh_timeStampModified_if_sourcefiles_
     ModelManagerTestHelper helper;
     CppModelManager *mm = CppModelManager::instance();
 
-    Project *project = helper.createProject(
-        QLatin1String("test_modelmanager_refresh_timeStampModified"));
+    Project *project = helper.createProject(_("test_modelmanager_refresh_timeStampModified"));
     ProjectInfo pi = mm->projectInfo(project);
     QCOMPARE(pi.project().data(), project);
 
@@ -585,9 +583,9 @@ void CppToolsPlugin::test_modelmanager_refresh_timeStampModified_if_sourcefiles_
     QTest::addColumn<QList<ProjectFile> >("initialProjectFiles");
     QTest::addColumn<QList<ProjectFile> >("finalProjectFiles");
 
-    const MyTestDataDir testDataDir(QLatin1String("testdata_refresh2"));
-    const QString testCpp(testDataDir.file(QLatin1String("source.cpp")));
-    const QString testCpp2(testDataDir.file(QLatin1String("source2.cpp")));
+    const MyTestDataDir testDataDir(_("testdata_refresh2"));
+    const QString testCpp(testDataDir.file(_("source.cpp")));
+    const QString testCpp2(testDataDir.file(_("source2.cpp")));
 
     const QString fileToChange = testCpp;
     QList<ProjectFile> projectFiles1 = QList<ProjectFile>()
@@ -614,11 +612,11 @@ void CppToolsPlugin::test_modelmanager_snapshot_after_two_projects()
     CppModelManager *mm = CppModelManager::instance();
 
     // Project 1
-    project1.create(QLatin1String("test_modelmanager_snapshot_after_two_projects.1"),
-                    QLatin1String("testdata_project1"),
-                    QStringList() << QLatin1String("foo.h")
-                                  << QLatin1String("foo.cpp")
-                                  << QLatin1String("main.cpp"));
+    project1.create(_("test_modelmanager_snapshot_after_two_projects.1"),
+                    _("testdata_project1"),
+                    QStringList() << _("foo.h")
+                                  << _("foo.cpp")
+                                  << _("main.cpp"));
 
     mm->updateProjectInfo(project1.projectInfo);
     refreshedFiles = helper.waitForRefreshedSourceFiles();
@@ -629,11 +627,11 @@ void CppToolsPlugin::test_modelmanager_snapshot_after_two_projects()
         QVERIFY(mm->snapshot().contains(file));
 
     // Project 2
-    project2.create(QLatin1String("test_modelmanager_snapshot_after_two_projects.2"),
-                    QLatin1String("testdata_project2"),
-                    QStringList() << QLatin1String("bar.h")
-                                  << QLatin1String("bar.cpp")
-                                  << QLatin1String("main.cpp"));
+    project2.create(_("test_modelmanager_snapshot_after_two_projects.2"),
+                    _("testdata_project2"),
+                    QStringList() << _("bar.h")
+                                  << _("bar.cpp")
+                                  << _("main.cpp"));
 
     mm->updateProjectInfo(project2.projectInfo);
     refreshedFiles = helper.waitForRefreshedSourceFiles();
@@ -657,8 +655,8 @@ void CppToolsPlugin::test_modelmanager_extraeditorsupport_uiFiles()
 {
     ModelManagerTestHelper helper;
 
-    MyTestDataDir testDataDirectory(QLatin1String("testdata_guiproject1"));
-    const QString projectFile = testDataDirectory.file(QLatin1String("testdata_guiproject1.pro"));
+    MyTestDataDir testDataDirectory(_("testdata_guiproject1"));
+    const QString projectFile = testDataDirectory.file(_("testdata_guiproject1.pro"));
 
     // Open project with *.ui file
     ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
@@ -679,13 +677,13 @@ void CppToolsPlugin::test_modelmanager_extraeditorsupport_uiFiles()
         fileNamesInWorkinCopy << QFileInfo(it.key()).fileName();
     }
     fileNamesInWorkinCopy.sort();
-    const QString expectedUiHeaderFileName = QLatin1String("ui_mainwindow.h");
+    const QString expectedUiHeaderFileName = _("ui_mainwindow.h");
     QCOMPARE(fileNamesInWorkinCopy.at(0), mm->configurationFileName());
     QCOMPARE(fileNamesInWorkinCopy.at(1), expectedUiHeaderFileName);
 
     // Check CppPreprocessor / includes.
     // The CppPreprocessor is expected to find the ui_* file in the working copy.
-    const QString fileIncludingTheUiFile = testDataDirectory.file(QLatin1String("mainwindow.cpp"));
+    const QString fileIncludingTheUiFile = testDataDirectory.file(_("mainwindow.cpp"));
     while (!mm->snapshot().document(fileIncludingTheUiFile))
         QCoreApplication::processEvents();
 
@@ -694,8 +692,8 @@ void CppToolsPlugin::test_modelmanager_extraeditorsupport_uiFiles()
     QVERIFY(document);
     const QStringList includedFiles = document->includedFiles();
     QCOMPARE(includedFiles.size(), 2);
-    QCOMPARE(QFileInfo(includedFiles.at(0)).fileName(), QLatin1String("mainwindow.h"));
-    QCOMPARE(QFileInfo(includedFiles.at(1)).fileName(), QLatin1String("ui_mainwindow.h"));
+    QCOMPARE(QFileInfo(includedFiles.at(0)).fileName(), _("mainwindow.h"));
+    QCOMPARE(QFileInfo(includedFiles.at(1)).fileName(), _("ui_mainwindow.h"));
 
     // Close Project
     SessionManager::removeProject(project);
@@ -708,8 +706,8 @@ void CppToolsPlugin::test_modelmanager_gc_if_last_cppeditor_closed()
 {
     ModelManagerTestHelper helper;
 
-    MyTestDataDir testDataDirectory(QLatin1String("testdata_guiproject1"));
-    const QString file = testDataDirectory.file(QLatin1String("main.cpp"));
+    MyTestDataDir testDataDirectory(_("testdata_guiproject1"));
+    const QString file = testDataDirectory.file(_("main.cpp"));
 
     CppModelManager *mm = CppModelManager::instance();
 
@@ -721,8 +719,8 @@ void CppToolsPlugin::test_modelmanager_gc_if_last_cppeditor_closed()
     QVERIFY(mm->isCppEditor(editor));
     QVERIFY(mm->workingCopy().contains(file));
 
-    // Check: File is in the snapshot
-    QVERIFY(mm->snapshot().contains(file));
+    // Wait until the file is refreshed
+    helper.waitForRefreshedSourceFiles();
 
     // Close file/editor
     Core::EditorManager::closeEditor(editor, /*askAboutModifiedEditors=*/ false);
@@ -738,8 +736,8 @@ void CppToolsPlugin::test_modelmanager_dont_gc_opened_files()
 {
     ModelManagerTestHelper helper;
 
-    MyTestDataDir testDataDirectory(QLatin1String("testdata_guiproject1"));
-    const QString file = testDataDirectory.file(QLatin1String("main.cpp"));
+    MyTestDataDir testDataDirectory(_("testdata_guiproject1"));
+    const QString file = testDataDirectory.file(_("main.cpp"));
 
     CppModelManager *mm = CppModelManager::instance();
 
@@ -750,9 +748,9 @@ void CppToolsPlugin::test_modelmanager_dont_gc_opened_files()
     QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 1);
     QVERIFY(mm->isCppEditor(editor));
 
-    // Check: File is in the working copy and snapshot
+    // Wait until the file is refreshed and check whether it is in the working copy
+    helper.waitForRefreshedSourceFiles();
     QVERIFY(mm->workingCopy().contains(file));
-    QVERIFY(mm->snapshot().contains(file));
 
     // Run the garbage collector
     mm->GC();
@@ -762,7 +760,250 @@ void CppToolsPlugin::test_modelmanager_dont_gc_opened_files()
     QVERIFY(mm->snapshot().contains(file));
 
     // Close editor
-    Core::EditorManager::closeEditors(QList<Core::IEditor*>() << editor);
+    Core::EditorManager::closeEditor(editor);
     helper.waitForFinishedGc();
     QVERIFY(mm->snapshot().isEmpty());
+}
+
+namespace {
+struct EditorCloser {
+    Core::IEditor *editor;
+    EditorCloser(Core::IEditor *editor): editor(editor) {}
+    ~EditorCloser()
+    {
+        if (editor)
+            Core::EditorManager::closeEditor(editor);
+    }
+};
+
+QString nameOfFirstDeclaration(const Document::Ptr &doc)
+{
+    if (doc && doc->globalNamespace()) {
+        if (CPlusPlus::Symbol *s = doc->globalSymbolAt(0)) {
+            if (CPlusPlus::Declaration *decl = s->asDeclaration()) {
+                if (const CPlusPlus::Name *name = decl->name()) {
+                    if (const CPlusPlus::Identifier *identifier = name->identifier())
+                        return QString::fromLatin1(identifier->chars(), identifier->size());
+                }
+            }
+        }
+    }
+    return QString();
+}
+}
+
+void CppToolsPlugin::test_modelmanager_defines_per_project()
+{
+    ModelManagerTestHelper helper;
+
+    MyTestDataDir testDataDirectory(_("testdata_defines"));
+    const QString main1File = testDataDirectory.file(_("main1.cpp"));
+    const QString main2File = testDataDirectory.file(_("main2.cpp"));
+    const QString header = testDataDirectory.file(_("header.h"));
+
+    CppModelManager *mm = CppModelManager::instance();
+
+    Project *project = helper.createProject(_("test_modelmanager_defines_per_project"));
+
+    ProjectPart::Ptr part1(new ProjectPart);
+    part1->files.append(ProjectFile(main1File, ProjectFile::CXXSource));
+    part1->files.append(ProjectFile(header, ProjectFile::CXXHeader));
+    part1->cxxVersion = ProjectPart::CXX11;
+    part1->qtVersion = ProjectPart::NoQt;
+    part1->defines = QByteArray("#define SUB1\n");
+    part1->includePaths = QStringList() << testDataDirectory.includeDir(false);
+
+    ProjectPart::Ptr part2(new ProjectPart);
+    part2->files.append(ProjectFile(main2File, ProjectFile::CXXSource));
+    part2->files.append(ProjectFile(header, ProjectFile::CXXHeader));
+    part2->cxxVersion = ProjectPart::CXX11;
+    part2->qtVersion = ProjectPart::NoQt;
+    part2->defines = QByteArray("#define SUB2\n");
+    part2->includePaths = QStringList() << testDataDirectory.includeDir(false);
+
+    ProjectInfo pi = mm->projectInfo(project);
+    pi.appendProjectPart(part1);
+    pi.appendProjectPart(part2);
+
+    mm->updateProjectInfo(pi);
+
+    helper.waitForRefreshedSourceFiles();
+
+    QCOMPARE(mm->snapshot().size(), 4);
+
+    // Open a file in the editor
+    QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 0);
+
+    struct Data {
+        QString firstDeclarationName;
+        QString fileName;
+    } d[] = {
+        { _("one"), main1File },
+        { _("two"), main2File }
+    };
+    const int size = sizeof(d) / sizeof(d[0]);
+    for (int i = 0; i < size; ++i) {
+        const QString firstDeclarationName = d[i].firstDeclarationName;
+        const QString fileName = d[i].fileName;
+
+        Core::IEditor *editor = Core::EditorManager::openEditor(fileName);
+        EditorCloser closer(editor);
+        QVERIFY(editor);
+        QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 1);
+        QVERIFY(mm->isCppEditor(editor));
+
+        CppEditorSupport *sup = mm->cppEditorSupport(
+                    qobject_cast<TextEditor::BaseTextEditor *>(editor));
+        while (sup->lastSemanticInfoDocument().isNull())
+            QCoreApplication::processEvents();
+
+        Document::Ptr doc = mm->snapshot().document(fileName);
+        QCOMPARE(nameOfFirstDeclaration(doc), firstDeclarationName);
+    }
+}
+
+void CppToolsPlugin::test_modelmanager_defines_per_project_pch()
+{
+    ModelManagerTestHelper helper;
+
+    MyTestDataDir testDataDirectory(_("testdata_defines"));
+    const QString main1File = testDataDirectory.file(_("main1.cpp"));
+    const QString main2File = testDataDirectory.file(_("main2.cpp"));
+    const QString header = testDataDirectory.file(_("header.h"));
+    const QString pch1File = testDataDirectory.file(_("pch1.h"));
+    const QString pch2File = testDataDirectory.file(_("pch2.h"));
+
+    CppModelManager *mm = CppModelManager::instance();
+
+    Project *project = helper.createProject(_("test_modelmanager_defines_per_project_pch"));
+
+    ProjectPart::Ptr part1(new ProjectPart);
+    part1->files.append(ProjectFile(main1File, ProjectFile::CXXSource));
+    part1->files.append(ProjectFile(header, ProjectFile::CXXHeader));
+    part1->cxxVersion = ProjectPart::CXX11;
+    part1->qtVersion = ProjectPart::NoQt;
+    part1->precompiledHeaders.append(pch1File);
+    part1->includePaths = QStringList() << testDataDirectory.includeDir(false);
+
+    ProjectPart::Ptr part2(new ProjectPart);
+    part2->files.append(ProjectFile(main2File, ProjectFile::CXXSource));
+    part2->files.append(ProjectFile(header, ProjectFile::CXXHeader));
+    part2->cxxVersion = ProjectPart::CXX11;
+    part2->qtVersion = ProjectPart::NoQt;
+    part2->precompiledHeaders.append(pch2File);
+    part2->includePaths = QStringList() << testDataDirectory.includeDir(false);
+
+    ProjectInfo pi = mm->projectInfo(project);
+    pi.appendProjectPart(part1);
+    pi.appendProjectPart(part2);
+
+    mm->updateProjectInfo(pi);
+
+    helper.waitForRefreshedSourceFiles();
+
+    QCOMPARE(mm->snapshot().size(), 4);
+
+    // Open a file in the editor
+    QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 0);
+
+    struct Data {
+        QString firstDeclarationName;
+        QString fileName;
+    } d[] = {
+        { _("one"), main1File },
+        { _("two"), main2File }
+    };
+    const int size = sizeof(d) / sizeof(d[0]);
+    for (int i = 0; i < size; ++i) {
+        const QString firstDeclarationName = d[i].firstDeclarationName;
+        const QString fileName = d[i].fileName;
+
+        Core::IEditor *editor = Core::EditorManager::openEditor(fileName);
+        EditorCloser closer(editor);
+        QVERIFY(editor);
+        QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 1);
+        QVERIFY(mm->isCppEditor(editor));
+
+        CppEditorSupport *sup = mm->cppEditorSupport(
+                    qobject_cast<TextEditor::BaseTextEditor *>(editor));
+        while (sup->lastSemanticInfoDocument().isNull())
+            QCoreApplication::processEvents();
+
+        sup->snapshotUpdater()->setUsePrecompiledHeaders(true);
+        sup->snapshotUpdater()->update(mm->workingCopy());
+
+        Document::Ptr doc = mm->snapshot().document(fileName);
+        QCOMPARE(nameOfFirstDeclaration(doc), firstDeclarationName);
+    }
+}
+
+void CppToolsPlugin::test_modelmanager_defines_per_editor()
+{
+    ModelManagerTestHelper helper;
+
+    MyTestDataDir testDataDirectory(_("testdata_defines"));
+    const QString main1File = testDataDirectory.file(_("main1.cpp"));
+    const QString main2File = testDataDirectory.file(_("main2.cpp"));
+    const QString header = testDataDirectory.file(_("header.h"));
+
+    CppModelManager *mm = CppModelManager::instance();
+
+    Project *project = helper.createProject(_("test_modelmanager_defines_per_editor"));
+
+    ProjectPart::Ptr part1(new ProjectPart);
+    part1->files.append(ProjectFile(main1File, ProjectFile::CXXSource));
+    part1->files.append(ProjectFile(header, ProjectFile::CXXHeader));
+    part1->cxxVersion = ProjectPart::CXX11;
+    part1->qtVersion = ProjectPart::NoQt;
+    part1->includePaths = QStringList() << testDataDirectory.includeDir(false);
+
+    ProjectPart::Ptr part2(new ProjectPart);
+    part2->files.append(ProjectFile(main2File, ProjectFile::CXXSource));
+    part2->files.append(ProjectFile(header, ProjectFile::CXXHeader));
+    part2->cxxVersion = ProjectPart::CXX11;
+    part2->qtVersion = ProjectPart::NoQt;
+    part2->includePaths = QStringList() << testDataDirectory.includeDir(false);
+
+    ProjectInfo pi = mm->projectInfo(project);
+    pi.appendProjectPart(part1);
+    pi.appendProjectPart(part2);
+
+    mm->updateProjectInfo(pi);
+
+    helper.waitForRefreshedSourceFiles();
+
+    QCOMPARE(mm->snapshot().size(), 4);
+
+    // Open a file in the editor
+    QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 0);
+
+    struct Data {
+        QString editorDefines;
+        QString firstDeclarationName;
+    } d[] = {
+        { _("#define SUB1\n"), _("one") },
+        { _("#define SUB2\n"), _("two") }
+    };
+    const int size = sizeof(d) / sizeof(d[0]);
+    for (int i = 0; i < size; ++i) {
+        const QString editorDefines = d[i].editorDefines;
+        const QString firstDeclarationName = d[i].firstDeclarationName;
+
+        Core::IEditor *editor = Core::EditorManager::openEditor(main1File);
+        EditorCloser closer(editor);
+        QVERIFY(editor);
+        QCOMPARE(Core::EditorManager::documentModel()->openedDocuments().size(), 1);
+        QVERIFY(mm->isCppEditor(editor));
+
+        CppEditorSupport *sup = mm->cppEditorSupport(
+                    qobject_cast<TextEditor::BaseTextEditor *>(editor));
+        while (sup->lastSemanticInfoDocument().isNull())
+            QCoreApplication::processEvents();
+
+        sup->snapshotUpdater()->setEditorDefines(editorDefines.toLatin1());
+        sup->snapshotUpdater()->update(mm->workingCopy());
+
+        Document::Ptr doc = mm->snapshot().document(main1File);
+        QCOMPARE(nameOfFirstDeclaration(doc), firstDeclarationName);
+    }
 }

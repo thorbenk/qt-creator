@@ -36,6 +36,7 @@
 
 #include <projectexplorer/abi.h>
 
+#include <QStringList>
 #include <QVariantMap>
 
 namespace Utils {
@@ -122,8 +123,6 @@ public:
     // Returns the PREFIX, BINPREFIX, DOCPREFIX and similar information
     QHash<QString,QString> versionInfo() const;
     enum PropertyVariant { PropertyVariantGet, PropertyVariantSrc };
-    static QString qmakeProperty(const QHash<QString,QString> &versionInfo, const QByteArray &name,
-                                 PropertyVariant variant = PropertyVariantGet);
     QString qmakeProperty(const QByteArray &name) const;
     virtual void addToEnvironment(const ProjectExplorer::Kit *k, Utils::Environment &env) const;
     virtual Utils::Environment qmakeRunEnvironment() const;
@@ -235,9 +234,15 @@ public:
     bool hasDebugBuild() const;
     bool hasReleaseBuild() const;
 
+    QStringList configValues() const;
+    QStringList qtConfigValues() const;
+
 protected:
     BaseQtVersion();
     BaseQtVersion(const Utils::FileName &path, bool isAutodetected = false, const QString &autodetectionSource = QString());
+
+    static QString qmakeProperty(const QHash<QString,QString> &versionInfo, const QByteArray &name,
+                                 PropertyVariant variant = PropertyVariantGet);
 
     virtual QList<ProjectExplorer::Task> reportIssuesImpl(const QString &proFile, const QString &buildDir) const;
 
@@ -278,6 +283,9 @@ private:
     mutable bool m_hasDocumentation;
     mutable bool m_qmakeIsExecutable;
     mutable bool m_hasQtAbis;
+
+    mutable QStringList m_configValues;
+    mutable QStringList m_qtConfigValues;
 
     QString m_displayName;
     QString m_autodetectionSource;

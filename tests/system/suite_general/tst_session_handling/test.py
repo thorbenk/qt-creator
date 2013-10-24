@@ -41,7 +41,8 @@ def main():
     mainWindow = waitForObject(":Qt Creator_Core::Internal::MainWindow")
     test.verify(waitFor("sessionName in str(mainWindow.windowTitle)", 2000),
                 "Verifying window title contains created session name.")
-    checkWelcomePage(sessionName, True)
+    if not isQt4Build:
+        checkWelcomePage(sessionName, True)
     for project in projects:
         openQmakeProject(project)
     progressBarWait(20000)
@@ -53,8 +54,9 @@ def main():
     switchSession("default")
     test.verify(waitFor("'Qt Creator' == str(mainWindow.windowTitle)", 2000),
                 "Verifying window title is set to default.")
-    checkWelcomePage(sessionName, False)
-    switchViewTo(ViewConstants.EDIT)
+    if not isQt4Build:
+        checkWelcomePage(sessionName, False)
+        switchViewTo(ViewConstants.EDIT)
     checkNavigator(1, "Verifying that no more project is opened.")
     checkOpenDocuments(0, "Verifying whether all files have been closed.")
     switchSession(sessionName)
@@ -129,6 +131,7 @@ def checkNavigator(expectedRows, message):
     test.compare(expectedRows, len(__iterateChildren__(navigatorModel, QModelIndex())), message)
 
 def checkOpenDocuments(expectedRows, message):
+    selectFromCombo(":Qt Creator_Core::Internal::NavComboBox", "Open Documents")
     openDocsWidget = waitForObject(":OpenDocuments_Widget")
     test.compare(openDocsWidget.model().rowCount(), expectedRows, message)
 

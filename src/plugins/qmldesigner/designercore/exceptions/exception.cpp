@@ -84,6 +84,12 @@ bool Exception::shouldAssert()
     return s_shouldAssert;
 }
 
+bool Exception::warnAboutException()
+{
+    static bool warnException = !qgetenv("QTCREATOR_QTQUICKDESIGNER_WARN_EXCEPTION").isEmpty();
+    return warnException;
+}
+
 /*!
     Constructs an exception. \a line uses the __LINE__ macro, \a function uses
     the __FUNCTION__ or the Q_FUNC_INFO macro, and \a file uses
@@ -118,19 +124,21 @@ Exception::~Exception()
 }
 
 /*!
-\brief Returns the unmangled backtrace of this exception
-
-\returns the backtrace as a string
+    Returns the unmangled backtrace of this exception as a string.
 */
 QString Exception::backTrace() const
 {
     return m_backTrace;
 }
 
-/*!
-\brief Returns the optional description of this exception
+void Exception::createWarning() const
+{
+    if (warnAboutException())
+        qDebug() << *this;
+}
 
-\returns the description as string
+/*!
+    Returns the optional description of this exception as a string.
 */
 QString Exception::description() const
 {
@@ -138,9 +146,7 @@ QString Exception::description() const
 }
 
 /*!
-\brief Returns the line number where this exception was thrown
-
-\returns the line number as integer
+    Returns the line number where this exception was thrown as an integer.
 */
 int Exception::line() const
 {
@@ -148,9 +154,7 @@ int Exception::line() const
 }
 
 /*!
-\brief Returns the function name where this exception was thrown
-
-\returns the function name as string
+    Returns the function name where this exception was thrown as a string.
 */
 QString Exception::function() const
 {
@@ -158,9 +162,7 @@ QString Exception::function() const
 }
 
 /*!
-\brief Returns the file name where this exception was thrown
-
-\returns the file name as string
+    Returns the file name where this exception was thrown as a string.
 */
 QString Exception::file() const
 {
@@ -184,8 +186,6 @@ QDebug operator<<(QDebug debug, const Exception &exception)
 
 /*!
 \fn QString Exception::type() const
-\brief Returns the type of this exception
-
-\returns the type as a string
+Returns the type of this exception as a string.
 */
 }

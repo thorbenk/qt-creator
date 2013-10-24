@@ -145,7 +145,7 @@ DebuggerRunControl::DebuggerRunControl(RunConfiguration *runConfiguration,
     d->m_engine = DebuggerRunControlFactory::createEngine(sp.masterEngineType, sp, &errorMessage);
 
     if (d->m_engine) {
-        DebuggerToolTipManager::instance()->registerEngine(d->m_engine);
+        DebuggerToolTipManager::registerEngine(d->m_engine);
     } else {
         debuggingFinished();
         Core::ICore::showWarningWithOptions(DebuggerRunControl::tr("Debugger"), errorMessage);
@@ -192,7 +192,7 @@ void DebuggerRunControl::start()
     // User canceled input dialog asking for executable when working on library project.
     if (d->m_engine->startParameters().startMode == StartInternal
         && d->m_engine->startParameters().executable.isEmpty()) {
-        appendMessage(tr("No executable specified.\n"), ErrorMessageFormat);
+        appendMessage(tr("No executable specified.") + QLatin1Char('\n'), ErrorMessageFormat);
         emit started();
         emit finished();
         return;
@@ -212,7 +212,7 @@ void DebuggerRunControl::start()
                 static bool checked = true;
                 if (!checked)
                     break;
-                CheckableMessageBox::information(debuggerCore()->mainWindow(),
+                CheckableMessageBox::information(Core::ICore::mainWindow(),
                                                  tr("Debugger"),
                                                  warningMessage,
                                                  tr("&Show this message again."),
@@ -232,12 +232,12 @@ void DebuggerRunControl::start()
     d->m_engine->startDebugger(this);
 
     if (d->m_running)
-        appendMessage(tr("Debugging starts\n"), NormalMessageFormat);
+        appendMessage(tr("Debugging starts") + QLatin1Char('\n'), NormalMessageFormat);
 }
 
 void DebuggerRunControl::startFailed()
 {
-    appendMessage(tr("Debugging has failed\n"), NormalMessageFormat);
+    appendMessage(tr("Debugging has failed") + QLatin1Char('\n'), NormalMessageFormat);
     d->m_running = false;
     emit finished();
     d->m_engine->handleStartFailed();
@@ -245,7 +245,7 @@ void DebuggerRunControl::startFailed()
 
 void DebuggerRunControl::handleFinished()
 {
-    appendMessage(tr("Debugging has finished\n"), NormalMessageFormat);
+    appendMessage(tr("Debugging has finished") + QLatin1Char('\n'), NormalMessageFormat);
     if (d->m_engine)
         d->m_engine->handleFinished();
     debuggerCore()->runControlFinished(d->m_engine);
@@ -464,7 +464,6 @@ DebuggerRunControl *DebuggerRunControlFactory::doCreate
     (const DebuggerStartParameters &sp0, RunConfiguration *rc, QString *errorMessage)
 {
     TaskHub::clearTasks(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO);
-    TaskHub::clearTasks(Debugger::Constants::TASK_CATEGORY_DEBUGGER_TEST);
     TaskHub::clearTasks(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME);
 
     DebuggerStartParameters sp = sp0;

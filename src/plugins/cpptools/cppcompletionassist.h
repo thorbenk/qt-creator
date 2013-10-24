@@ -91,8 +91,8 @@ public:
     virtual TextEditor::IAssistProcessor *createProcessor() const;
 
     virtual TextEditor::IAssistInterface *createAssistInterface(
-            ProjectExplorer::Project *project, const QString &filePath, QTextDocument *document,
-            int position, TextEditor::AssistReason reason) const;
+            ProjectExplorer::Project *project, TextEditor::BaseTextEditor *editor,
+            QTextDocument *document, int position, TextEditor::AssistReason reason) const;
 
 };
 
@@ -152,7 +152,7 @@ private:
                           QSet<QString> *definedMacros);
 
     int m_startPosition;
-    bool m_objcEnabled;
+    CPlusPlus::LanguageFeatures m_languageFeatures;
     QScopedPointer<const CppCompletionAssistInterface> m_interface;
     QList<TextEditor::BasicProposalItem *> m_completions;
     TextEditor::SnippetAssistCollector m_snippetCollector;

@@ -207,7 +207,7 @@ static QMessageBox *
 nonModalMessageBox(QMessageBox::Icon icon, const QString &title, const QString &text)
 {
     QMessageBox *mb = new QMessageBox(icon, title, text, QMessageBox::Ok,
-                                      debuggerCore()->mainWindow());
+                                      Core::ICore::mainWindow());
     mb->setAttribute(Qt::WA_DeleteOnClose);
     mb->show();
     return mb;
@@ -479,11 +479,11 @@ bool CdbEngine::setToolTipExpression(const QPoint &mousePos,
     const WatchData *localVariable = watchHandler()->findCppLocalVariable(exp);
     if (!localVariable)
         return false;
+    context.iname = localVariable->iname;
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
     tw->setContext(context);
-    tw->setIname(localVariable->iname);
     tw->acquireEngine(this);
-    DebuggerToolTipManager::instance()->showToolTip(mousePos, editor, tw);
+    DebuggerToolTipManager::showToolTip(mousePos, tw);
     return true;
 }
 
@@ -587,6 +587,7 @@ void CdbEngine::consoleStubProcessStarted()
     QString errorMessage;
     if (!launchCDB(attachParameters, &errorMessage)) {
         showMessage(errorMessage, LogError);
+        showMessageBox(QMessageBox::Critical, tr("Failed to Start the Debugger"), errorMessage);
         STATE_DEBUG(state(), Q_FUNC_INFO, __LINE__, "notifyEngineSetupFailed")
         notifyEngineSetupFailed();
     }
@@ -623,6 +624,7 @@ void CdbEngine::setupEngine()
         qDebug("<setupEngine ok=%d", ok);
     if (!ok) {
         showMessage(errorMessage, LogError);
+        showMessageBox(QMessageBox::Critical, tr("Failed to Start the Debugger"), errorMessage);
         STATE_DEBUG(state(), Q_FUNC_INFO, __LINE__, "notifyEngineSetupFailed")
         notifyEngineSetupFailed();
     }
@@ -666,7 +668,9 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
         m_wow64State = noWow64Stack;
     const QFileInfo extensionFi(CdbEngine::extensionLibraryName(m_cdbIs64Bit));
     if (!extensionFi.isFile()) {
-        *errorMessage = QString::fromLatin1("Internal error: The extension %1 cannot be found.").
+        *errorMessage = QString::fromLatin1("Internal error: The extension %1 cannot be found.\n"
+                                            "If you build Qt Creator from sources, check out "
+                                            "https://qt.gitorious.org/qt-creator/binary-artifacts/").
                 arg(QDir::toNativeSeparators(extensionFi.absoluteFilePath()));
         return false;
     }

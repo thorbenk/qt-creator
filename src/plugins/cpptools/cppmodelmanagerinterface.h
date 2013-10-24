@@ -101,6 +101,9 @@ public:
     typedef QSharedPointer<ProjectPart> Ptr;
 
 public:
+    QString displayName;
+    QString projectFile;
+    ProjectExplorer::Project *project;
     QList<ProjectFile> files;
     QByteArray defines;
     QStringList includePaths;
@@ -212,6 +215,7 @@ public:
 
 public:
     static const QString configurationFileName();
+    static const QString editorConfigurationFileName();
 
 public:
     CppModelManagerInterface(QObject *parent = 0);
@@ -222,12 +226,14 @@ public:
     virtual bool isCppEditor(Core::IEditor *editor) const = 0;
 
     virtual WorkingCopy workingCopy() const = 0;
+    virtual QByteArray codeModelConfiguration() const = 0;
     virtual CPlusPlus::Snapshot snapshot() const = 0;
 
     virtual QList<ProjectInfo> projectInfos() const = 0;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const = 0;
     virtual QFuture<void> updateProjectInfo(const ProjectInfo &pinfo) = 0;
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const = 0;
+    virtual QList<ProjectPart::Ptr> projectPartFromDependencies(const QString &fileName) const = 0;
     virtual ProjectPart::Ptr fallbackProjectPart() const = 0;
 
     virtual QStringList includePaths() = 0;
@@ -267,7 +273,7 @@ signals:
     void documentUpdated(CPlusPlus::Document::Ptr doc);
     void sourceFilesRefreshed(const QStringList &files);
 
-    /// \brief Emitted after updateProjectInfo method is called on the model-manager.
+    /// \brief Emitted after updateProjectInfo function is called on the model-manager.
     ///
     /// Other classes can use this to get notified when the \c ProjectExplorer has updated the parts.
     void projectPartsUpdated(ProjectExplorer::Project *project);

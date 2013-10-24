@@ -1,7 +1,7 @@
 import qbs.base 1.0
 import qbs.FileInfo
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "CppTools"
@@ -121,7 +121,9 @@ QtcPlugin {
         "cppcodemodelsettings.h",
         "cppcodemodelsettingspage.cpp",
         "cppcodemodelsettingspage.h",
-        "cppcodemodelsettingspage.ui"
+        "cppcodemodelsettingspage.ui",
+        "cppsnapshotupdater.cpp",
+        "cppsnapshotupdater.h",
     ]
 
     Group {

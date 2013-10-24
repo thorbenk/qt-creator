@@ -43,23 +43,21 @@ import HelperWidgets 2.0
 import QtQuick.Layouts 1.0
 
 Section {
-    caption: "Geometry"
+    caption: qsTr("Geometry")
 
     SectionLayout {
-        columnSpacing: 6
         rowSpacing: 4
         rows: 2
 
         Label {
-            text: "Position"
-            Layout.alignment: Qt.AlignVCenter
+            text: qsTr("Position")
         }
 
         SecondColumnLayout {
+
             Label {
                 text: "X"
                 width: 12
-                Layout.alignment: Qt.AlignVCenter
             }
 
             SpinBox {
@@ -67,6 +65,11 @@ Section {
                 maximumValue: 0xffff
                 minimumValue: -0xffff
                 decimals: 0
+            }
+
+            Item {
+                width: 4
+                height: 4
             }
 
             Label {
@@ -81,21 +84,19 @@ Section {
                 decimals: 0
             }
             ExpandingSpacer {
+
             }
         }
         Label {
-            text: "Size"
-            Layout.alignment: Qt.AlignVCenter
+            text: qsTr("Size")
         }
 
         SecondColumnLayout {
             Layout.fillWidth: true
 
-
             Label {
                 text: "W"
                 width: 12
-                Layout.alignment: Qt.AlignVCenter
             }
 
             SpinBox {
@@ -105,10 +106,14 @@ Section {
                 decimals: 0
             }
 
+            Item {
+                width: 4
+                height: 4
+            }
+
             Label {
                 text: "H"
                 width: 12
-                Layout.alignment: Qt.AlignVCenter
             }
 
             SpinBox {
@@ -117,7 +122,6 @@ Section {
                 minimumValue: -0xffff
                 decimals: 0
             }
-
             ExpandingSpacer {
 
             }

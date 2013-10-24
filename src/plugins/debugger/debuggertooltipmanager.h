@@ -75,7 +75,14 @@ public:
     int line;
     int column;
     QString function; //!< Optional function. This must be set by the engine as it is language-specific.
+
+    QPoint mousePosition;
+    QString expression;
+    QByteArray iname;
 };
+
+typedef QList<DebuggerToolTipContext> DebuggerToolTipContexts;
+
 
 QDebug operator<<(QDebug, const DebuggerToolTipContext &);
 
@@ -108,16 +115,7 @@ public:
     QDate creationDate() const { return m_creationDate; }
     void setCreationDate(const QDate &d) { m_creationDate = d; }
 
-    QPoint offset() const { return m_offset; }
-    void setOffset(const QPoint &o) { m_offset = o; }
-
     static DebuggerToolTipWidget *loadSessionData(QXmlStreamReader &r);
-
-    QByteArray iname() const { return m_iname; }
-    void setIname(const QByteArray &e) { m_iname = e; }
-
-    QString expression() const { return m_expression; }
-    void setExpression(const QString &e) { m_expression = e; }
 
     static QString treeModelClipboardContents(const QAbstractItemModel *m);
 
@@ -160,8 +158,6 @@ private:
     static void restoreTreeModel(QXmlStreamReader &r, QStandardItemModel *m);
 
     int m_debuggerModel;
-    QString m_expression;
-    QByteArray m_iname;
 
     DebuggerToolTipTreeView *m_treeView;
     QStandardItemModel *m_defaultModel;
@@ -192,22 +188,18 @@ class DebuggerToolTipManager : public QObject
     Q_OBJECT
 
 public:
-    typedef QPair<QString, QByteArray> ExpressionInamePair;
-    typedef QList<ExpressionInamePair> ExpressionInamePairs;
-
     explicit DebuggerToolTipManager(QObject *parent = 0);
-    virtual ~DebuggerToolTipManager();
+    ~DebuggerToolTipManager();
 
-    static DebuggerToolTipManager *instance() { return m_instance; }
-    void registerEngine(DebuggerEngine *engine);
-    bool hasToolTips() const { return !m_tooltips.isEmpty(); }
+    static void registerEngine(DebuggerEngine *engine);
+    static bool hasToolTips();
 
     // Collect all expressions of DebuggerTreeViewToolTipWidget
-    ExpressionInamePairs treeWidgetExpressions(const QString &fileName,
+    static DebuggerToolTipContexts treeWidgetExpressions(const QString &fileName,
                                                const QString &engineType = QString(),
-                                               const QString &function= QString()) const;
+                                               const QString &function= QString());
 
-    void showToolTip(const QPoint &p, Core::IEditor *editor, DebuggerToolTipWidget *);
+    static void showToolTip(const QPoint &p, DebuggerToolTipWidget *);
 
     virtual bool eventFilter(QObject *, QEvent *);
 
@@ -219,7 +211,7 @@ public slots:
     void sessionAboutToChange();
     void loadSessionData();
     void saveSessionData();
-    void closeAllToolTips();
+    static void closeAllToolTips();
     void hide();
 
 private slots:
@@ -229,22 +221,6 @@ private slots:
     void slotEditorOpened(Core::IEditor *);
     void slotTooltipOverrideRequested(TextEditor::ITextEditor *editor,
             const QPoint &point, int pos, bool *handled);
-
-private:
-    typedef QList<QPointer<DebuggerToolTipWidget> > DebuggerToolTipWidgetList;
-
-    void registerToolTip(DebuggerToolTipWidget *toolTipWidget);
-    void moveToolTipsBy(const QPoint &distance);
-    // Purge out closed (null) tooltips and return list for convenience
-    void purgeClosedToolTips();
-
-    static DebuggerToolTipManager *m_instance;
-
-    DebuggerToolTipWidgetList m_tooltips;
-
-    bool m_debugModeActive;
-    QPoint m_lastToolTipPoint;
-    Core::IEditor *m_lastToolTipEditor;
 };
 
 } // namespace Internal

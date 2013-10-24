@@ -1,6 +1,6 @@
 import qbs.base 1.0
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "Debugger"
@@ -263,7 +263,6 @@ QtcPlugin {
     }
 
     Export {
-        Depends { name: "cpp" }
         Depends { name: "QtcSsh" }
     }
 }

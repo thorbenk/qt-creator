@@ -44,7 +44,7 @@
 
 enum { debugLibWizard = 0 };
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 struct PluginBaseClasses {
@@ -349,7 +349,8 @@ LibraryParameters LibraryWizardDialog::libraryParameters() const
 {
     LibraryParameters rc;
     rc.className = m_filesPage->className();
-    rc.baseClassName = m_filesPage->baseClassName();
+    rc.baseClassName = type() == QtProjectParameters::Qt4Plugin ?
+                       m_filesPage->baseClassName() : QString();
     rc.sourceFileName = m_filesPage->sourceFileName();
     rc.headerFileName = m_filesPage->headerFileName();
     return rc;
@@ -370,10 +371,10 @@ MobileLibraryParameters LibraryWizardDialog::mobileLibraryParameters() const
     mlp.fileName = projectName();
 
     // Maemo stuff should always be added to pro file. Even if no mobile target is specified
-    mlp.type |= MobileLibraryParameters::Maemo;
+    mlp.type |= MobileLibraryParameters::Linux;
 
     return mlp;
 }
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager

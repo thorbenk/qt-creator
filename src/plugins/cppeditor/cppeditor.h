@@ -30,6 +30,7 @@
 #ifndef CPPEDITOR_H
 #define CPPEDITOR_H
 
+#include "cppfollowsymbolundercursor.h"
 #include "cppfunctiondecldeflink.h"
 
 #include <cpptools/commentssettings.h>
@@ -110,8 +111,6 @@ public:
     virtual void cut(); // reimplemented from BaseTextEditorWidget
     virtual void selectAll(); // reimplemented from BaseTextEditorWidget
 
-    CppTools::CppModelManagerInterface *modelManager() const;
-
     virtual void setMimeType(const QString &mt);
 
     void setObjCEnabled(bool onoff);
@@ -120,6 +119,7 @@ public:
     bool openLink(const Link &link, bool inNextSplit) { return openCppEditorAt(link, inNextSplit); }
 
     static Link linkToSymbol(CPlusPlus::Symbol *symbol);
+    static QString identifierUnderCursor(QTextCursor *macroCursor);
 
     static QVector<TextEditor::TextStyle> highlighterFormatCategories();
 
@@ -130,6 +130,8 @@ public:
     void applyDeclDefLinkChanges(bool jumpToMatch);
 
     void updateContentsChangedSignal();
+
+    FollowSymbolUnderCursor *followSymbolUnderCursorDelegate(); // exposed for tests
 
 Q_SIGNALS:
     void outlineModelIndexChanged(const QModelIndex &index);
@@ -142,6 +144,7 @@ public Q_SLOTS:
     void renameSymbolUnderCursor();
     void renameUsages();
     void findUsages();
+    void showPreProcessorWidget();
     void renameUsagesNow(const QString &replacement = QString());
     void semanticRehighlight(bool force = false);
     void highlighterStarted(QFuture<TextEditor::HighlightingResult> *highlighter,
@@ -188,8 +191,6 @@ private Q_SLOTS:
 private:
     void markSymbols(const QTextCursor &tc, const CppTools::SemanticInfo &info);
     bool sortedOutline() const;
-    CPlusPlus::Symbol *findDefinition(CPlusPlus::Symbol *symbol,
-                                      const CPlusPlus::Snapshot &snapshot) const;
 
     TextEditor::ITextEditor *openCppEditorAt(const QString &fileName, int line,
                                              int column = 0);
@@ -205,14 +206,7 @@ private:
 
     Q_SLOT void abortDeclDefLink();
 
-    Link attemptFuncDeclDef(const QTextCursor &cursor,
-                            const CPlusPlus::Document::Ptr &doc,
-                            CPlusPlus::Snapshot snapshot) const;
-    Link findLinkAt(const QTextCursor &, bool resolveTarget = true);
-    Link findMacroLink(const QByteArray &name) const;
-    Link findMacroLink(const QByteArray &name, CPlusPlus::Document::Ptr doc,
-                       const CPlusPlus::Snapshot &snapshot, QSet<QString> *processed) const;
-    QString identifierUnderCursor(QTextCursor *macroCursor) const;
+    Link findLinkAt(const QTextCursor &, bool resolveTarget = true, bool inNextSplit = false);
     bool openCppEditorAt(const Link &, bool inNextSplit = false);
 
     QModelIndex indexForPosition(int line, int column,
@@ -221,7 +215,7 @@ private:
     bool handleDocumentationComment(QKeyEvent *e);
     bool isStartOfDoxygenComment(const QTextCursor &cursor) const;
 
-    CppTools::CppModelManagerInterface *m_modelManager;
+    QPointer<CppTools::CppModelManagerInterface> m_modelManager;
 
     QComboBox *m_outlineCombo;
     CPlusPlus::OverviewModel *m_outlineModel;
@@ -262,6 +256,9 @@ private:
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
     CppTools::CommentsSettings m_commentsSettings;
+
+    QScopedPointer<FollowSymbolUnderCursor> m_followSymbolUnderCursor;
+    QString m_preProcessorAdditions;
 };
 
 } // namespace Internal

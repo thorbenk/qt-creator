@@ -45,16 +45,19 @@ class tst_AST: public QObject
     Control control;
 
 public:
-
     TranslationUnit *parse(const QByteArray &source,
                            TranslationUnit::ParseMode mode,
                            bool blockErrors = false,
                            bool qtMocRun = false)
     {
         const StringLiteral *fileId = control.stringLiteral("<stdin>");
+        LanguageFeatures features;
+        features.objCEnabled = true;
+        features.qtEnabled = qtMocRun;
+        features.qtKeywordsEnabled = qtMocRun;
+        features.qtMocRunEnabled = qtMocRun;
         TranslationUnit *unit = new TranslationUnit(&control, fileId);
-        unit->setObjCEnabled(true);
-        unit->setQtMocRunEnabled(qtMocRun);
+        unit->setLanguageFeatures(features);
         unit->setSource(source.constData(), source.length());
         unit->blockErrors(blockErrors);
         unit->parse(mode);
@@ -152,6 +155,10 @@ private slots:
     void cpp_constructor_multiple_args();
     void cpp_constructor_function_try_catch();
 
+    // Q_PROPERTY
+    void cpp_qproperty();
+    void cpp_qproperty_data();
+
     // objc++
     void objc_simple_class();
     void objc_attributes_followed_by_at_keyword();
@@ -173,6 +180,8 @@ private slots:
 
     // Qt "keywords"
     void q_enum_1();
+
+    void incomplete_ast();
 };
 
 void tst_AST::gcc_attributes_1()
@@ -1235,6 +1244,39 @@ void tst_AST::cpp_constructor_function_try_catch()
     QVERIFY(funDecl->parameter_declaration_clause->parameter_declaration_list != 0);
 }
 
+void tst_AST::cpp_qproperty()
+{
+    QFETCH(QByteArray, source);
+    QVERIFY(!source.isEmpty());
+
+    const QByteArray sourceWithinClass = "class C { " + source + " };";
+    QSharedPointer<TranslationUnit> unit(parseDeclaration(sourceWithinClass, false, true));
+    QVERIFY(unit->ast());
+
+    QCOMPARE(diag.errorCount, 0);
+}
+
+void tst_AST::cpp_qproperty_data()
+{
+    QTest::addColumn<QByteArray>("source");
+
+    QTest::newRow("read-final")
+        << QByteArray("Q_PROPERTY(bool focus READ hasFocus FINAL)");
+    QTest::newRow("read-write-final")
+        << QByteArray("Q_PROPERTY(bool focus READ hasFocus WRITE setFocus FINAL)");
+    QTest::newRow("member-final")
+        << QByteArray("Q_PROPERTY(bool focus MEMBER m_focus FINAL)");
+    QTest::newRow("member-read-final")
+        << QByteArray("Q_PROPERTY(bool focus MEMBER m_focus READ m_focus FINAL)");
+    QTest::newRow("member-read-write-final")
+        << QByteArray("Q_PROPERTY(bool focus MEMBER m_focus READ hasFocus WRITE setFocus FINAL)");
+
+    QTest::newRow("all")
+        << QByteArray("Q_PROPERTY(bool focus MEMBER m_focus READ hasFocus WRITE setFocus"
+                      " RESET resetFocus NOTIFY focusChanged REVISION 1 DESIGNABLE true"
+                      " SCRIPTABLE true STORED true USER true CONSTANT FINAL)");
+}
+
 void tst_AST::objc_simple_class()
 {
     QSharedPointer<TranslationUnit> unit(parseDeclaration("\n"
@@ -1681,6 +1723,13 @@ void tst_AST::q_enum_1()
     SimpleNameAST *e = qtEnum->enumerator_list->value->asSimpleName();
     QVERIFY(e);
     QCOMPARE(unit->spell(e->identifier_token), "e");
+}
+
+void tst_AST::incomplete_ast()
+{
+    QSharedPointer<TranslationUnit> unit(parseStatement("class A { virtual void a() =\n"));
+    AST *ast = unit->ast();
+    QVERIFY(ast);
 }
 
 void tst_AST::initTestCase()

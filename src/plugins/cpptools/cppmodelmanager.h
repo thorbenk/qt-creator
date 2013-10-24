@@ -68,11 +68,19 @@ public:
     virtual QFuture<void> updateSourceFiles(const QStringList &sourceFiles,
         ProgressNotificationMode mode = ReservedProgressNotification);
     virtual WorkingCopy workingCopy() const;
+    virtual QByteArray codeModelConfiguration() const;
 
     virtual QList<ProjectInfo> projectInfos() const;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const;
     virtual QFuture<void> updateProjectInfo(const ProjectInfo &newProjectInfo);
-    virtual QList<CppTools::ProjectPart::Ptr> projectPart(const QString &fileName) const;
+
+    /// \return All project parts that mention the given file name as one of the sources/headers.
+    virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const;
+    /// This is a fall-back function: find all files that includes the file directly or indirectly,
+    /// and return its \c ProjectPart list for use with this file.
+    virtual QList<ProjectPart::Ptr> projectPartFromDependencies(const QString &fileName) const;
+    /// \return A synthetic \c ProjectPart which consists of all defines/includes/frameworks from
+    ///         all loaded projects.
     virtual ProjectPart::Ptr fallbackProjectPart() const;
 
     virtual CPlusPlus::Snapshot snapshot() const;
@@ -161,6 +169,8 @@ private slots:
 
 private:
     void delayedGC();
+    void recalculateFileToProjectParts();
+
     void replaceSnapshot(const CPlusPlus::Snapshot &newSnapshot);
     void removeFilesFromSnapshot(const QSet<QString> &removedFiles);
     void removeProjectInfoFilesAndIncludesFromSnapshot(const ProjectInfo &projectInfo);

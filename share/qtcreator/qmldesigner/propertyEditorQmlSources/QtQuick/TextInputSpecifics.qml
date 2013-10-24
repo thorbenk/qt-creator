@@ -35,6 +35,11 @@ Column {
     anchors.left: parent.left
     anchors.right: parent.right
 
+    StandardTextSection {
+        useLineEdit: false
+        showIsWrapping: false
+    }
+
     Section {
         anchors.left: parent.left
         anchors.right: parent.right
@@ -43,7 +48,7 @@ Column {
         ColorEditor {
             caption: qsTr(" Text Color")
             backendendValue: backendValues.color
-            supportGradient: true
+            supportGradient: false
         }
 
     }
@@ -60,12 +65,11 @@ Column {
         }
     }
 
-   StandardTextSection {
-       useLineEdit: false
-       showIsWrapping: false
-   }
-
    FontSection {
        showStyle: false
+   }
+
+   TextInputSection {
+
    }
 }

@@ -117,6 +117,15 @@ static bool hasQtQuick2(NodeInstanceView *nodeInstanceView)
     return false;
 }
 
+QString NodeInstanceServerProxy::creatorQmlPuppetPath()
+{
+    QString applicationPath =  QCoreApplication::applicationDirPath();
+    applicationPath = macOSBundlePath(applicationPath);
+    applicationPath += QLatin1Char('/') + qmlPuppetApplicationName();
+
+    return applicationPath;
+}
+
 NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceView, RunModus runModus, const QString &pathToQt)
     : NodeInstanceServerInterface(nodeInstanceView),
       m_localServer(new QLocalServer(this)),
@@ -131,7 +140,6 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
       m_runModus(runModus),
       m_synchronizeId(-1)
 {
-   Q_UNUSED(pathToQt);
    QString socketToken(QUuid::createUuid().toString());
 
    m_localServer->listen(socketToken);
@@ -145,13 +153,16 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
    } else {
        applicationPath = macOSBundlePath(applicationPath);
        applicationPath += QLatin1Char('/') + qmlPuppetApplicationName();
+
+
+#if defined(QT_NO_DEBUG) || defined(SEARCH_PUPPET_IN_CREATOR_BINPATH) // to prevent of choosing the wrong puppet in debug
        if (!QFileInfo(applicationPath).exists()) { //No qmlpuppet in Qt
            //We have to find out how to give not too intrusive feedback
-           applicationPath =  QCoreApplication::applicationDirPath();
-           applicationPath = macOSBundlePath(applicationPath);
-           applicationPath += QLatin1Char('/') + qmlPuppetApplicationName();
+           applicationPath = creatorQmlPuppetPath();
        }
+#endif
    }
+
 
    QByteArray envImportPath = qgetenv("QTCREATOR_QMLPUPPET_PATH");
    if (!envImportPath.isEmpty())
@@ -399,8 +410,8 @@ void NodeInstanceServerProxy::processFinished(int /*exitCode*/, QProcess::ExitSt
     if (m_captureFileForTest.isOpen()) {
         m_captureFileForTest.close();
         m_captureFileForTest.remove();
-        QMessageBox::warning(0, tr("QML Puppet Crashed"), tr("Your are recording a Puppet stream and the puppet crashed. "
-                                                             "It is recommended to reopen the QML Designer and start again."));
+        QMessageBox::warning(0, tr("QML Puppet Crashed"), tr("You are recording a puppet stream and the puppet crashed. "
+                                                             "It is recommended to reopen the Qt Quick Designer and start again."));
     }
 
 

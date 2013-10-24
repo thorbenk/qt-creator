@@ -60,7 +60,6 @@ public:
     QString configFileName() const;
 
     QString displayName() const;
-    Core::Id id() const;
     Core::IDocument *document() const;
     ProjectExplorer::IProjectManager *projectManager() const;
 
@@ -86,7 +85,6 @@ public:
     void setIncludePaths(const QStringList &includePaths);
 
     QByteArray defines() const;
-    QStringList allIncludePaths() const;
     QStringList projectIncludePaths() const;
     QStringList files() const;
 
@@ -112,7 +110,6 @@ private:
     QStringList m_rawFileList;
     QStringList m_files;
     QHash<QString, QString> m_rawListEntries;
-    QStringList m_includePaths;
     QStringList m_projectIncludePaths;
     QByteArray m_defines;
 

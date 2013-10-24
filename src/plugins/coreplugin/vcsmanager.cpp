@@ -271,14 +271,18 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
 
     // Register Vcs(s) with the cache
     QString tmpDir = QFileInfo(directory).canonicalFilePath();
-    const QChar slash = QLatin1Char('/');
-    const StringVersionControlPairs::const_iterator cend = allThatCanManage.constEnd();
-    for (StringVersionControlPairs::const_iterator i = allThatCanManage.constBegin(); i != cend; ++i) {
-        d->cache(i->second, i->first, tmpDir);
-        tmpDir = i->first;
-        const int slashPos = tmpDir.lastIndexOf(slash);
-        if (slashPos >= 0)
-            tmpDir.truncate(slashPos);
+    // directory might refer to a historical directory which doesn't exist.
+    // In this case, don't cache it.
+    if (!tmpDir.isEmpty()) {
+        const QChar slash = QLatin1Char('/');
+        const StringVersionControlPairs::const_iterator cend = allThatCanManage.constEnd();
+        for (StringVersionControlPairs::const_iterator i = allThatCanManage.constBegin(); i != cend; ++i) {
+            d->cache(i->second, i->first, tmpDir);
+            tmpDir = i->first;
+            const int slashPos = tmpDir.lastIndexOf(slash);
+            if (slashPos >= 0)
+                tmpDir.truncate(slashPos);
+        }
     }
 
     // return result
@@ -400,8 +404,8 @@ QString VcsManager::msgAddToVcsFailedTitle()
 QString VcsManager::msgToAddToVcsFailed(const QStringList &files, const IVersionControl *vc)
 {
     return files.size() == 1
-        ? tr("Could not add the file\n%1\nto version control (%2)\n")
-              .arg(files.front(), vc->displayName())
+        ? tr("Could not add the file\n%1\nto version control (%2)")
+              .arg(files.front(), vc->displayName()) + QLatin1Char('\n')
         : tr("Could not add the following files to version control (%1)\n%2")
               .arg(vc->displayName(), files.join(QString(QLatin1Char('\n'))));
 }
@@ -412,11 +416,20 @@ void VcsManager::promptToAdd(const QString &directory, const QStringList &fileNa
     if (!vc || !vc->supportsOperation(Core::IVersionControl::AddOperation))
         return;
 
+    QStringList unmanagedFiles;
+    QDir dir(directory);
+    foreach (const QString &fileName, fileNames) {
+        if (!vc->managesFile(directory, dir.relativeFilePath(fileName)))
+            unmanagedFiles << fileName;
+    }
+    if (unmanagedFiles.isEmpty())
+        return;
+
     Internal::AddToVcsDialog dlg(Core::ICore::mainWindow(), VcsManager::msgAddToVcsTitle(),
-                                 fileNames, vc->displayName());
+                                 unmanagedFiles, vc->displayName());
     if (dlg.exec() == QDialog::Accepted) {
         QStringList notAddedToVc;
-        foreach (const QString &file, fileNames) {
+        foreach (const QString &file, unmanagedFiles) {
             if (!vc->vcsAdd(file))
                 notAddedToVc << file;
         }

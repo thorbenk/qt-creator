@@ -1,8 +1,8 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2013 Research In Motion
+** Copyright (C) 2012, 2013 BlackBerry Limited. All rights reserved.
 **
-** Contact: Research In Motion (blackberry-qt@qnx.com)
+** Contact: BlackBerry (qt@blackberry.com)
 ** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
@@ -52,6 +52,7 @@
 #include "blackberrycheckdevmodestepfactory.h"
 #include "blackberrydeviceconnectionmanager.h"
 #include "blackberryconfigurationmanager.h"
+#include "cascadesimport/cascadesimportwizard.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/mimedatabase.h>
@@ -89,6 +90,7 @@ bool QNXPlugin::initialize(const QStringList &arguments, QString *errorString)
     addAutoReleasedObject(new BlackBerryNDKSettingsPage);
     addAutoReleasedObject(new BlackBerryKeysPage);
     addAutoReleasedObject(new BlackBerryCheckDevModeStepFactory);
+    addAutoReleasedObject(new CascadesImportWizard);
     BlackBerryDeviceConnectionManager::instance()->initialize();
 
     // Handles QNX

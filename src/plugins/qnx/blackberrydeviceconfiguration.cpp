@@ -1,8 +1,8 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2013 Research In Motion
+** Copyright (C) 2012, 2013 BlackBerry Limited. All rights reserved.
 **
-** Contact: Research In Motion (blackberry-qt@qnx.com)
+** Contact: BlackBerry (qt@blackberry.com)
 ** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
@@ -35,6 +35,7 @@
 #include "qnxdeviceprocesssignaloperation.h"
 #include "blackberrydeviceconfigurationwidget.h"
 #include "blackberrydeviceconnectionmanager.h"
+#include "qnxdeviceprocesslist.h"
 
 #include <projectexplorer/kitinformation.h>
 #include <ssh/sshconnection.h>
@@ -160,6 +161,11 @@ QVariantMap BlackBerryDeviceConfiguration::toMap() const
     QVariantMap map = RemoteLinux::LinuxDevice::toMap();
     map.insert(QLatin1String(Constants::QNX_DEBUG_TOKEN_KEY), m_debugToken);
     return map;
+}
+
+DeviceProcessList *BlackBerryDeviceConfiguration::createProcessListModel(QObject *parent) const
+{
+    return new QnxDeviceProcessList(sharedFromThis(), parent);
 }
 
 DeviceProcessSignalOperation::Ptr BlackBerryDeviceConfiguration::signalOperation() const

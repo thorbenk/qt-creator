@@ -43,12 +43,12 @@ SUBDIRS   = \
     macros \
     remotelinux \
     android \
-    madde \
     valgrind \
     todo \
     qnx \
     clearcase \
-    baremetal
+    baremetal \
+    ios
 
 # prefer qmake variable set on command line over env var
 isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
@@ -71,7 +71,7 @@ isEmpty(IDE_PACKAGE_MODE) {
         updateinfo
 }
 
-minQtVersion(5, 1, 0) {
+minQtVersion(5, 2, 0) {
     SUBDIRS += \
         qmldesigner \
         qmlprofiler \
@@ -80,7 +80,7 @@ minQtVersion(5, 1, 0) {
      warning("QmlDesigner plugin has been disabled.")
      warning("QmlProfiler plugin has been disabled.")
      warning("Welcome plugin has been disabled.")
-     warning("These plugins need at least Qt 5.1.")
+     warning("These plugins need at least Qt 5.2.")
 }
 
 for(p, SUBDIRS) {

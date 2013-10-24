@@ -121,29 +121,14 @@ bool SubversionControl::vcsCreateRepository(const QString &)
     return false;
 }
 
-QString SubversionControl::vcsCreateSnapshot(const QString &)
-{
-    return QString();
-}
-
-QStringList SubversionControl::vcsSnapshots(const QString &)
-{
-    return QStringList();
-}
-
-bool SubversionControl::vcsRestoreSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
-bool SubversionControl::vcsRemoveSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
 bool SubversionControl::managesDirectory(const QString &directory, QString *topLevel) const
 {
     return m_plugin->managesDirectory(directory, topLevel);
+}
+
+bool SubversionControl::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    return m_plugin->managesFile(workingDirectory, fileName);
 }
 
 bool SubversionControl::vcsAnnotate(const QString &file, int line)

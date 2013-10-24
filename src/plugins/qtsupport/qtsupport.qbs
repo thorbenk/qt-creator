@@ -1,12 +1,12 @@
 import qbs.base 1.0
 
-import "../../../qbs/functions.js" as QtcFunctions
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcFunctions
+import QtcPlugin
 
 QtcPlugin {
     name: "QtSupport"
 
-    Depends { name: "Qt"; submodules: ["core", "widgets"]; }
+    Depends { name: "Qt"; submodules: ["widgets"]; }
     Depends { name: "Qt.quick"; condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1"); }
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
@@ -113,6 +113,18 @@ QtcPlugin {
     ]
 
     Group {
+        name: "QtVersion"
+        files: [
+            "desktopqtversion.cpp", "desktopqtversion.h",
+            "desktopqtversionfactory.cpp", "desktopqtversionfactory.h",
+            "simulatorqtversion.cpp", "simulatorqtversion.h",
+            "simulatorqtversionfactory.cpp", "simulatorqtversionfactory.h",
+            "winceqtversion.cpp", "winceqtversion.h",
+            "winceqtversionfactory.cpp", "winceqtversionfactory.h",
+        ]
+    }
+
+    Group {
         name: "Getting Started Welcome Page"
         condition: QtcFunctions.versionIsAtLeast(Qt.core.version, "5.1")
         files: [
@@ -123,7 +135,6 @@ QtcPlugin {
 
 
     Export {
-        Depends { name: "cpp" }
         cpp.includePaths: "../../shared"
         cpp.defines: [
             "QMAKE_AS_LIBRARY",

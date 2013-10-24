@@ -35,7 +35,7 @@
 
 #include <projectexplorer/projectexplorerconstants.h>
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 GuiAppParameters::GuiAppParameters()
@@ -57,7 +57,7 @@ GuiAppWizardDialog::GuiAppWizardDialog(const QString &templateName,
     setWindowTitle(templateName);
     setSelectedModules(QLatin1String("core gui"), true);
 
-    setIntroDescription(tr("This wizard generates a Qt GUI application "
+    setIntroDescription(tr("This wizard generates a Qt Widgets Application "
          "project. The application derives by default from QApplication "
          "and includes an empty widget."));
 
@@ -112,9 +112,7 @@ GuiAppParameters GuiAppWizardDialog::parameters() const
     rc.formFileName = m_filesPage->formFileName();
     rc.designerForm =  m_filesPage->formInputChecked();
     rc.isMobileApplication = true;
-    if (isQtPlatformSelected(QLatin1String(QtSupport::Constants::MAEMO_FREMANTLE_PLATFORM))
-            || isQtPlatformSelected(QLatin1String(QtSupport::Constants::MEEGO_HARMATTAN_PLATFORM))
-            || isQtPlatformSelected(QLatin1String(QtSupport::Constants::ANDROID_PLATFORM))) {
+    if (isQtPlatformSelected(QLatin1String(QtSupport::Constants::ANDROID_PLATFORM))) {
         rc.widgetWidth = 800;
         rc.widgetHeight = 480;
     } else {
@@ -126,4 +124,4 @@ GuiAppParameters GuiAppWizardDialog::parameters() const
 }
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager

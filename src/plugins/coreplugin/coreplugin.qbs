@@ -1,5 +1,5 @@
 import qbs.base 1.0
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "Core"
@@ -7,7 +7,7 @@ QtcPlugin {
     Depends {
         name: "Qt"
         submodules: [
-            "core", "widgets", "xml", "network", "script", "sql", "help", "printsupport"
+            "widgets", "xml", "network", "script", "sql", "help", "printsupport"
         ]
     }
     Depends { name: "Utils" }
@@ -48,7 +48,7 @@ QtcPlugin {
             "helpmanager.cpp", "helpmanager.h",
             "icontext.cpp", "icontext.h",
             "icore.cpp", "icore.h",
-            "icorelistener.h",
+            "icorelistener.cpp", "icorelistener.h",
             "id.cpp", "id.h",
             "idocument.cpp", "idocument.h",
             "idocumentfactory.h",
@@ -182,7 +182,7 @@ QtcPlugin {
         condition: project.testsEnabled
         files: [
             "testdatadir.cpp",
-            "testdatadir.h"
+            "testdatadir.h",
         ]
     }
 

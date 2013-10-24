@@ -59,8 +59,8 @@ using namespace Core::Internal;
     menu items and keyboard shortcuts.
 
     The ActionManager is the central bookkeeper of actions and their shortcuts and layout.
-    It is a singleton containing mostly static methods. If you need access to the instance,
-    e.g. for connecting to signals, is its ActionManager::instance() method.
+    It is a singleton containing mostly static functions. If you need access to the instance,
+    e.g. for connecting to signals, is its ActionManager::instance() function.
 
     The main reasons for the need of this class is to provide a central place where the user
     can specify all his keyboard shortcuts, and to provide a solution for actions that should
@@ -92,7 +92,7 @@ using namespace Core::Internal;
     \section1 Registering Actions
 
     To register a globally active action "My Action"
-    put the following in your plugin's IPlugin::initialize method:
+    put the following in your plugin's IPlugin::initialize function:
     \code
         QAction *myAction = new QAction(tr("My Action"), this);
         Core::Command *cmd = Core::ActionManager::registerAction(myAction,
@@ -113,7 +113,7 @@ using namespace Core::Internal;
     Also use the ActionManager to add items to registered
     action containers like the applications menu bar or menus in that menu bar.
     To do this, you register your action via the
-    registerAction methods, get the action container for a specific ID (like specified in
+    registerAction functions, get the action container for a specific ID (like specified in
     the Core::Constants namespace) with a call of
     actionContainer(const Id&) and add your command to this container.
 
@@ -126,7 +126,7 @@ using namespace Core::Internal;
     \list
     \li Always register your actions and shortcuts!
     \li Register your actions and shortcuts during your plugin's \l{ExtensionSystem::IPlugin::initialize()}
-       or \l{ExtensionSystem::IPlugin::extensionsInitialized()} methods, otherwise the shortcuts won't appear
+       or \l{ExtensionSystem::IPlugin::extensionsInitialized()} functions, otherwise the shortcuts won't appear
        in the keyboard settings dialog from the beginning.
     \li When registering an action with \c{cmd=registerAction(action, id, contexts)} be sure to connect
        your own action \c{connect(action, SIGNAL...)} but make \c{cmd->action()} visible to the user, i.e.
@@ -170,13 +170,13 @@ ActionManager *ActionManager::instance()
 }
 
 /*!
-    \brief Creates a new menu with the given \a id.
+    Creates a new menu with the given \a id.
 
     Returns a new ActionContainer that you can use to get the QMenu instance
     or to add menu items to the menu. The ActionManager owns
     the returned ActionContainer.
     Add your menu to some other menu or a menu bar via the
-    ActionManager::actionContainer and ActionContainer::addMenu methods.
+    ActionManager::actionContainer and ActionContainer::addMenu functions.
 */
 ActionContainer *ActionManager::createMenu(Id id)
 {
@@ -197,7 +197,7 @@ ActionContainer *ActionManager::createMenu(Id id)
 }
 
 /*!
-    \brief Creates a new menu bar with the given \a id.
+    Creates a new menu bar with the given \a id.
 
     Returns a new ActionContainer that you can use to get the QMenuBar instance
     or to add menus to the menu bar. The ActionManager owns
@@ -222,7 +222,7 @@ ActionContainer *ActionManager::createMenuBar(Id id)
 }
 
 /*!
-    \brief Makes an \a action known to the system under the specified \a id.
+    Makes an \a action known to the system under the specified \a id.
 
     Returns a command object that represents the action in the application and is
     owned by the ActionManager. You can register several actions with the
@@ -244,7 +244,7 @@ Command *ActionManager::registerAction(QAction *action, Id id, const Context &co
 }
 
 /*!
-    \brief Makes a \a shortcut known to the system under the specified \a id.
+    Makes a \a shortcut known to the system under the specified \a id.
 
     Returns a command object that represents the shortcut in the application and is
     owned by the ActionManager. You can registered several shortcuts with the
@@ -293,7 +293,7 @@ Command *ActionManager::registerShortcut(QShortcut *shortcut, Id id, const Conte
 }
 
 /*!
-    \brief Returns the Command object that is known to the system
+    Returns the Command object that is known to the system
     under the given \a id.
 
     \sa ActionManager::registerAction()
@@ -311,7 +311,7 @@ Command *ActionManager::command(Id id)
 }
 
 /*!
-    \brief Returns the IActionContainter object that is know to the system
+    Returns the IActionContainter object that is know to the system
     under the given \a id.
 
     \sa ActionManager::createMenu()
@@ -330,7 +330,7 @@ ActionContainer *ActionManager::actionContainer(Id id)
 }
 
 /*!
- * \brief Returns all commands that have been registered.
+ * Returns all commands that have been registered.
  */
 QList<Command *> ActionManager::commands()
 {
@@ -342,7 +342,7 @@ QList<Command *> ActionManager::commands()
 }
 
 /*!
-    \brief Removes the knowledge about an \a action under the specified \a id.
+    Removes the knowledge about an \a action under the specified \a id.
 
     Usually you do not need to unregister actions. The only valid use case for unregistering
     actions, is for actions that represent user definable actions, like for the custom Locator
@@ -373,7 +373,7 @@ void ActionManager::unregisterAction(QAction *action, Id id)
 }
 
 /*!
-    \brief Removes the knowledge about a shortcut under the specified \a id.
+    Removes the knowledge about a shortcut under the specified \a id.
 
     Usually you do not need to unregister shortcuts. The only valid use case for unregistering
     shortcuts, is for shortcuts that represent user definable actions. If the user removes such an action,

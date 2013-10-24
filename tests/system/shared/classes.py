@@ -29,6 +29,8 @@
 
 import operator
 
+isQt4Build = False
+
 # for easier re-usage (because Python hasn't an enum type)
 class Targets:
     DESKTOP_474_GCC = 1
@@ -96,13 +98,11 @@ class ProjectSettings:
 
 # this class defines some constants for the views of the creator's MainWindow
 class ViewConstants:
-    WELCOME = 0
-    EDIT = 1
-    DESIGN = 2
-    DEBUG = 3
-    PROJECTS = 4
-    ANALYZE = 5
-    HELP = 6
+    if isQt4Build:
+        EDIT, DESIGN, DEBUG, PROJECTS, ANALYZE, HELP = range(6)
+    else:
+        WELCOME, EDIT, DESIGN, DEBUG, PROJECTS, ANALYZE, HELP = range(7)
+    FIRST_AVAILABLE = 0
     # always adjust the following to the highest value of the available ViewConstants when adding new
     LAST_AVAILABLE = HELP
 
@@ -111,22 +111,23 @@ class ViewConstants:
     # if the provided argument does not match any of the ViewConstants it returns None
     @staticmethod
     def getToolTipForViewTab(viewTab):
-        if viewTab == ViewConstants.WELCOME:
-            return ur'Switch to <b>Welcome</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)1</span>'
+        if not isQt4Build and viewTab == ViewConstants.WELCOME:
+            toolTip = ur'Switch to <b>Welcome</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         elif viewTab == ViewConstants.EDIT:
-            return ur'Switch to <b>Edit</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)2</span>'
+            toolTip = ur'Switch to <b>Edit</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         elif viewTab == ViewConstants.DESIGN:
-            return ur'Switch to <b>Design</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)3</span>'
+            toolTip = ur'Switch to <b>Design</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         elif viewTab == ViewConstants.DEBUG:
-            return ur'Switch to <b>Debug</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)4</span>'
+            toolTip = ur'Switch to <b>Debug</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         elif viewTab == ViewConstants.PROJECTS:
-            return ur'Switch to <b>Projects</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)5</span>'
+            toolTip = ur'Switch to <b>Projects</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         elif viewTab == ViewConstants.ANALYZE:
-            return ur'Switch to <b>Analyze</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)6</span>'
+            toolTip = ur'Switch to <b>Analyze</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         elif viewTab == ViewConstants.HELP:
-            return ur'Switch to <b>Help</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)7</span>'
+            toolTip = ur'Switch to <b>Help</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)%d</span>'
         else:
             return None
+        return toolTip % (viewTab + 1)
 
 class SubprocessType:
     QT_WIDGET=0

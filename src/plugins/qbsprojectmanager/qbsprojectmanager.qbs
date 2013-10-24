@@ -1,7 +1,7 @@
 import qbs.base 1.0
 import qbs.FileInfo
 
-import "../QtcPlugin.qbs" as QtcPlugin
+import QtcPlugin
 
 QtcPlugin {
     name: "QbsProjectManager"
@@ -57,6 +57,7 @@ QtcPlugin {
     cpp.dynamicLibraries: base.concat(externalQbsDynamicLibraries)
 
     files: [
+        "qbsprojectmanager.qrc",
         "defaultpropertyprovider.cpp",
         "defaultpropertyprovider.h",
         "propertyprovider.h",

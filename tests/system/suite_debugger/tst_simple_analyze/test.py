@@ -30,6 +30,9 @@
 source("../../shared/qtcreator.py")
 
 def main():
+    if isQt4Build:
+        test.log("QML Profiler is only available if Creator was built on Qt 5")
+        return
     startApplication("qtcreator" + SettingsPath)
     if not startedWithoutPluginError():
         return
@@ -94,7 +97,7 @@ def main():
                                       "Internal::QmlProfilerEventsMainView").model()
                 if qtVersion.startswith("5."):
                     compareEventsTab(model, "events_qt50.tsv")
-                    numberOfMsRows = 4
+                    numberOfMsRows = 3
                 else:
                     if qtVersion.startswith("4.8"):
                         compareEventsTab(model, "events_qt48.tsv")
@@ -104,7 +107,7 @@ def main():
                 test.compare(dumpItems(model, column=colPercent)[0], '100.00 %')
                 for i in [colTotal, colMean, colMedian, colLongest, colShortest]:
                     for item in dumpItems(model, column=i)[:numberOfMsRows]:
-                        test.verify(item.endswith(' ms'))
+                        test.verify(item.endswith(' ms'), "Verify that '%s' ends with ' ms'" % item)
                 for row in range(model.rowCount()):
                     if str(model.index(row, colCalls).data()) == "1":
                         for col in [colMedian, colLongest, colShortest]:

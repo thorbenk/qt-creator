@@ -124,11 +124,13 @@ void ExecuteFilter::accept(FilterEntry selection) const
 
 void ExecuteFilter::finished(int exitCode, QProcess::ExitStatus status)
 {
-    QString log = QLatin1Char('\'') + headCommand() + QLatin1String("' ");
+    const QString commandName = headCommand();
+    QString message;
     if (status == QProcess::NormalExit && exitCode == 0)
-        MessageManager::write(log + tr("finished"));
+        message = tr("Command '%1' finished.").arg(commandName);
     else
-        MessageManager::write(log + tr("failed"));
+        message = tr("Command '%1' failed.").arg(commandName);
+    MessageManager::write(message);
 
     m_taskQueue.dequeue();
     if (!m_taskQueue.isEmpty())
@@ -138,13 +140,16 @@ void ExecuteFilter::finished(int exitCode, QProcess::ExitStatus status)
 void ExecuteFilter::readStandardOutput()
 {
     QByteArray data = m_process->readAllStandardOutput();
-    MessageManager::write(QString::fromLocal8Bit(data));
+    MessageManager::write(QTextCodec::codecForLocale()->toUnicode(data.constData(), data.size(),
+                                                                  &m_stdoutState));
 }
 
 void ExecuteFilter::readStandardError()
 {
+    static QTextCodec::ConverterState state;
     QByteArray data = m_process->readAllStandardError();
-    MessageManager::write(QString::fromLocal8Bit(data));
+    MessageManager::write(QTextCodec::codecForLocale()->toUnicode(data.constData(), data.size(),
+                                                                  &m_stderrState));
 }
 
 void ExecuteFilter::runHeadCommand()

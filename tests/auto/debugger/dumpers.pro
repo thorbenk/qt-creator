@@ -1,11 +1,12 @@
 
 QTC_LIB_DEPENDS += cplusplus utils
 QT += network
+QT -= gui
 
 include(../qttest.pri)
 
 DEBUGGERDIR = $$IDE_SOURCE_TREE/src/plugins/debugger
-DUMPERDIR   = $$IDE_SOURCE_TREE/share/qtcreator/dumper
+DUMPERDIR   = $$IDE_SOURCE_TREE/share/qtcreator/debugger
 
 # To access the std::type rewriter
 DEFINES += CPLUSPLUS_BUILD_STATIC_LIB

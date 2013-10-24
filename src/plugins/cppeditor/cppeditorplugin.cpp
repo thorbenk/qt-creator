@@ -36,6 +36,7 @@
 #include "cpphoverhandler.h"
 #include "cppoutline.h"
 #include "cpptypehierarchy.h"
+#include "cppincludehierarchy.h"
 #include "cppsnippetprovider.h"
 #include "cppquickfixassistant.h"
 #include "cppquickfixes.h"
@@ -101,8 +102,9 @@ CppEditorPlugin::CppEditorPlugin() :
     m_sortedOutline(false),
     m_renameSymbolUnderCursorAction(0),
     m_findUsagesAction(0),
-    m_updateCodeModelAction(0),
+    m_reparseExternallyChangedFiles(0),
     m_openTypeHierarchyAction(0),
+    m_openIncludeHierarchyAction(0),
     m_quickFixProvider(0)
 {
     m_instance = this;
@@ -126,7 +128,7 @@ void CppEditorPlugin::initializeEditor(CPPEditorWidget *editor)
     editor->setLanguageSettingsId(CppTools::Constants::CPP_SETTINGS_ID);
     TextEditor::TextEditorSettings::initializeEditor(editor);
 
-    // method combo box sorting
+    // function combo box sorting
     connect(this, SIGNAL(outlineSortingChanged(bool)),
             editor, SLOT(setSortedOutline(bool)));
 }
@@ -156,6 +158,7 @@ bool CppEditorPlugin::initialize(const QStringList & /*arguments*/, QString *err
     addAutoReleasedObject(new CppHoverHandler);
     addAutoReleasedObject(new CppOutlineWidgetFactory);
     addAutoReleasedObject(new CppTypeHierarchyFactory);
+    addAutoReleasedObject(new CppIncludeHierarchyFactory);
     addAutoReleasedObject(new CppSnippetProvider);
     addAutoReleasedObject(new CppHighlighterFactory);
 
@@ -207,7 +210,14 @@ bool CppEditorPlugin::initialize(const QStringList & /*arguments*/, QString *err
     contextMenu->addAction(cmd);
     cppToolsMenu->addAction(cmd);
 
-    QAction *switchDeclarationDefinition = new QAction(tr("Switch Between Method Declaration/Definition"), this);
+    QAction *openPreprocessorDialog = new QAction(tr("Additional Preprocessor Directives"), this);
+    cmd = ActionManager::registerAction(openPreprocessorDialog,
+                                        Constants::OPEN_PREPROCESSOR_DIALOG, context);
+    cmd->setDefaultKeySequence(QKeySequence());
+    connect(openPreprocessorDialog, SIGNAL(triggered()), this, SLOT(showPreProcessorDialog()));
+    cppToolsMenu->addAction(cmd);
+
+    QAction *switchDeclarationDefinition = new QAction(tr("Switch Between Function Declaration/Definition"), this);
     cmd = ActionManager::registerAction(switchDeclarationDefinition,
         Constants::SWITCH_DECLARATION_DEFINITION, context, true);
     cmd->setDefaultKeySequence(QKeySequence(tr("Shift+F2")));
@@ -220,7 +230,7 @@ bool CppEditorPlugin::initialize(const QStringList & /*arguments*/, QString *err
     cppToolsMenu->addAction(cmd);
 
     QAction *openDeclarationDefinitionInNextSplit =
-            new QAction(tr("Open Method Declaration/Definition in Next Split"), this);
+            new QAction(tr("Open Function Declaration/Definition in Next Split"), this);
     cmd = ActionManager::registerAction(openDeclarationDefinitionInNextSplit,
         Constants::OPEN_DECLARATION_DEFINITION_IN_NEXT_SPLIT, context, true);
     cmd->setDefaultKeySequence(QKeySequence(Utils::HostOsInfo::isMacHost()
@@ -244,6 +254,13 @@ bool CppEditorPlugin::initialize(const QStringList & /*arguments*/, QString *err
     contextMenu->addAction(cmd);
     cppToolsMenu->addAction(cmd);
 
+    m_openIncludeHierarchyAction = new QAction(tr("Open Include Hierarchy"), this);
+    cmd = Core::ActionManager::registerAction(m_openIncludeHierarchyAction, Constants::OPEN_INCLUDE_HIERARCHY, context);
+    cmd->setDefaultKeySequence(QKeySequence(Core::UseMacShortcuts ? tr("Meta+Shift+I") : tr("Ctrl+Shift+I")));
+    connect(m_openIncludeHierarchyAction, SIGNAL(triggered()), this, SLOT(openIncludeHierarchy()));
+    contextMenu->addAction(cmd);
+    cppToolsMenu->addAction(cmd);
+
     // Refactoring sub-menu
     Context globalContext(Core::Constants::C_GLOBAL);
     Command *sep = contextMenu->addSeparator(globalContext);
@@ -262,10 +279,10 @@ bool CppEditorPlugin::initialize(const QStringList & /*arguments*/, QString *err
 
     // Update context in global context
     cppToolsMenu->addSeparator(globalContext);
-    m_updateCodeModelAction = new QAction(tr("Update Code Model"), this);
-    cmd = ActionManager::registerAction(m_updateCodeModelAction, Constants::UPDATE_CODEMODEL, globalContext);
+    m_reparseExternallyChangedFiles = new QAction(tr("Reparse Externally Changed Files"), this);
+    cmd = ActionManager::registerAction(m_reparseExternallyChangedFiles, Constants::UPDATE_CODEMODEL, globalContext);
     CppTools::CppModelManagerInterface *cppModelManager = CppTools::CppModelManagerInterface::instance();
-    connect(m_updateCodeModelAction, SIGNAL(triggered()), cppModelManager, SLOT(updateModifiedSourceFiles()));
+    connect(m_reparseExternallyChangedFiles, SIGNAL(triggered()), cppModelManager, SLOT(updateModifiedSourceFiles()));
     cppToolsMenu->addAction(cmd);
 
     m_actionHandler = new TextEditor::TextEditorActionHandler(CppEditor::Constants::C_CPPEDITOR,
@@ -316,32 +333,39 @@ ExtensionSystem::IPlugin::ShutdownFlag CppEditorPlugin::aboutToShutdown()
     return SynchronousShutdown;
 }
 
+static CPPEditorWidget *currentCppEditorWidget()
+{
+    return qobject_cast<CPPEditorWidget*>(EditorManager::currentEditor()->widget());
+}
+
 void CppEditorPlugin::switchDeclarationDefinition()
 {
-    CPPEditorWidget *editor = qobject_cast<CPPEditorWidget*>(EditorManager::currentEditor()->widget());
-    if (editor)
-        editor->switchDeclarationDefinition(/*inNextSplit*/ false);
+    if (CPPEditorWidget *editorWidget = currentCppEditorWidget())
+        editorWidget->switchDeclarationDefinition(/*inNextSplit*/ false);
 }
 
 void CppEditorPlugin::openDeclarationDefinitionInNextSplit()
 {
-    CPPEditorWidget *editor = qobject_cast<CPPEditorWidget*>(EditorManager::currentEditor()->widget());
-    if (editor)
-        editor->switchDeclarationDefinition(/*inNextSplit*/ true);
+    if (CPPEditorWidget *editorWidget = currentCppEditorWidget())
+        editorWidget->switchDeclarationDefinition(/*inNextSplit*/ true);
 }
 
 void CppEditorPlugin::renameSymbolUnderCursor()
 {
-    CPPEditorWidget *editor = qobject_cast<CPPEditorWidget*>(EditorManager::currentEditor()->widget());
-    if (editor)
-        editor->renameSymbolUnderCursor();
+    if (CPPEditorWidget *editorWidget = currentCppEditorWidget())
+        editorWidget->renameSymbolUnderCursor();
 }
 
 void CppEditorPlugin::findUsages()
 {
-    CPPEditorWidget *editor = qobject_cast<CPPEditorWidget*>(EditorManager::currentEditor()->widget());
-    if (editor)
-        editor->findUsages();
+    if (CPPEditorWidget *editorWidget = currentCppEditorWidget())
+        editorWidget->findUsages();
+}
+
+void CppEditorPlugin::showPreProcessorDialog()
+{
+    if (CPPEditorWidget *editorWidget = currentCppEditorWidget())
+        editorWidget->showPreProcessorWidget();
 }
 
 void CppEditorPlugin::onTaskStarted(Core::Id type)
@@ -349,8 +373,9 @@ void CppEditorPlugin::onTaskStarted(Core::Id type)
     if (type == CppTools::Constants::TASK_INDEX) {
         m_renameSymbolUnderCursorAction->setEnabled(false);
         m_findUsagesAction->setEnabled(false);
-        m_updateCodeModelAction->setEnabled(false);
+        m_reparseExternallyChangedFiles->setEnabled(false);
         m_openTypeHierarchyAction->setEnabled(false);
+        m_openIncludeHierarchyAction->setEnabled(false);
     }
 }
 
@@ -359,8 +384,9 @@ void CppEditorPlugin::onAllTasksFinished(Core::Id type)
     if (type == CppTools::Constants::TASK_INDEX) {
         m_renameSymbolUnderCursorAction->setEnabled(true);
         m_findUsagesAction->setEnabled(true);
-        m_updateCodeModelAction->setEnabled(true);
+        m_reparseExternallyChangedFiles->setEnabled(true);
         m_openTypeHierarchyAction->setEnabled(true);
+        m_openIncludeHierarchyAction->setEnabled(true);
     }
 }
 
@@ -369,17 +395,25 @@ void CppEditorPlugin::currentEditorChanged(IEditor *editor)
     if (!editor)
         return;
 
-    if (CPPEditorWidget *textEditor = qobject_cast<CPPEditorWidget *>(editor->widget()))
-        textEditor->semanticRehighlight(/*force = */ true);
+    if (CPPEditorWidget *editorWidget = currentCppEditorWidget())
+        editorWidget->semanticRehighlight(/*force = */ true);
 }
 
 void CppEditorPlugin::openTypeHierarchy()
 {
-    CPPEditorWidget *editor = qobject_cast<CPPEditorWidget*>(EditorManager::currentEditor()->widget());
-    if (editor) {
+    if (currentCppEditorWidget()) {
         NavigationWidget *navigation = NavigationWidget::instance();
         navigation->activateSubWidget(Constants::TYPE_HIERARCHY_ID);
         emit typeHierarchyRequested();
+    }
+}
+
+void CppEditorPlugin::openIncludeHierarchy()
+{
+    if (currentCppEditorWidget()) {
+        Core::NavigationWidget *navigation = Core::NavigationWidget::instance();
+        navigation->activateSubWidget(Core::Id(Constants::INCLUDE_HIERARCHY_ID));
+        emit includeHierarchyRequested();
     }
 }
 

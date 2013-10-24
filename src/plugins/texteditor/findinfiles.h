@@ -64,6 +64,9 @@ protected:
     QString label() const;
     QString toolTip() const;
 
+public slots:
+    static void findOnFileSystem(const QString &path);
+
 private slots:
     void openFileBrowser();
 

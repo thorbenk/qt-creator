@@ -29,7 +29,12 @@
 
 #include "cppeditor.h"
 #include "cppeditorplugin.h"
+#include "cppelementevaluator.h"
+#include "cppvirtualfunctionassistprovider.h"
 
+#include <texteditor/codeassist/iassistproposal.h>
+#include <texteditor/codeassist/iassistprocessor.h>
+#include <texteditor/codeassist/basicproposalitemlistmodel.h>
 #include <utils/fileutils.h>
 
 #include <QDebug>
@@ -38,7 +43,7 @@
 
 
 /*!
-    Tests for Follow Symbol Under Cursor and Switch Between Method Declaration/Definition
+    Tests for Follow Symbol Under Cursor and Switch Between Function Declaration/Definition
 
     Section numbers refer to
 
@@ -55,6 +60,60 @@ using namespace TextEditor;
 using namespace Core;
 
 namespace {
+
+/// A fake virtual functions assist provider that runs processor->perform() already in configure()
+class VirtualFunctionTestAssistProvider : public VirtualFunctionAssistProvider
+{
+public:
+    VirtualFunctionTestAssistProvider(CPPEditorWidget *editorWidget)
+        : m_editorWidget(editorWidget)
+    {}
+
+    // Invoke the processor already here to calculate the proposals. Return false in order to
+    // indicate that configure failed, so the actual code assist invocation leading to a pop-up
+    // will not happen.
+    bool configure(CPlusPlus::Class *startClass, CPlusPlus::Function *function,
+                   const CPlusPlus::Snapshot &snapshot, bool openInNextSplit)
+    {
+        VirtualFunctionAssistProvider::configure(startClass, function, snapshot, openInNextSplit);
+
+        IAssistProcessor *processor = createProcessor();
+        IAssistInterface *assistInterface = m_editorWidget->createAssistInterface(FollowSymbol,
+                                                                            ExplicitlyInvoked);
+        IAssistProposal *immediateProposal = processor->immediateProposal(assistInterface);
+        IAssistProposal *finalProposal = processor->perform(assistInterface);
+
+        m_immediateItems = itemList(immediateProposal->model());
+        m_finalItems = itemList(finalProposal->model());
+
+        return false;
+    }
+
+    static QStringList itemList(IAssistProposalModel *imodel)
+    {
+        QStringList immediateItems;
+        BasicProposalItemListModel *model = dynamic_cast<BasicProposalItemListModel *>(imodel);
+        if (!model)
+            return immediateItems;
+        if (model->isSortable(QString()))
+            model->sort(QString());
+        model->removeDuplicates();
+
+        for (int i = 0, size = model->size(); i < size; ++i) {
+            const QString text = model->text(i);
+            immediateItems.append(text);
+        }
+
+        return immediateItems;
+    }
+
+public:
+    QStringList m_immediateItems;
+    QStringList m_finalItems;
+
+private:
+    CPPEditorWidget *m_editorWidget;
+};
 
 class TestDocument;
 typedef QSharedPointer<TestDocument> TestDocumentPtr;
@@ -128,19 +187,23 @@ public:
 
 /**
  * Encapsulates the whole process of setting up several editors, positioning the cursor,
- * executing Follow Symbol Under Cursor or Switch Between Method Declaration/Definition
+ * executing Follow Symbol Under Cursor or Switch Between Function Declaration/Definition
  * and checking the result.
  */
 class TestCase
 {
 public:
     enum CppEditorAction {
-        FollowSymbolUnderCursor,
-        SwitchBetweenMethodDeclarationDefinition
+        FollowSymbolUnderCursorAction,
+        SwitchBetweenMethodDeclarationDefinitionAction
     };
 
-    TestCase(CppEditorAction action, const QByteArray &source);
-    TestCase(CppEditorAction action, const QList<TestDocumentPtr> theTestFiles);
+    TestCase(CppEditorAction action, const QByteArray &source,
+             const QStringList &expectedVirtualFunctionImmediateProposal = QStringList(),
+             const QStringList &expectedVirtualFunctionFinalProposal = QStringList());
+    TestCase(CppEditorAction action, const QList<TestDocumentPtr> theTestFiles,
+             const QStringList &expectedVirtualSymbolsImmediateProposal = QStringList(),
+             const QStringList &expectedVirtualSymbolsFinalProposal = QStringList());
     ~TestCase();
 
     void run(bool expectedFail = false);
@@ -157,12 +220,18 @@ private:
 private:
     CppEditorAction m_action;
     QList<TestDocumentPtr> m_testFiles;
+    QStringList m_expectedVirtualSymbolsImmediateProposal; // for virtual functions
+    QStringList m_expectedVirtualSymbolsFinalProposals;    // for virtual functions
 };
 
 /// Convenience function for creating a TestDocument.
 /// See TestDocument.
-TestCase::TestCase(CppEditorAction action, const QByteArray &source)
+TestCase::TestCase(CppEditorAction action, const QByteArray &source,
+                   const QStringList &expectedVirtualFunctionImmediateProposal,
+                   const QStringList &expectedVirtualFunctionFinalProposal)
     : m_action(action)
+    , m_expectedVirtualSymbolsImmediateProposal(expectedVirtualFunctionImmediateProposal)
+    , m_expectedVirtualSymbolsFinalProposals(expectedVirtualFunctionFinalProposal)
 {
     m_testFiles << TestDocument::create(source, QLatin1String("file.cpp"));
     init();
@@ -172,9 +241,13 @@ TestCase::TestCase(CppEditorAction action, const QByteArray &source)
 /// Exactly one test document must be provided that contains '@', the initial position marker.
 /// Exactly one test document must be provided that contains '$', the target position marker.
 /// It can be the same document.
-TestCase::TestCase(CppEditorAction action, const QList<TestDocumentPtr> theTestFiles)
+TestCase::TestCase(CppEditorAction action, const QList<TestDocumentPtr> theTestFiles,
+                   const QStringList &expectedVirtualSymbolsImmediateProposal,
+                   const QStringList &expectedVirtualSymbolsFinalProposal)
     : m_action(action)
     , m_testFiles(theTestFiles)
+    , m_expectedVirtualSymbolsImmediateProposal(expectedVirtualSymbolsImmediateProposal)
+    , m_expectedVirtualSymbolsFinalProposals(expectedVirtualSymbolsFinalProposal)
 {
     init();
 }
@@ -292,12 +365,29 @@ void TestCase::run(bool expectedFail)
 //    qDebug() << "Initial line:" << initialTestFile->editor->currentLine();
 //    qDebug() << "Initial column:" << initialTestFile->editor->currentColumn() - 1;
 
+    QStringList immediateVirtualSymbolResults;
+    QStringList finalVirtualSymbolResults;
+
     // Trigger the action
     switch (m_action) {
-    case FollowSymbolUnderCursor:
+    case FollowSymbolUnderCursorAction: {
+        CPPEditorWidget *widget = initialTestFile->editorWidget;
+        FollowSymbolUnderCursor *delegate = widget->followSymbolUnderCursorDelegate();
+        VirtualFunctionAssistProvider *original = delegate->virtualFunctionAssistProvider();
+
+        // Set test provider, run and get results
+        QScopedPointer<VirtualFunctionTestAssistProvider> testProvider(
+            new VirtualFunctionTestAssistProvider(widget));
+        delegate->setVirtualFunctionAssistProvider(testProvider.data());
         initialTestFile->editorWidget->openLinkUnderCursor();
+        immediateVirtualSymbolResults = testProvider->m_immediateItems;
+        finalVirtualSymbolResults = testProvider->m_finalItems;
+
+        // Restore original test provider
+        delegate->setVirtualFunctionAssistProvider(original);
         break;
-    case SwitchBetweenMethodDeclarationDefinition:
+    }
+    case SwitchBetweenMethodDeclarationDefinitionAction:
         CppEditorPlugin::instance()->switchDeclarationDefinition();
         break;
     default:
@@ -318,10 +408,16 @@ void TestCase::run(bool expectedFail)
                                        &expectedLine, &expectedColumn);
 //    qDebug() << "Expected line:" << expectedLine;
 //    qDebug() << "Expected column:" << expectedColumn;
+
     if (expectedFail)
         QEXPECT_FAIL("", "Contributor works on a fix.", Abort);
     QCOMPARE(currentTextEditor->currentLine(), expectedLine);
     QCOMPARE(currentTextEditor->currentColumn() - 1, expectedColumn);
+
+//    qDebug() << immediateVirtualSymbolResults;
+//    qDebug() << finalVirtualSymbolResults;
+    QCOMPARE(immediateVirtualSymbolResults, m_expectedVirtualSymbolsImmediateProposal);
+    QCOMPARE(finalVirtualSymbolResults, m_expectedVirtualSymbolsFinalProposals);
 }
 
 } // anonymous namespace
@@ -354,7 +450,7 @@ void CppEditorPlugin::test_SwitchMethodDeclarationDefinition_fromFunctionDeclara
         ;
     testFiles << TestDocument::create(sourceContents, QLatin1String("file.cpp"));
 
-    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinition, testFiles);
+    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinitionAction, testFiles);
     test.run();
 }
 
@@ -386,7 +482,7 @@ void CppEditorPlugin::test_SwitchMethodDeclarationDefinition_fromFunctionDefinit
         ;
     testFiles << TestDocument::create(sourceContents, QLatin1String("file.cpp"));
 
-    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinition, testFiles);
+    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinitionAction, testFiles);
     test.run();
 }
 
@@ -418,7 +514,7 @@ void CppEditorPlugin::test_SwitchMethodDeclarationDefinition_fromFunctionBody()
         ;
     testFiles << TestDocument::create(sourceContents, QLatin1String("file.cpp"));
 
-    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinition, testFiles);
+    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinitionAction, testFiles);
     test.run();
 }
 
@@ -450,7 +546,7 @@ void CppEditorPlugin::test_SwitchMethodDeclarationDefinition_fromReturnType()
         ;
     testFiles << TestDocument::create(sourceContents, QLatin1String("file.cpp"));
 
-    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinition, testFiles);
+    TestCase test(TestCase::SwitchBetweenMethodDeclarationDefinitionAction, testFiles);
     test.run();
 }
 
@@ -465,7 +561,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_globalVarFromFunction()
         "}\n"           // Line 5
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -483,7 +579,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_funLocalVarHidesClassMember()
         "};\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -503,7 +599,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_funLocalVarHidesNamespaceMemb
         "}\n"                                // Line 10
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -521,7 +617,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_loopLocalVarHidesOuterScopeVa
         "}\n";
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -539,7 +635,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_loopLocalVarHidesOuterScopeVa
         "}\n";
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -553,7 +649,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_subsequentDefinedClassMember(
         "};\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -569,7 +665,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_classMemberHidesOuterTypeDef(
         "};\n"                                                 // Line 5
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -584,7 +680,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_globalVarFromEnum()
         "}\n"                                             // Line 5
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run(/*expectedFail =*/ true);
 }
 
@@ -599,7 +695,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_selfInitialization()
         "}\n"                                              // Line 5
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -612,7 +708,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_pointerToClassInClassDefiniti
         "};\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -626,7 +722,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_previouslyDefinedMemberFromAr
         "};\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -648,7 +744,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_outerStaticMemberVariableFrom
         "};\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -668,7 +764,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_memberVariableFollowingDotOpe
         "}\n"                // Line 10
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -688,7 +784,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_memberVariableFollowingArrowO
         "}\n"                   // Line 10
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -707,7 +803,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_staticMemberVariableFollowing
         "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -727,7 +823,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_staticMemberVariableFollowing
         "}\n"                       // Line 10
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -748,7 +844,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_staticMemberVariableFollowing
         "}\n"                        // Line 10
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -762,7 +858,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_previouslyDefinedEnumValueFro
         "};\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -785,7 +881,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_nsMemberHidesNsMemberIntroduc
         "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -812,7 +908,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_baseClassFunctionIntroducedBy
         "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -839,7 +935,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_funWithSameNameAsBaseClassFun
         "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -858,7 +954,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_funLocalVarHidesOuterClass()
         "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -876,7 +972,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_classConstructor()
             "{\n"
             "}\n";
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -894,7 +990,173 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_classDestructor()
             "{\n"
             "}\n";
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_QObject_connect_data()
+{
+#define TAG(str) secondQObjectParam ? str : str ", no 2nd QObject"
+    QTest::addColumn<char>("start");
+    QTest::addColumn<char>("target");
+    QTest::addColumn<bool>("secondQObjectParam");
+    for (int i = 0; i < 2; ++i) {
+        bool secondQObjectParam = (i == 0);
+        QTest::newRow(TAG("SIGNAL: before keyword"))
+                << '1' << '1' << secondQObjectParam;
+        QTest::newRow(TAG("SIGNAL: in keyword"))
+                << '2' << '1' << secondQObjectParam;
+        QTest::newRow(TAG("SIGNAL: before parenthesis"))
+                << '3' << '1' << secondQObjectParam;
+        QTest::newRow(TAG("SIGNAL: before identifier"))
+                << '4' << '1' << secondQObjectParam;
+        QTest::newRow(TAG("SIGNAL: in identifier"))
+                << '5' << '1' << secondQObjectParam;
+        QTest::newRow(TAG("SIGNAL: before identifier parenthesis"))
+                << '6' << '1' << secondQObjectParam;
+        QTest::newRow(TAG("SLOT: before keyword"))
+                << '7' << '2' << secondQObjectParam;
+        QTest::newRow(TAG("SLOT: in keyword"))
+                << '8' << '2' << secondQObjectParam;
+        QTest::newRow(TAG("SLOT: before parenthesis"))
+                << '9' << '2' << secondQObjectParam;
+        QTest::newRow(TAG("SLOT: before identifier"))
+                << 'A' << '2' << secondQObjectParam;
+        QTest::newRow(TAG("SLOT: in identifier"))
+                << 'B' << '2' << secondQObjectParam;
+        QTest::newRow(TAG("SLOT: before identifier parenthesis"))
+                << 'C' << '2' << secondQObjectParam;
+    }
+#undef TAG
+}
+
+static void selectMarker(QByteArray *source, char marker, char number)
+{
+    int idx = 0;
+    forever {
+        idx = source->indexOf(marker, idx);
+        if (idx == -1)
+            break;
+        if (source->at(idx + 1) == number) {
+            ++idx;
+            source->remove(idx, 1);
+        } else {
+            source->remove(idx, 2);
+        }
+    }
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_QObject_connect()
+{
+    QFETCH(char, start);
+    QFETCH(char, target);
+    QFETCH(bool, secondQObjectParam);
+    QByteArray source =
+            "class Foo : public QObject\n"
+            "{\n"
+            "signals:\n"
+            "    void $1endOfWorld();\n"
+            "public slots:\n"
+            "    void $2onWorldEnded()\n"
+            "    {\n"
+            "    }\n"
+            "};\n"
+            "\n"
+            "void bla()\n"
+            "{\n"
+            "   Foo foo;\n"
+            "   connect(&foo, @1SI@2GNAL@3(@4end@5OfWorld@6()),\n"
+            "           &foo, @7SL@8OT@9(@Aon@BWorldEnded@C()));\n"
+            "}\n";
+
+    selectMarker(&source, '@', start);
+    selectMarker(&source, '$', target);
+
+    if (!secondQObjectParam)
+        source.replace(" &foo, ", QByteArray());
+
+    if (start >= '7' && !secondQObjectParam) {
+        qWarning("SLOT jump triggers QTCREATORBUG-10265. Skipping.");
+        return;
+    }
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_classOperator_onOperatorToken_data()
+{
+    QTest::addColumn<bool>("toDeclaration");
+    QTest::newRow("forward") << false;
+    QTest::newRow("backward") << true;
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_classOperator_onOperatorToken()
+{
+    QFETCH(bool, toDeclaration);
+
+    QByteArray source =
+            "class Foo {\n"
+            "    void @operator[](size_t idx);\n"
+            "};\n\n"
+            "void Foo::$operator[](size_t idx)\n"
+            "{\n"
+            "}\n";
+    if (toDeclaration)
+        source.replace('@', '#').replace('$', '@').replace('#', '$');
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_classOperator_data()
+{
+    test_FollowSymbolUnderCursor_classOperator_onOperatorToken_data();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_classOperator()
+{
+    QFETCH(bool, toDeclaration);
+
+    QByteArray source =
+            "class Foo {\n"
+            "    void $2operator@1[](size_t idx);\n"
+            "};\n\n"
+            "void Foo::$1operator@2[](size_t idx)\n"
+            "{\n"
+            "}\n";
+    if (toDeclaration)
+        source.replace("@1", QByteArray()).replace("$1", QByteArray())
+                .replace("@2", "@").replace("$2", "$");
+    else
+        source.replace("@2", QByteArray()).replace("$2", QByteArray())
+                .replace("@1", "@").replace("$1", "$");
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_classOperator_inOp_data()
+{
+    test_FollowSymbolUnderCursor_classOperator_onOperatorToken_data();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_classOperator_inOp()
+{
+    QFETCH(bool, toDeclaration);
+
+    QByteArray source =
+            "class Foo {\n"
+            "    void $2operator[@1](size_t idx);\n"
+            "};\n\n"
+            "void Foo::$1operator[@2](size_t idx)\n"
+            "{\n"
+            "}\n";
+    if (toDeclaration)
+        source.replace("@1", QByteArray()).replace("$1", QByteArray())
+                .replace("@2", "@").replace("$2", "$");
+    else
+        source.replace("@2", QByteArray()).replace("$2", QByteArray())
+                .replace("@1", "@").replace("$1", "$");
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -911,7 +1173,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_global
             "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -930,7 +1192,7 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_namesp
             "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 
@@ -947,7 +1209,177 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_inside
             "}\n"
         ;
 
-    TestCase test(TestCase::FollowSymbolUnderCursor, source);
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+/// Check: Static type is base class pointer, all overrides are presented.
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_allOverrides()
+{
+    const QByteArray source =
+            "struct A { virtual void virt() = 0; };\n"
+            "void A::virt() {}\n"
+            "\n"
+            "struct B : A { void virt(); };\n"
+            "void B::virt() {}\n"
+            "\n"
+            "struct C : B { void virt(); };\n"
+            "void C::virt() {}\n"
+            "\n"
+            "struct CD1 : C { void virt(); };\n"
+            "void CD1::virt() {}\n"
+            "\n"
+            "struct CD2 : C { void virt(); };\n"
+            "void CD2::virt() {}\n"
+            "\n"
+            "int f(A *o)\n"
+            "{\n"
+            "    o->$@virt();\n"
+            "}\n"
+            ;
+
+    const QStringList immediateResults = QStringList()
+            << QLatin1String("A::virt")
+            << QLatin1String("...searching overrides");
+    const QStringList finalResults = QStringList()
+            << QLatin1String("A::virt")
+            << QLatin1String("A::virt") // TODO: Double entry
+            << QLatin1String("B::virt")
+            << QLatin1String("C::virt")
+            << QLatin1String("CD1::virt")
+            << QLatin1String("CD2::virt");
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source, immediateResults, finalResults);
+    test.run();
+}
+
+/// Check: Static type is derived class pointer, only overrides of sub classes are presented.
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_possibleOverrides1()
+{
+    const QByteArray source =
+            "struct A { virtual void virt() = 0; };\n"
+            "void A::virt() {}\n"
+            "\n"
+            "struct B : A { void virt(); };\n"
+            "void B::virt() {}\n"
+            "\n"
+            "struct C : B { void virt(); };\n"
+            "void C::virt() {}\n"
+            "\n"
+            "struct CD1 : C { void virt(); };\n"
+            "void CD1::virt() {}\n"
+            "\n"
+            "struct CD2 : C { void virt(); };\n"
+            "void CD2::virt() {}\n"
+            "\n"
+            "int f(B *o)\n"
+            "{\n"
+            "   o->$@virt();\n"
+            "}\n"
+            ;
+
+    const QStringList immediateResults = QStringList()
+            << QLatin1String("B::virt")
+            << QLatin1String("...searching overrides");
+    const QStringList finalResults = QStringList()
+            << QLatin1String("B::virt")
+            << QLatin1String("B::virt") // Double entry
+            << QLatin1String("C::virt")
+            << QLatin1String("CD1::virt")
+            << QLatin1String("CD2::virt");
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source, immediateResults, finalResults);
+    test.run();
+}
+
+/// Check: Virtual function call in member of class hierarchy, only possible overrides are presented.
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_possibleOverrides2()
+{
+    const QByteArray source =
+            "struct A { virtual void f(); };\n"
+            "void A::f() {}\n"
+            "\n"
+            "struct B : public A { void f(); };\n"
+            "void B::f() {}\n"
+            "\n"
+            "struct C : public B { void g() { f$@(); } }; \n"
+            "\n"
+            "struct D : public C { void f(); };\n"
+            "void D::f() {}\n"
+            ;
+
+    const QStringList immediateResults = QStringList()
+            << QLatin1String("B::f")
+            << QLatin1String("...searching overrides");
+    const QStringList finalResults = QStringList()
+            << QLatin1String("B::f")
+            << QLatin1String("B::f")
+            << QLatin1String("D::f");
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source, immediateResults, finalResults);
+    test.run();
+}
+
+/// Check: Do not trigger on qualified function calls.
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_notOnQualified()
+{
+    const QByteArray source =
+            "struct A { virtual void f(); };\n"
+            "void A::$f() {}\n"
+            "\n"
+            "struct B : public A {\n"
+            "    void f();\n"
+            "    void g() { A::@f(); }\n"
+            "};\n"
+            ;
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+/// Check: Do not trigger on member function declaration.
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDeclaration()
+{
+    const QByteArray source =
+            "struct A { virtual void f(); };\n"
+            "void A::f() {}\n"
+            "\n"
+            "struct B : public A { void f@(); };\n"
+            "void B::$f() {}\n"
+            ;
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+/// Check: Do not trigger on function definition.
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDefinition()
+{
+    const QByteArray source =
+            "struct A { virtual void f(); };\n"
+            "void A::f() {}\n"
+            "\n"
+            "struct B : public A { void $f(); };\n"
+            "void B::@f() {}\n"
+            ;
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_notOnNonPointerNonReference()
+{
+    const QByteArray source =
+            "struct A { virtual void f(); };\n"
+            "void A::f() {}\n"
+            "\n"
+            "struct B : public A { void f(); };\n"
+            "void B::$f() {}\n"
+            "\n"
+            "void client(B b) { b.@f(); }\n"
+            ;
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
     test.run();
 }
 

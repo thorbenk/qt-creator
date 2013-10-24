@@ -32,6 +32,7 @@
 #include "baseannotationhighlighter.h"
 #include "vcsbaseplugin.h"
 #include "vcsbaseeditorparameterwidget.h"
+#include "command.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/vcsmanager.h>
@@ -67,19 +68,23 @@
 /*!
     \enum VcsBase::EditorContentType
 
-    \brief Contents of a VcsBaseEditor and its interaction.
+    This enum describes the contents of a VcsBaseEditor and its interaction.
 
     \value RegularCommandOutput  No special handling.
-    \value LogOutput  Log of a file under revision control. Provide  'click on change'
-           description and 'Annotate' if is the log of a single file.
-    \value AnnotateOutput  Color contents per change number and provide 'click on change' description.
-           Context menu offers "Annotate previous version". Expected format:
+    \value LogOutput  Log of a file under revision control. Provide a
+           description of the change that users can click to view detailed
+           information about the change and \e Annotate for the log of a
+           single file.
+    \value AnnotateOutput  Color contents per change number and provide a
+           clickable change description.
+           Context menu offers annotate previous version functionality.
+           Expected format:
            \code
            <change description>: file line
            \endcode
-    \value DiffOutput  Diff output. Might includes describe output, which consists of a
-           header and diffs. Interaction is 'double click in  hunk' which
-           opens the file. Context menu offers 'Revert chunk'.
+    \value DiffOutput  Diff output. Might include describe output, which consists of a
+           header and diffs. Double-clicking the chunk opens the file. The context
+           menu offers the functionality to revert the chunk.
 
     \sa VcsBase::VcsBaseEditorWidget
 */
@@ -153,7 +158,8 @@ public:
 
 signals:
     void describeRequested(const QString &source, const QString &change);
-    void annotateRevisionRequested(const QString &source, const QString &change, int line);
+    void annotateRevisionRequested(const QString &workingDirectory, const QString &file,
+                                   const QString &change, int line);
 
 private:
     Core::Id m_id;
@@ -180,13 +186,14 @@ class AbstractTextCursorHandler : public QObject
 public:
     AbstractTextCursorHandler(VcsBaseEditorWidget *editorWidget = 0);
 
-    /*! \brief Try to find some matching contents under \a cursor
+    /*! Tries to find some matching contents under \a cursor.
      *
-     *  It's the first function to be called because it changes the internal state of the handler.
-     *  Other functions (highlightCurrentContents(), handleCurrentContents(), ...) use the result
-     *  of the matching
+     *  It is the first function to be called because it changes the internal
+     *  state of the handler. Other functions (such as
+     *  highlightCurrentContents() and handleCurrentContents()) use the result
+     *  of the matching.
      *
-     *  \return true If contents could be found
+     *  Returns \c true if contents could be found.
      */
     virtual bool findContentsUnderCursor(const QTextCursor &cursor);
 
@@ -199,8 +206,8 @@ public:
     //! Contents matched with the last call to findContentsUnderCursor()
     virtual QString currentContents() const = 0;
 
-    /*! \brief Fill \a menu with contextual actions applying to the contents matched
-     *         with findContentsUnderCursor()
+    /*! Fills \a menu with contextual actions applying to the contents matched
+     *  with findContentsUnderCursor().
      */
     virtual void fillContextMenu(QMenu *menu, EditorContentType type) const = 0;
 
@@ -373,7 +380,7 @@ QAction *ChangeTextCursorHandler::createCopyRevisionAction(const QString &change
  *  http://qt-project.org/.
  *
  *  The URL pattern can be redefined in sub-classes with setUrlPattern(), by default the pattern
- *  works for hyper-text URL
+ *  works for hyper-text URLs.
  */
 class UrlTextCursorHandler : public AbstractTextCursorHandler
 {
@@ -556,7 +563,7 @@ public:
     const VcsBaseEditorParameters *m_parameters;
 
     QString m_source;
-    QString m_diffBaseDirectory;
+    QString m_workingDirectory;
 
     QRegExp m_diffFilePattern;
     QRegExp m_logEntryPattern;
@@ -570,6 +577,7 @@ public:
     VcsBaseEditorParameterWidget *m_configurationWidget;
     bool m_mouseDragging;
     QList<AbstractTextCursorHandler *> m_textCursorHandlers;
+    QPointer<Command> m_command;
 
 private:
     QComboBox *m_entriesComboBox;
@@ -676,6 +684,12 @@ bool VcsBaseEditorWidget::supportChangeLinks() const
     }
 }
 
+QString VcsBaseEditorWidget::fileNameForLine(int line) const
+{
+    Q_UNUSED(line);
+    return source();
+}
+
 void VcsBaseEditorWidget::init()
 {
     d->m_editor = editor();
@@ -710,6 +724,7 @@ void VcsBaseEditorWidget::init()
 
 VcsBaseEditorWidget::~VcsBaseEditorWidget()
 {
+    setCommand(0); // abort all running commands
     delete d;
 }
 
@@ -771,14 +786,14 @@ void VcsBaseEditorWidget::setFileLogAnnotateEnabled(bool e)
     d->m_fileLogAnnotateEnabled = e;
 }
 
-QString VcsBaseEditorWidget::diffBaseDirectory() const
+QString VcsBaseEditorWidget::workingDirectory() const
 {
-    return d->m_diffBaseDirectory;
+    return d->m_workingDirectory;
 }
 
-void VcsBaseEditorWidget::setDiffBaseDirectory(const QString &bd)
+void VcsBaseEditorWidget::setWorkingDirectory(const QString &wd)
 {
-    d->m_diffBaseDirectory = bd;
+    d->m_workingDirectory = wd;
 }
 
 QTextCodec *VcsBaseEditorWidget::codec() const
@@ -811,8 +826,8 @@ TextEditor::BaseTextEditor *VcsBaseEditorWidget::createEditor()
     // Pass on signals.
     connect(this, SIGNAL(describeRequested(QString,QString)),
             editor, SIGNAL(describeRequested(QString,QString)));
-    connect(this, SIGNAL(annotateRevisionRequested(QString,QString,int)),
-            editor, SIGNAL(annotateRevisionRequested(QString,QString,int)));
+    connect(this, SIGNAL(annotateRevisionRequested(QString,QString,QString,int)),
+            editor, SIGNAL(annotateRevisionRequested(QString,QString,QString,int)));
     return editor;
 }
 
@@ -950,6 +965,8 @@ void VcsBaseEditorWidget::contextMenuEvent(QContextMenuEvent *e)
         QAction *revertAction = menu->addAction(tr("Revert Chunk..."));
         revertAction->setData(qVariantFromValue(Internal::DiffChunkAction(chunk, true)));
         connect(revertAction, SIGNAL(triggered()), this, SLOT(slotApplyDiffChunk()));
+        // Custom diff actions
+        addDiffActions(menu, chunk);
         break;
     }
     default:
@@ -1145,7 +1162,8 @@ DiffChunk VcsBaseEditorWidget::diffChunk(QTextCursor cursor) const
     }
     if (!chunkStart || !block.isValid())
         return rc;
-    rc.fileName = findDiffFile(fileNameFromDiffSpecification(block));
+    QString header;
+    rc.fileName = findDiffFile(fileNameFromDiffSpecification(block, &header));
     if (rc.fileName.isEmpty())
         return rc;
     // Concatenate chunk and convert
@@ -1163,6 +1181,7 @@ DiffChunk VcsBaseEditorWidget::diffChunk(QTextCursor cursor) const
     }
     const QTextCodec *cd = baseTextDocument()->codec();
     rc.chunk = cd ? cd->fromUnicode(unicode) : unicode.toLocal8Bit();
+    rc.header = cd ? cd->fromUnicode(header) : header.toLocal8Bit();
     return rc;
 }
 
@@ -1341,6 +1360,13 @@ VcsBaseEditorParameterWidget *VcsBaseEditorWidget::configurationWidget() const
     return d->m_configurationWidget;
 }
 
+void VcsBaseEditorWidget::setCommand(Command *command)
+{
+    if (d->m_command)
+        d->m_command->abort();
+    d->m_command = command;
+}
+
 // Find the complete file from a diff relative specification.
 QString VcsBaseEditorWidget::findDiffFile(const QString &f) const
 {
@@ -1351,8 +1377,8 @@ QString VcsBaseEditorWidget::findDiffFile(const QString &f) const
 
     // 1) Try base dir
     const QChar slash = QLatin1Char('/');
-    if (!d->m_diffBaseDirectory.isEmpty()) {
-        const QFileInfo baseFileInfo(d->m_diffBaseDirectory + slash + f);
+    if (!d->m_workingDirectory.isEmpty()) {
+        const QFileInfo baseFileInfo(d->m_workingDirectory + slash + f);
         if (baseFileInfo.isFile())
             return baseFileInfo.absoluteFilePath();
     }
@@ -1388,11 +1414,22 @@ QString VcsBaseEditorWidget::findDiffFile(const QString &f) const
     return QString();
 }
 
+void VcsBaseEditorWidget::addDiffActions(QMenu *, const DiffChunk &)
+{
+}
+
 void VcsBaseEditorWidget::slotAnnotateRevision()
 {
-    if (const QAction *a = qobject_cast<const QAction *>(sender()))
-        emit annotateRevisionRequested(source(), a->data().toString(),
-                                       editor()->currentLine());
+    if (const QAction *a = qobject_cast<const QAction *>(sender())) {
+        const int currentLine = editor()->currentLine();
+        const QString fileName = fileNameForLine(currentLine);
+        QString workingDirectory = d->m_workingDirectory;
+        if (workingDirectory.isEmpty())
+            workingDirectory = QFileInfo(fileName).absolutePath();
+        emit annotateRevisionRequested(workingDirectory,
+                                       QDir(workingDirectory).relativeFilePath(fileName),
+                                       a->data().toString(), currentLine);
+    }
 }
 
 QStringList VcsBaseEditorWidget::annotationPreviousVersions(const QString &) const
@@ -1426,22 +1463,29 @@ bool VcsBaseEditorWidget::canApplyDiffChunk(const DiffChunk &dc) const
 // (passing '-R' for revert), assuming we got absolute paths from the VCS plugins.
 bool VcsBaseEditorWidget::applyDiffChunk(const DiffChunk &dc, bool revert) const
 {
-    return VcsBasePlugin::runPatch(dc.asPatch(d->m_diffBaseDirectory),
-                                   d->m_diffBaseDirectory, 0, revert);
+    return VcsBasePlugin::runPatch(dc.asPatch(d->m_workingDirectory),
+                                   d->m_workingDirectory, 0, revert);
 }
 
-QString VcsBaseEditorWidget::fileNameFromDiffSpecification(const QTextBlock &inBlock) const
+QString VcsBaseEditorWidget::fileNameFromDiffSpecification(const QTextBlock &inBlock, QString *header) const
 {
     // Go back chunks
+    QString fileName;
     for (QTextBlock block = inBlock; block.isValid(); block = block.previous()) {
         const QString line = block.text();
         if (d->m_diffFilePattern.indexIn(line) != -1) {
             QString cap = d->m_diffFilePattern.cap(1);
-            if (!cap.isEmpty())
-                return findDiffFile(cap);
+            if (header)
+                header->prepend(line + QLatin1String("\n"));
+            if (fileName.isEmpty() && !cap.isEmpty())
+                fileName = cap;
+        } else if (!fileName.isEmpty()) {
+            return findDiffFile(fileName);
+        } else if (header) {
+            header->clear();
         }
     }
-    return QString();
+    return fileName.isEmpty() ? QString() : findDiffFile(fileName);
 }
 
 void VcsBaseEditorWidget::addChangeActions(QMenu *, const QString &)

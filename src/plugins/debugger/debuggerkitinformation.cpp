@@ -67,18 +67,25 @@ void DebuggerItem::reinitializeFromFile()
     QByteArray ba = proc.readAll();
     if (ba.contains("gdb")) {
         m_engineType = GdbEngineType;
-//        const char needle[] = "This GDB was configured as \"";
-//        int pos1 = ba.indexOf(needle);
-//        if (pos1 != -1) {
-//            pos1 += sizeof(needle);
-//            int pos2 = ba.indexOf('"', pos1 + 1);
-//            QByteArray target = ba.mid(pos1, pos2 - pos1);
-//            abis.append(Abi::abiFromTargetTriplet(target)); // FIXME: Doesn't exist yet.
-//        }
-        m_abis = Abi::abisOfBinary(m_command); // FIXME: Wrong.
+        const char needle[] = "This GDB was configured as \"";
+        // E.g.  "--host=i686-pc-linux-gnu --target=arm-unknown-nto-qnx6.5.0".
+        // or "i686-linux-gnu"
+        int pos1 = ba.indexOf(needle);
+        if (pos1 != -1) {
+            pos1 += int(sizeof(needle));
+            int pos2 = ba.indexOf('"', pos1 + 1);
+            QByteArray target = ba.mid(pos1, pos2 - pos1);
+            int pos3 = target.indexOf("--target=");
+            if (pos3 >= 0)
+                target = target.mid(pos3 + 9);
+            m_abis.append(Abi::abiFromTargetTriplet(QString::fromLatin1(target)));
+        } else {
+            // Fallback.
+            m_abis = Abi::abisOfBinary(m_command); // FIXME: Wrong.
+        }
         return;
     }
-    if (ba.contains("lldb")) {
+    if (ba.contains("lldb") || ba.startsWith("LLDB")) {
         m_engineType = LldbEngineType;
         m_abis = Abi::abisOfBinary(m_command);
         return;
@@ -178,9 +185,155 @@ void DebuggerItem::setAbi(const Abi &abi)
     m_abis.append(abi);
 }
 
+static DebuggerItem::MatchLevel matchSingle(const Abi &debuggerAbi, const Abi &targetAbi)
+{
+    if (debuggerAbi.architecture() != Abi::UnknownArchitecture
+            && debuggerAbi.architecture() != targetAbi.architecture())
+        return DebuggerItem::DoesNotMatch;
+
+    if (debuggerAbi.os() != Abi::UnknownOS
+            && debuggerAbi.os() != targetAbi.os())
+        return DebuggerItem::DoesNotMatch;
+
+    if (debuggerAbi.binaryFormat() != Abi::UnknownFormat
+            && debuggerAbi.binaryFormat() != targetAbi.binaryFormat())
+        return DebuggerItem::DoesNotMatch;
+
+    if (debuggerAbi.os() == Abi::WindowsOS) {
+        if (debuggerAbi.osFlavor() == Abi::WindowsMSysFlavor && targetAbi.osFlavor() != Abi::WindowsMSysFlavor)
+            return DebuggerItem::DoesNotMatch;
+        if (debuggerAbi.osFlavor() != Abi::WindowsMSysFlavor && targetAbi.osFlavor() == Abi::WindowsMSysFlavor)
+            return DebuggerItem::DoesNotMatch;
+    }
+
+    if (debuggerAbi.wordWidth() == 64 && targetAbi.wordWidth() == 32)
+        return DebuggerItem::MatchesSomewhat;
+    if (debuggerAbi.wordWidth() != 0 && debuggerAbi.wordWidth() != targetAbi.wordWidth())
+        return DebuggerItem::DoesNotMatch;
+
+    return DebuggerItem::MatchesPerfectly;
+}
+
+DebuggerItem::MatchLevel DebuggerItem::matchTarget(const Abi &targetAbi) const
+{
+    MatchLevel bestMatch = DoesNotMatch;
+    foreach (const Abi &debuggerAbi, m_abis) {
+        MatchLevel currentMatch = matchSingle(debuggerAbi, targetAbi);
+        if (currentMatch > bestMatch)
+            bestMatch = currentMatch;
+    }
+    return bestMatch;
+}
+
 bool Debugger::DebuggerItem::isValid() const
 {
     return m_engineType != NoEngineType;
 }
 
 } // namespace Debugger;
+
+#ifdef WITH_TESTS
+
+#    include <QTest>
+#    include "debuggerplugin.h"
+
+void Debugger::DebuggerPlugin::testDebuggerMatching_data()
+{
+    QTest::addColumn<QStringList>("debugger");
+    QTest::addColumn<QString>("target");
+    QTest::addColumn<int>("result");
+
+    QTest::newRow("Invalid data")
+            << QStringList()
+            << QString()
+            << int(DebuggerItem::DoesNotMatch);
+    QTest::newRow("Invalid debugger")
+            << QStringList()
+            << QString::fromLatin1("x86-linux-generic-elf-32bit")
+            << int(DebuggerItem::DoesNotMatch);
+    QTest::newRow("Invalid target")
+            << (QStringList() << QLatin1String("x86-linux-generic-elf-32bit"))
+            << QString()
+            << int(DebuggerItem::DoesNotMatch);
+
+    QTest::newRow("Fuzzy match 1")
+            << (QStringList() << QLatin1String("unknown-unknown-unknown-unknown-0bit"))
+            << QString::fromLatin1("x86-linux-generic-elf-32bit")
+            << int(DebuggerItem::MatchesPerfectly); // Is this the expected behavior?
+    QTest::newRow("Fuzzy match 2")
+            << (QStringList() << QLatin1String("unknown-unknown-unknown-unknown-0bit"))
+            << QString::fromLatin1("arm-windows-msys-pe-64bit")
+            << int(DebuggerItem::MatchesPerfectly); // Is this the expected behavior?
+
+    QTest::newRow("Architecture mismatch")
+            << (QStringList() << QLatin1String("x86-linux-generic-elf-32bit"))
+            << QString::fromLatin1("arm-linux-generic-elf-32bit")
+            << int(DebuggerItem::DoesNotMatch);
+    QTest::newRow("OS mismatch")
+            << (QStringList() << QLatin1String("x86-linux-generic-elf-32bit"))
+            << QString::fromLatin1("x86-macosx-generic-elf-32bit")
+            << int(DebuggerItem::DoesNotMatch);
+    QTest::newRow("Format mismatch")
+            << (QStringList() << QLatin1String("x86-linux-generic-elf-32bit"))
+            << QString::fromLatin1("x86-linux-generic-pe-32bit")
+            << int(DebuggerItem::DoesNotMatch);
+
+    QTest::newRow("Linux perfect match")
+            << (QStringList() << QLatin1String("x86-linux-generic-elf-32bit"))
+            << QString::fromLatin1("x86-linux-generic-elf-32bit")
+            << int(DebuggerItem::MatchesPerfectly);
+    QTest::newRow("Linux match")
+            << (QStringList() << QLatin1String("x86-linux-generic-elf-64bit"))
+            << QString::fromLatin1("x86-linux-generic-elf-32bit")
+            << int(DebuggerItem::MatchesSomewhat);
+
+    QTest::newRow("Windows perfect match 1")
+            << (QStringList() << QLatin1String("x86-windows-msvc2013-pe-64bit"))
+            << QString::fromLatin1("x86-windows-msvc2013-pe-64bit")
+            << int(DebuggerItem::MatchesPerfectly);
+    QTest::newRow("Windows perfect match 2")
+            << (QStringList() << QLatin1String("x86-windows-msvc2013-pe-64bit"))
+            << QString::fromLatin1("x86-windows-msvc2012-pe-64bit")
+            << int(DebuggerItem::MatchesPerfectly);
+    QTest::newRow("Windows match 1")
+            << (QStringList() << QLatin1String("x86-windows-msvc2013-pe-64bit"))
+            << QString::fromLatin1("x86-windows-msvc2013-pe-32bit")
+            << int(DebuggerItem::MatchesSomewhat);
+    QTest::newRow("Windows match 2")
+            << (QStringList() << QLatin1String("x86-windows-msvc2013-pe-64bit"))
+            << QString::fromLatin1("x86-windows-msvc2012-pe-32bit")
+            << int(DebuggerItem::MatchesSomewhat);
+    QTest::newRow("Windows mismatch on word size")
+            << (QStringList() << QLatin1String("x86-windows-msvc2013-pe-32bit"))
+            << QString::fromLatin1("x86-windows-msvc2013-pe-64bit")
+            << int(DebuggerItem::DoesNotMatch);
+    QTest::newRow("Windows mismatch on osflavor 1")
+            << (QStringList() << QLatin1String("x86-windows-msvc2013-pe-32bit"))
+            << QString::fromLatin1("x86-windows-msys-pe-64bit")
+            << int(DebuggerItem::DoesNotMatch);
+    QTest::newRow("Windows mismatch on osflavor 2")
+            << (QStringList() << QLatin1String("x86-windows-msys-pe-32bit"))
+            << QString::fromLatin1("x86-windows-msvc2010-pe-64bit")
+            << int(DebuggerItem::DoesNotMatch);
+}
+
+void Debugger::DebuggerPlugin::testDebuggerMatching()
+{
+    QFETCH(QStringList, debugger);
+    QFETCH(QString, target);
+    QFETCH(int, result);
+
+    DebuggerItem::MatchLevel expectedLevel = static_cast<DebuggerItem::MatchLevel>(result);
+
+    QList<Abi> debuggerAbis;
+    foreach (const QString &abi, debugger)
+        debuggerAbis << Abi(abi);
+
+    DebuggerItem item;
+    item.setAbis(debuggerAbis);
+
+    DebuggerItem::MatchLevel level = item.matchTarget(Abi(target));
+
+    QCOMPARE(expectedLevel, level);
+}
+#endif

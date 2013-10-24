@@ -1,4 +1,12 @@
-include($$replace(_PRO_FILE_PWD_, ([^/]+$), \\1/\\1_dependencies.pri))
+depfile = $$replace(_PRO_FILE_PWD_, ([^/]+$), \\1/\\1_dependencies.pri)
+exists($$depfile) {
+    include($$depfile)
+    isEmpty(QTC_PLUGIN_NAME): \
+        error("$$basename(depfile) does not define QTC_PLUGIN_NAME.")
+} else {
+    isEmpty(QTC_PLUGIN_NAME): \
+        error("QTC_PLUGIN_NAME is empty. Maybe you meant to create $$basename(depfile)?")
+}
 TARGET = $$QTC_PLUGIN_NAME
 
 plugin_deps = $$QTC_PLUGIN_DEPENDS
@@ -84,7 +92,7 @@ copy2build.input = PLUGINSPEC
 isEmpty(vcproj):copy2build.variable_out = PRE_TARGETDEPS
 copy2build.commands = $$QMAKE_COPY ${QMAKE_FILE_IN} ${QMAKE_FILE_OUT}
 copy2build.name = COPY ${QMAKE_FILE_IN}
-copy2build.CONFIG += no_link
+copy2build.CONFIG += no_link no_clean
 QMAKE_EXTRA_COMPILERS += copy2build
 
 greaterThan(QT_MAJOR_VERSION, 4) {
@@ -119,9 +127,6 @@ macx {
     QMAKE_LFLAGS += -Wl,-z,origin \'-Wl,-rpath,$${IDE_PLUGIN_RPATH}\'
     QMAKE_RPATHDIR =
 }
-
-# put .pro file directory in INCLUDEPATH
-CONFIG += include_source_dir
 
 contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
 

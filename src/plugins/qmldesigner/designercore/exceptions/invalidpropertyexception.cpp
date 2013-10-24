@@ -48,12 +48,11 @@ InvalidPropertyException::InvalidPropertyException(int line,
                                                    const QString &argument)
  : Exception(line, function, file), m_argument(argument)
 {
+    createWarning();
 }
 
 /*!
-\brief Returns the type of this exception
-
-\returns the type as a string
+    Returns the type of this exception as a string.
 */
 QString InvalidPropertyException::type() const
 {
@@ -61,9 +60,7 @@ QString InvalidPropertyException::type() const
 }
 
 /*!
-\brief Returns the argument of the property of this exception
-
-\returns the argument as a string
+    Returns the argument of the property of this exception as a string.
 */
 QString InvalidPropertyException::argument() const
 {

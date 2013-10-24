@@ -37,7 +37,7 @@
 #include <coreplugin/icore.h>
 #endif // CREATORLESSTEST
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 QtQuickApp::QtQuickApp()
@@ -45,7 +45,6 @@ QtQuickApp::QtQuickApp()
     , m_mainQmlMode(ModeGenerate)
     , m_componentSet(QtQuick10Components)
 {
-    m_canSupportMeegoBooster = true;
 }
 
 void QtQuickApp::setComponentSet(ComponentSet componentSet)
@@ -111,8 +110,13 @@ QString QtQuickApp::pathExtended(int fileType) const
 
 QString QtQuickApp::originsRoot() const
 {
-    const bool isQtQuick2 = m_componentSet == QtQuick20Components;
-    return templatesRoot() + QLatin1String(isQtQuick2 ? "qtquick2app/" : "qtquickapp/");
+    switch (m_componentSet) {
+    case QtQuickControls10: return templatesRoot() + QLatin1String("qtquick2controls/");
+    case QtQuick20Components: return templatesRoot() + QLatin1String("qtquick2app/");
+    default: break;
+    }
+
+    return templatesRoot() + QLatin1String("qtquickapp/");
 }
 
 QString QtQuickApp::mainWindowClassName() const
@@ -142,8 +146,6 @@ void QtQuickApp::handleCurrentProFileTemplateLine(const QString &line,
         proFile << nextLine << endl;
     } else if (line.contains(QLatin1String("# HARMATTAN_BOOSTABLE"))) {
         QString nextLine = proFileTemplate.readLine(); // eats '# CONFIG += qdeclarative-boostable'
-        if (supportsMeegoBooster())
-            nextLine.remove(0, 2); // remove comment
         proFile << nextLine << endl;
     }
 }
@@ -154,8 +156,6 @@ Core::GeneratedFiles QtQuickApp::generateFiles(QString *errorMessage) const
     Core::GeneratedFiles files = AbstractMobileApp::generateFiles(errorMessage);
     if (!useExistingMainQml()) {
         files.append(file(generateFile(QtQuickAppGeneratedFileInfo::MainQmlFile, errorMessage), path(MainQml)));
-        if ((componentSet() == QtQuickApp::Meego10Components))
-            files.append(file(generateFile(QtQuickAppGeneratedFileInfo::MainPageQmlFile, errorMessage), path(MainPageQml)));
         files.last().setAttributes(Core::GeneratedFile::OpenEditorAttribute);
     }
 
@@ -174,8 +174,12 @@ bool QtQuickApp::useExistingMainQml() const
 
 QString QtQuickApp::appViewerBaseName() const
 {
-    return QLatin1String(m_componentSet == QtQuick20Components ?
-                             "qtquick2applicationviewer" : "qmlapplicationviewer");
+    if (m_componentSet == QtQuick20Components) {
+        return QLatin1String("qtquick2applicationviewer");
+    } else if (m_componentSet == QtQuickControls10) {
+        return QLatin1String("qtquick2controlsapplicationviewer");
+    }
+    return QLatin1String("qmlapplicationviewer");
 }
 
 QString QtQuickApp::fileName(QtQuickApp::ExtendedFileType type) const
@@ -225,7 +229,7 @@ QByteArray QtQuickApp::generateFileExtended(int fileType,
 
 int QtQuickApp::stubVersionMinor() const
 {
-    return m_componentSet == QtQuick20Components ? 5 : 24;
+    return (m_componentSet == QtQuick20Components || m_componentSet == QtQuickControls10) ? 5 : 24;
 }
 
 QList<AbstractGeneratedFileInfo> QtQuickApp::updateableFiles(const QString &mainProFile) const
@@ -267,10 +271,10 @@ QList<DeploymentFolder> QtQuickApp::deploymentFolders() const
 QString QtQuickApp::componentSetDir(ComponentSet componentSet) const
 {
     switch (componentSet) {
-    case Meego10Components:
-        return QLatin1String("meego10");
     case QtQuick20Components:
         return QLatin1String("qtquick20");
+    case QtQuickControls10:
+        return QLatin1String("qtquick21");
     case QtQuick10Components:
     default:
         return QLatin1String("qtquick10");
@@ -278,4 +282,4 @@ QString QtQuickApp::componentSetDir(ComponentSet componentSet) const
 }
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager

@@ -44,11 +44,13 @@ Item {
             id: row1
             height: text.height + 8
 
-            spacing: 4
+            spacing: 7
 
             Image {
-                anchors.verticalCenter: text.verticalCenter
-                source: "images/bullet.png"
+                source: "images/sessions.png"
+                anchors.verticalCenter: projectNameText.verticalCenter
+                width: 16
+                height: 16
             }
 
             LinkedText {

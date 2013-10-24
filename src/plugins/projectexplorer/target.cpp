@@ -528,7 +528,7 @@ void Target::updateDefaultBuildConfigurations()
         qWarning("No build configuration factory found for target id '%s'.", qPrintable(id().toString()));
         return;
     }
-    QList<BuildInfo *> infoList = bcFactory->availableBuilds(this);
+    QList<BuildInfo *> infoList = bcFactory->availableSetups(this->kit(), project()->projectFilePath());
     foreach (BuildInfo *info, infoList) {
         BuildConfiguration *bc = bcFactory->create(this, info);
         if (!bc)
@@ -768,6 +768,9 @@ bool Target::fromMap(const QVariantMap &map)
     d->m_kit = KitManager::find(id());
     if (!d->m_kit)
         return false;
+
+    setDisplayName(d->m_kit->displayName()); // Overwrite displayname read from file
+    setDefaultDisplayName(d->m_kit->displayName());
 
     bool ok;
     int bcCount = map.value(QLatin1String(BC_COUNT_KEY), 0).toInt(&ok);

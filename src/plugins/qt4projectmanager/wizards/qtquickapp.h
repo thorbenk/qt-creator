@@ -32,7 +32,7 @@
 
 #include "abstractmobileapp.h"
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 struct QtQuickAppGeneratedFileInfo : public AbstractGeneratedFileInfo
@@ -74,8 +74,8 @@ public:
 
     enum ComponentSet {
         QtQuick10Components,
-        Meego10Components,
-        QtQuick20Components
+        QtQuick20Components,
+        QtQuickControls10
     };
 
     QtQuickApp();
@@ -122,6 +122,6 @@ private:
 };
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager
 
 #endif // QTQUICKAPP_H

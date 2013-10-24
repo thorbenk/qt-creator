@@ -307,7 +307,7 @@ void FolderNavigationWidget::contextMenuEvent(QContextMenuEvent *ev)
     QAction *actionTerminal = menu.addAction(Core::FileUtils::msgTerminalAction());
     actionTerminal->setEnabled(hasCurrentItem);
 
-    QAction *actionFind = menu.addAction(msgFindOnFileSystem());
+    QAction *actionFind = menu.addAction(Core::FileUtils::msgFindInDirectory());
     actionFind->setEnabled(hasCurrentItem);
     // open with...
     if (!m_fileSystemModel->isDir(current)) {
@@ -343,34 +343,10 @@ void FolderNavigationWidget::contextMenuEvent(QContextMenuEvent *ev)
         return;
     }
     if (action == actionFind) {
-        QFileInfo info = m_fileSystemModel->fileInfo(current);
-        if (m_fileSystemModel->isDir(current))
-            findOnFileSystem(info.absoluteFilePath());
-        else
-            findOnFileSystem(info.absolutePath());
+        TextEditor::FindInFiles::findOnFileSystem(m_fileSystemModel->filePath(current));
         return;
     }
     Core::DocumentManager::executeOpenWithMenuAction(action);
-}
-
-QString FolderNavigationWidget::msgFindOnFileSystem()
-{
-    return tr("Find in this directory...");
-}
-
-void FolderNavigationWidget::findOnFileSystem(const QString &pathIn)
-{
-    const QFileInfo fileInfo(pathIn);
-    const QString folder = fileInfo.isDir() ? fileInfo.absoluteFilePath() : fileInfo.absolutePath();
-
-    TextEditor::FindInFiles *fif = ExtensionSystem::PluginManager::getObject<TextEditor::FindInFiles>();
-    if (!fif)
-        return;
-    Find::FindPlugin *plugin = Find::FindPlugin::instance();
-    if (!plugin)
-        return;
-    fif->setDirectory(folder);
-    Find::FindPlugin::instance()->openFindDialog(fif);
 }
 
 void FolderNavigationWidget::setHiddenFilesFilter(bool filter)

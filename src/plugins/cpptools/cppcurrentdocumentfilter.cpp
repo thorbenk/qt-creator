@@ -40,7 +40,7 @@ CppCurrentDocumentFilter::CppCurrentDocumentFilter(CppModelManager *manager)
     : m_modelManager(manager)
 {
     setId("Methods in current Document");
-    setDisplayName(tr("C++ Methods in Current Document"));
+    setDisplayName(tr("C++ Symbols in Current Document"));
     setShortcutString(QString(QLatin1Char('.')));
     setIncludedByDefault(false);
 
@@ -98,8 +98,10 @@ QList<Locator::FilterEntry> CppCurrentDocumentFilter::matchesFor(QFutureInterfac
             QVariant id = qVariantFromValue(info);
             QString name = matchString;
             QString extraInfo = info.symbolScope;
-            if (info.type == ModelItemInfo::Method)
-                info.unqualifiedNameAndScope(matchString, &name, &extraInfo);
+            if (info.type == ModelItemInfo::Method) {
+                if (info.unqualifiedNameAndScope(matchString, &name, &extraInfo))
+                    name += info.symbolType;
+            }
             Locator::FilterEntry filterEntry(this, name, id, info.icon);
             filterEntry.extraInfo = extraInfo;
 

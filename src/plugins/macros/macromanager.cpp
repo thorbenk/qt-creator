@@ -74,22 +74,22 @@ using namespace Macros::Internal;
     \class Macro::MacroManager
     \brief The MacroManager class implements a manager for macros.
 
-    The MacroManager manage all macros, it loads them on startup, keep track of the
-    current macro and create new macros.
+    The MacroManager manages all macros, loads them on startup, keeps track of the
+    current macro, and creates new macros.
 
-    There are two important methods in this class that can be used outside the Macros plugin:
+    There are two important functions in this class that can be used outside the Macros plugin:
     \list
     \li registerEventHandler: add a new event handler
     \li registerAction: add a macro event when this action is triggered
     \endlist
 
-    This class is a singleton and can be accessed using the instance method.
+    This class is a singleton and can be accessed using the instance function.
 */
 
 /*!
     \fn void registerAction(QAction *action, const QString &id)
 
-    Append this action to the list of actions registered in a macro. The id is
+    Appends \a action to the list of actions registered in a macro. \a id is
     the action id passed to the ActionManager.
 */
 
@@ -288,7 +288,7 @@ void MacroManager::startMacro()
 
     QString endShortcut = Core::ActionManager::command(Constants::END_MACRO)->defaultKeySequence().toString();
     QString executeShortcut = Core::ActionManager::command(Constants::EXECUTE_LAST_MACRO)->defaultKeySequence().toString();
-    QString help = tr("Macro mode. Type \"%1\" to stop recording and \"%2\" to play it")
+    QString help = tr("Macro mode. Type \"%1\" to stop recording and \"%2\" to play the macro.")
         .arg(endShortcut).arg(executeShortcut);
     Core::EditorManager::showEditorStatusBar(
                 QLatin1String(Constants::M_STATUS_BUFFER),

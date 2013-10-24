@@ -47,8 +47,10 @@ namespace ProjectExplorer {
 class BuildInfo;
 class IProjectManager;
 class EditorConfiguration;
+class ProjectImporter;
 class ProjectNode;
 class Kit;
+class KitMatcher;
 class NamedWidget;
 class Target;
 class ProjectPrivate;
@@ -71,7 +73,7 @@ public:
     virtual ~Project();
 
     virtual QString displayName() const = 0;
-    virtual Core::Id id() const = 0;
+    Core::Id id() const;
     virtual Core::IDocument *document() const = 0;
     virtual IProjectManager *projectManager() const = 0;
 
@@ -125,6 +127,9 @@ public:
     virtual void configureAsExampleProject(const QStringList &platforms);
 
     virtual bool supportsNoTargetPanel() const;
+    virtual ProjectImporter *createProjectImporter() const;
+    virtual KitMatcher *createRequiredKitMatcher() const { return 0; }
+    virtual KitMatcher *createPreferredKitMatcher() const { return 0; }
 
     virtual bool needsSpecialDeployment() const;
 
@@ -156,6 +161,7 @@ protected:
     virtual bool fromMap(const QVariantMap &map);
     virtual bool setupTarget(Target *t);
 
+    void setId(Core::Id id);
     void setProjectContext(Core::Context context);
     void setProjectLanguages(Core::Context language);
     void addProjectLanguage(Core::Id id);

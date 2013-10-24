@@ -30,7 +30,7 @@
 #ifndef ABSTRACTMOBILEAPP_H
 #define ABSTRACTMOBILEAPP_H
 
-#include "../qt4projectmanager_global.h"
+#include "../qmakeprojectmanager_global.h"
 #include <QFileInfo>
 #include <QPair>
 
@@ -40,7 +40,7 @@
 
 QT_FORWARD_DECLARE_CLASS(QTextStream)
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 
 /// \internal
 struct
@@ -55,8 +55,6 @@ struct
         DeploymentPriFile,
         PngIcon64File,
         PngIcon80File,
-        DesktopFremantleFile,
-        DesktopHarmattanFile,
         ExtendedFile
     };
 
@@ -95,8 +93,6 @@ public:
         AppPro,
         AppProOrigin,
         AppProPath,
-        DesktopFremantle,
-        DesktopHarmattan,
         DesktopOrigin,
         DeploymentPri,
         DeploymentPriOrigin,
@@ -120,10 +116,6 @@ public:
     QString pngIcon80() const;
     QString path(int fileType) const;
     QString error() const;
-
-    bool canSupportMeegoBooster() const;
-    bool supportsMeegoBooster() const;
-    void setSupportsMeegoBooster(bool supportBooster);
 
 #ifndef CREATORLESSTEST
     virtual Core::GeneratedFiles generateFiles(QString *errorMessage) const;
@@ -159,7 +151,6 @@ protected:
     static const int StubVersion;
 
     QString m_error;
-    bool m_canSupportMeegoBooster;
 
 private:
     QByteArray generateDesktopFile(QString *errorMessage, int fileType) const;
@@ -184,9 +175,8 @@ private:
     QString m_pngIcon64;
     QString m_pngIcon80;
     ScreenOrientation m_orientation;
-    bool m_supportsMeegoBooster;
 };
 
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager
 
 #endif // ABSTRACTMOBILEAPP_H

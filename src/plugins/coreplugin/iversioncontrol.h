@@ -81,6 +81,14 @@ public:
     virtual bool managesDirectory(const QString &filename, QString *topLevel = 0) const = 0;
 
     /*!
+     * Returns whether \a fileName is managed by this version control.
+     *
+     * \a workingDirectory is assumed to be part of a valid repository (not necessarily its
+     * top level). \a fileName is expected to be relative to workingDirectory.
+     */
+    virtual bool managesFile(const QString &workingDirectory, const QString &fileName) const = 0;
+
+    /*!
      * Returns true is the VCS is configured to run.
      */
     virtual bool isConfigured() const = 0;
@@ -151,27 +159,6 @@ public:
      * Topic (e.g. name of the current branch)
      */
     virtual QString vcsTopic(const QString &directory);
-
-    /*!
-     * Create a snapshot of the current state and return an identifier or
-     * an empty string in case of failure.
-     */
-    virtual QString vcsCreateSnapshot(const QString &topLevel) = 0;
-
-    /*!
-     * List snapshots.
-     */
-    virtual QStringList vcsSnapshots(const QString &topLevel) = 0;
-
-    /*!
-     * Restore a snapshot.
-     */
-    virtual bool vcsRestoreSnapshot(const QString &topLevel, const QString &name) = 0;
-
-    /*!
-     * Remove a snapshot.
-     */
-    virtual bool vcsRemoveSnapshot(const QString &topLevel, const QString &name) = 0;
 
     /*!
      * Display annotation for a file and scroll to line

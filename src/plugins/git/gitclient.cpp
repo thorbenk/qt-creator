@@ -99,19 +99,19 @@ public:
         DiffShow
     };
 
-    GitDiffSwitcher(Core::IEditor *parentEditor, GitClient *gitClient, GitClient::DiffEditorType switchToType)
+    GitDiffSwitcher(Core::IEditor *parentEditor, GitClient *gitClient)
         : QObject(parentEditor),
           m_editor(parentEditor),
-          m_gitClient(gitClient),
-          m_editorType(switchToType)
+          m_gitClient(gitClient)
     {
-        QIcon actionIcon = switchToType == GitClient::SideBySideDiffEditor
-                ? QIcon(QLatin1String(Core::Constants::ICON_SIDE_BY_SIDE_DIFF))
-                : QIcon(QLatin1String(Core::Constants::ICON_TEXT_DIFF));
+        m_usingDiffEditor = gitClient->settings()->boolValue(GitSettings::useDiffEditorKey);
+        QIcon actionIcon = m_usingDiffEditor
+                ? QIcon(QLatin1String(Core::Constants::ICON_TEXT_DIFF))
+                : QIcon(QLatin1String(Core::Constants::ICON_SIDE_BY_SIDE_DIFF));
 
-        const QString actionToolTip = switchToType == GitClient::SideBySideDiffEditor
-                ? tr("Switch to Side By Side Diff Editor")
-                : tr("Switch to Text Diff Editor");
+        const QString actionToolTip = m_usingDiffEditor
+                ? tr("Switch to Text Diff Editor")
+                : tr("Switch to Side By Side Diff Editor");
 
         QAction *switchAction = new QAction(actionIcon, actionToolTip, parentEditor);
         parentEditor->toolBar()->addAction(switchAction);
@@ -140,7 +140,7 @@ private:
     GitClient *m_gitClient;
     QString m_workingDirectory;
     DiffType m_diffType;
-    GitClient::DiffEditorType m_editorType;
+    bool m_usingDiffEditor;
     QString m_fileName;
     QStringList m_stagedFiles;
     QStringList m_unstagedFiles;
@@ -153,24 +153,25 @@ private:
 
 void GitDiffSwitcher::execute()
 {
+    m_gitClient->settings()->setValue(GitSettings::useDiffEditorKey, !m_usingDiffEditor);
     switch (m_diffType) {
     case DiffRepository:
-        m_gitClient->diff(m_workingDirectory, QStringList(), QStringList(), m_editorType);
+        m_gitClient->diff(m_workingDirectory, QStringList(), QStringList());
         break;
     case DiffFile:
-        m_gitClient->diff(m_workingDirectory, m_fileName, m_editorType);
+        m_gitClient->diff(m_workingDirectory, m_fileName);
         break;
     case DiffFileList:
-        m_gitClient->diff(m_workingDirectory, m_unstagedFiles, m_stagedFiles, m_editorType);
+        m_gitClient->diff(m_workingDirectory, m_unstagedFiles, m_stagedFiles);
         break;
     case DiffProjectList:
-        m_gitClient->diff(m_workingDirectory, m_projectFiles, QStringList(), m_editorType);
+        m_gitClient->diff(m_workingDirectory, m_projectFiles, QStringList());
         break;
     case DiffBranch:
-        m_gitClient->diffBranch(m_workingDirectory, m_baseArguments, m_branchName, m_editorType);
+        m_gitClient->diffBranch(m_workingDirectory, m_baseArguments, m_branchName);
         break;
     case DiffShow:
-        m_gitClient->show(m_fileName, m_id, m_baseArguments, m_displayName, m_editorType);
+        m_gitClient->show(m_fileName, m_id, m_baseArguments, m_displayName);
         break;
     default:
         break;
@@ -912,6 +913,25 @@ static inline QStringList statusArguments()
                          << QLatin1String("status");
 }
 
+static inline void msgCannotRun(const QString &message, QString *errorMessage)
+{
+    if (errorMessage)
+        *errorMessage = message;
+    else
+        outputWindow()->appendError(message);
+}
+
+static inline void msgCannotRun(const QStringList &args, const QString &workingDirectory,
+                                const QByteArray &error, QString *errorMessage)
+{
+    const QString message = GitClient::tr("Cannot run \"%1 %2\" in \"%2\": %3")
+            .arg(QLatin1String("git ") + args.join(QLatin1String(" ")),
+                 QDir::toNativeSeparators(workingDirectory),
+                 commandOutputFromLocal8Bit(error));
+
+    msgCannotRun(message, errorMessage);
+}
+
 // ---------------- GitClient
 
 const char *GitClient::stashNamePrefix = "stash@{";
@@ -969,6 +989,15 @@ QString GitClient::findGitDirForRepository(const QString &repositoryDir) const
     if (!QDir(res).isAbsolute())
         res.prepend(repositoryDir + QLatin1Char('/'));
     return res;
+}
+
+bool GitClient::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    QByteArray output;
+    QStringList arguments;
+    arguments << QLatin1String("ls-files") << QLatin1String("--error-unmatch") << fileName;
+    return fullySynchronousGit(workingDirectory, arguments, &output, 0,
+                               VcsBasePlugin::SuppressCommandLogging);
 }
 
 VcsBase::VcsBaseEditorWidget *GitClient::findExistingVCSEditor(const char *registerDynamicProperty,
@@ -1037,8 +1066,8 @@ VcsBase::VcsBaseEditorWidget *GitClient::createVcsEditor(
                                                                               m_msgWait.toUtf8());
     outputEditor->document()->setProperty(registerDynamicProperty, dynamicPropertyValue);
     rc = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(outputEditor);
-    connect(rc, SIGNAL(annotateRevisionRequested(QString,QString,int)),
-            this, SLOT(slotBlameRevisionRequested(QString,QString,int)));
+    connect(rc, SIGNAL(annotateRevisionRequested(QString,QString,QString,int)),
+            this, SLOT(slotBlameRevisionRequested(QString,QString,QString,int)));
     QTC_ASSERT(rc, return 0);
     rc->setSource(source);
     if (codecType == CodecSource) {
@@ -1061,16 +1090,12 @@ VcsBase::VcsBaseEditorWidget *GitClient::createVcsEditor(
 
 void GitClient::diff(const QString &workingDirectory,
                      const QStringList &unstagedFileNames,
-                     const QStringList &stagedFileNames,
-                     DiffEditorType editorType)
+                     const QStringList &stagedFileNames)
 {
     const QString title = tr("Git Diff");
     const int timeout = settings()->intValue(GitSettings::timeoutKey);
-    const bool showSideBySideEditor = (editorType == DefaultDiffEditor
-                                       && settings()->boolValue(GitSettings::useDiffEditorKey))
-            || editorType == SideBySideDiffEditor;
     Core::IEditor *newEditor = 0;
-    if (showSideBySideEditor) {
+    if (settings()->boolValue(GitSettings::useDiffEditorKey)) {
         const char *propertyName = "sideBySideOriginalFileName";
         DiffEditor::DiffEditor *diffEditor = findExistingDiffEditor(propertyName, workingDirectory);
         if (!diffEditor) {
@@ -1115,6 +1140,8 @@ void GitClient::diff(const QString &workingDirectory,
                                         workingDirectory,
                                         argWidget);
             newEditor = vcsEditor->editor();
+            connect(vcsEditor, SIGNAL(diffChunkApplied(VcsBase::DiffChunk)),
+                    argWidget, SLOT(executeCommand()));
             connect(vcsEditor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)),
                     argWidget, SLOT(executeCommand()));
         }
@@ -1123,7 +1150,7 @@ void GitClient::diff(const QString &workingDirectory,
                     vcsEditor->configurationWidget());
         argWidget->setFileNames(unstagedFileNames, stagedFileNames);
         QStringList userDiffArgs = argWidget->arguments();
-        vcsEditor->setDiffBaseDirectory(workingDirectory);
+        vcsEditor->setWorkingDirectory(workingDirectory);
 
         // Create a batch of 2 commands to be run after each other in case
         // we have a mixture of staged/unstaged files as is the case
@@ -1163,8 +1190,7 @@ void GitClient::diff(const QString &workingDirectory,
         command->execute();
     }
     if (newEditor) {
-        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this,
-                                    showSideBySideEditor ? SimpleTextDiffEditor : SideBySideDiffEditor);
+        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this);
         switcher->setWorkingDirectory(workingDirectory);
         if (unstagedFileNames.empty() && stagedFileNames.empty()) {
             // local repository diff
@@ -1181,17 +1207,12 @@ void GitClient::diff(const QString &workingDirectory,
     }
 }
 
-void GitClient::diff(const QString &workingDirectory,
-                     const QString &fileName,
-                     DiffEditorType editorType)
+void GitClient::diff(const QString &workingDirectory, const QString &fileName)
 {
     const QString title = tr("Git Diff \"%1\"").arg(fileName);
-    const bool showSideBySideEditor = (editorType == DefaultDiffEditor
-                                       && settings()->boolValue(GitSettings::useDiffEditorKey))
-            || editorType == SideBySideDiffEditor;
     const QString sourceFile = VcsBase::VcsBaseEditorWidget::getSource(workingDirectory, fileName);
     Core::IEditor *newEditor = 0;
-    if (showSideBySideEditor) {
+    if (settings()->boolValue(GitSettings::useDiffEditorKey)) {
         const char *propertyName = "sideBySideOriginalFileName";
         DiffEditor::DiffEditor *diffEditor = findExistingDiffEditor(propertyName, sourceFile);
         if (!diffEditor) {
@@ -1222,10 +1243,12 @@ void GitClient::diff(const QString &workingDirectory,
                                      sourceFile,
                                      argWidget);
             newEditor = vcsEditor->editor();
+            connect(vcsEditor, SIGNAL(diffChunkApplied(VcsBase::DiffChunk)),
+                    argWidget, SLOT(executeCommand()));
             connect(vcsEditor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)),
                     argWidget, SLOT(executeCommand()));
         }
-        vcsEditor->setDiffBaseDirectory(workingDirectory);
+        vcsEditor->setWorkingDirectory(workingDirectory);
 
         QStringList cmdArgs;
         cmdArgs << QLatin1String("diff")
@@ -1237,8 +1260,7 @@ void GitClient::diff(const QString &workingDirectory,
         executeGit(workingDirectory, cmdArgs, vcsEditor);
     }
     if (newEditor) {
-        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this,
-                                    showSideBySideEditor ? SimpleTextDiffEditor : SideBySideDiffEditor);
+        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this);
         switcher->setWorkingDirectory(workingDirectory);
         switcher->setDiffType(GitDiffSwitcher::DiffFile);
         switcher->setFileName(fileName);
@@ -1247,15 +1269,11 @@ void GitClient::diff(const QString &workingDirectory,
 
 void GitClient::diffBranch(const QString &workingDirectory,
                            const QStringList &diffArgs,
-                           const QString &branchName,
-                           DiffEditorType editorType)
+                           const QString &branchName)
 {
     const QString title = tr("Git Diff Branch \"%1\"").arg(branchName);
-    const bool showSideBySideEditor = (editorType == DefaultDiffEditor
-                                       && settings()->boolValue(GitSettings::useDiffEditorKey))
-            || editorType == SideBySideDiffEditor;
     Core::IEditor *newEditor = 0;
-    if (showSideBySideEditor) {
+    if (settings()->boolValue(GitSettings::useDiffEditorKey)) {
         const char *propertyName = "sideBySideBranchName";
         DiffEditor::DiffEditor *diffEditor = findExistingDiffEditor(propertyName, branchName);
         if (!diffEditor) {
@@ -1290,7 +1308,7 @@ void GitClient::diffBranch(const QString &workingDirectory,
                                                                       branchName));
             newEditor = vcsEditor->editor();
         }
-        vcsEditor->setDiffBaseDirectory(workingDirectory);
+        vcsEditor->setWorkingDirectory(workingDirectory);
 
         QStringList cmdArgs;
         cmdArgs << QLatin1String("diff")
@@ -1301,8 +1319,7 @@ void GitClient::diffBranch(const QString &workingDirectory,
         executeGit(workingDirectory, cmdArgs, vcsEditor);
     }
     if (newEditor) {
-        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this,
-                                    showSideBySideEditor ? SimpleTextDiffEditor : SideBySideDiffEditor);
+        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this);
         switcher->setWorkingDirectory(workingDirectory);
         switcher->setDiffType(GitDiffSwitcher::DiffBranch);
         switcher->setBaseArguments(diffArgs);
@@ -1342,7 +1359,7 @@ void GitClient::log(const QString &workingDirectory, const QString &fileName,
                                                            enableAnnotationContextMenu,
                                                            args, fileName));
     editor->setFileLogAnnotateEnabled(enableAnnotationContextMenu);
-    editor->setDiffBaseDirectory(workingDirectory);
+    editor->setWorkingDirectory(workingDirectory);
 
     QStringList arguments;
     arguments << QLatin1String("log") << QLatin1String(noColorOption)
@@ -1374,6 +1391,7 @@ void GitClient::reflog(const QString &workingDirectory)
         editor = createVcsEditor(editorId, title, workingDirectory, CodecLogOutput,
                                  "reflogRepository", workingDirectory, 0);
     }
+    editor->setWorkingDirectory(workingDirectory);
 
     QStringList arguments;
     arguments << QLatin1String("reflog") << QLatin1String(noColorOption)
@@ -1402,8 +1420,7 @@ static inline QString msgCannotShow(const QString &sha)
 }
 
 void GitClient::show(const QString &source, const QString &id,
-                     const QStringList &args, const QString &name,
-                     DiffEditorType editorType)
+                     const QStringList &args, const QString &name)
 {
     if (!canShow(id)) {
         outputWindow()->appendError(msgCannotShow(id));
@@ -1413,11 +1430,8 @@ void GitClient::show(const QString &source, const QString &id,
     const QString title = tr("Git Show \"%1\"").arg(name.isEmpty() ? id : name);
     const QFileInfo sourceFi(source);
     const QString workingDirectory = sourceFi.isDir() ? sourceFi.absoluteFilePath() : sourceFi.absolutePath();
-    const bool showSideBySideEditor = (editorType == DefaultDiffEditor
-                                       && settings()->boolValue(GitSettings::useDiffEditorKey))
-            || editorType == SideBySideDiffEditor;
     Core::IEditor *newEditor = 0;
-    if (showSideBySideEditor) {
+    if (settings()->boolValue(GitSettings::useDiffEditorKey)) {
         const char *propertyName = "sideBySideShow";
         DiffEditor::DiffEditor *diffEditor = findExistingDiffEditor(propertyName, id);
         if (!diffEditor) {
@@ -1459,12 +1473,11 @@ void GitClient::show(const QString &source, const QString &id,
                   << vcsEditor->configurationWidget()->arguments()
                   << id;
 
-        vcsEditor->setDiffBaseDirectory(workingDirectory);
+        vcsEditor->setWorkingDirectory(workingDirectory);
         executeGit(workingDirectory, arguments, vcsEditor);
     }
     if (newEditor) {
-        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this,
-                                    showSideBySideEditor ? SimpleTextDiffEditor : SideBySideDiffEditor);
+        GitDiffSwitcher *switcher = new GitDiffSwitcher(newEditor, this);
         switcher->setDiffType(GitDiffSwitcher::DiffShow);
         switcher->setFileName(source);
         switcher->setBaseArguments(args);
@@ -1477,15 +1490,15 @@ void GitClient::saveSettings()
     settings()->writeSettings(Core::ICore::settings());
 }
 
-void GitClient::slotBlameRevisionRequested(const QString &source, QString change, int lineNumber)
+void GitClient::slotBlameRevisionRequested(const QString &workingDirectory, const QString &file,
+                                           QString change, int lineNumber)
 {
     // This might be invoked with a verbose revision description
     // "SHA1 author subject" from the annotation context menu. Strip the rest.
     const int blankPos = change.indexOf(QLatin1Char(' '));
     if (blankPos != -1)
         change.truncate(blankPos);
-    const QFileInfo fi(source);
-    blame(fi.absolutePath(), QStringList(), fi.fileName(), change, lineNumber);
+    blame(workingDirectory, QStringList(), file, change, lineNumber);
 }
 
 QTextCodec *GitClient::getSourceCodec(const QString &file) const
@@ -1518,6 +1531,7 @@ void GitClient::blame(const QString &workingDirectory,
         argWidget->setEditor(editor);
     }
 
+    editor->setWorkingDirectory(workingDirectory);
     QStringList arguments(QLatin1String("blame"));
     arguments << QLatin1String("--root");
     arguments.append(editor->configurationWidget()->arguments());
@@ -1540,13 +1554,7 @@ bool GitClient::synchronousCheckout(const QString &workingDirectory,
     const QString output = commandOutputFromLocal8Bit(outputText);
     outputWindow()->append(output);
     if (!rc) {
-        const QString stdErr = commandOutputFromLocal8Bit(errorText);
-        //: Meaning of the arguments: %1: Branch, %2: Repository, %3: Error message
-        const QString msg = tr("Cannot checkout \"%1\" of \"%2\": %3").arg(ref, workingDirectory, stdErr);
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
+        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
         return false;
     }
     updateSubmodulesIfNeeded(workingDirectory, true);
@@ -1590,13 +1598,9 @@ bool GitClient::synchronousLog(const QString &workingDirectory, const QStringLis
         else
             *output = commandOutputFromLocal8Bit(outputText);
     } else {
-        const QString errorMessage = tr("Cannot obtain log of \"%1\": %2").
-                                     arg(QDir::toNativeSeparators(workingDirectory),
-                                         commandOutputFromLocal8Bit(errorText));
-        if (errorMessageIn)
-            *errorMessageIn = errorMessage;
-        else
-            outputWindow()->appendError(errorMessage);
+        msgCannotRun(tr("Cannot obtain log of \"%1\": %2")
+                     .arg(QDir::toNativeSeparators(workingDirectory),
+                         commandOutputFromLocal8Bit(errorText)), errorMessageIn);
     }
     return rc;
 }
@@ -1615,10 +1619,9 @@ bool GitClient::synchronousAdd(const QString &workingDirectory,
     arguments.append(files);
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
     if (!rc) {
-        const QString errorMessage = tr("Cannot add %n file(s) to \"%1\": %2", 0, files.size()).
-                                     arg(QDir::toNativeSeparators(workingDirectory),
-                                     commandOutputFromLocal8Bit(errorText));
-        outputWindow()->appendError(errorMessage);
+        msgCannotRun(tr("Cannot add %n file(s) to \"%1\": %2", 0, files.size())
+                     .arg(QDir::toNativeSeparators(workingDirectory),
+                          commandOutputFromLocal8Bit(errorText)), 0);
     }
     return rc;
 }
@@ -1636,9 +1639,9 @@ bool GitClient::synchronousDelete(const QString &workingDirectory,
     arguments.append(files);
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
     if (!rc) {
-        const QString errorMessage = tr("Cannot remove %n file(s) from \"%1\": %2", 0, files.size()).
-                                     arg(QDir::toNativeSeparators(workingDirectory), commandOutputFromLocal8Bit(errorText));
-        outputWindow()->appendError(errorMessage);
+        msgCannotRun(tr("Cannot remove %n file(s) from \"%1\": %2", 0, files.size())
+                     .arg(QDir::toNativeSeparators(workingDirectory),
+                          commandOutputFromLocal8Bit(errorText)), 0);
     }
     return rc;
 }
@@ -1655,9 +1658,8 @@ bool GitClient::synchronousMove(const QString &workingDirectory,
     arguments << (to);
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
     if (!rc) {
-        const QString errorMessage = tr("Cannot move from \"%1\" to \"%2\": %3").
-                                     arg(from, to, commandOutputFromLocal8Bit(errorText));
-        outputWindow()->appendError(errorMessage);
+        msgCannotRun(tr("Cannot move from \"%1\" to \"%2\": %3")
+                     .arg(from, to, commandOutputFromLocal8Bit(errorText)), 0);
     }
     return rc;
 }
@@ -1681,16 +1683,15 @@ bool GitClient::synchronousReset(const QString &workingDirectory,
     // Assume real failure if the output does not contain "foo.cpp modified"
     // or "Unstaged changes after reset" (git 1.7.0).
     if (!rc && (!output.contains(QLatin1String("modified"))
-         && !output.contains(QLatin1String("Unstaged changes after reset")))) {
-        const QString stdErr = commandOutputFromLocal8Bit(errorText);
-        const QString msg = files.isEmpty() ?
-                            tr("Cannot reset \"%1\": %2").arg(QDir::toNativeSeparators(workingDirectory), stdErr) :
-                            tr("Cannot reset %n file(s) in \"%1\": %2", 0, files.size()).
-                            arg(QDir::toNativeSeparators(workingDirectory), stdErr);
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
+                && !output.contains(QLatin1String("Unstaged changes after reset")))) {
+        if (files.isEmpty()) {
+            msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
+        } else {
+            msgCannotRun(tr("Cannot reset %n file(s) in \"%1\": %2", 0, files.size())
+                         .arg(QDir::toNativeSeparators(workingDirectory),
+                              commandOutputFromLocal8Bit(errorText)),
+                         errorMessage);
+        }
         return false;
     }
     return true;
@@ -1741,12 +1742,10 @@ bool GitClient::synchronousCheckoutFiles(const QString &workingDirectory,
         const QString fileArg = files.join(QLatin1String(", "));
         //: Meaning of the arguments: %1: revision, %2: files, %3: repository,
         //: %4: Error message
-        const QString msg = tr("Cannot checkout \"%1\" of %2 in \"%3\": %4").
-                            arg(revision, fileArg, workingDirectory, commandOutputFromLocal8Bit(errorText));
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
+        msgCannotRun(tr("Cannot checkout \"%1\" of %2 in \"%3\": %4")
+                     .arg(revision, fileArg, workingDirectory,
+                          commandOutputFromLocal8Bit(errorText)),
+                     errorMessage);
         return false;
     }
     return true;
@@ -1796,12 +1795,7 @@ bool GitClient::synchronousRevListCmd(const QString &workingDirectory, const QSt
 
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputTextData, &errorText);
     if (!rc) {
-        if (errorMessage)
-            *errorMessage = commandOutputFromLocal8Bit(errorText);
-        else
-            outputWindow()->appendError(tr("Cannot execute \"git %1\" in \"%2\": %3").arg(
-                                            args.join(QLatin1String(" ")), workingDirectory,
-                                            commandOutputFromLocal8Bit(errorText)));
+        msgCannotRun(args, workingDirectory, errorText, errorMessage);
         return false;
     }
     *output = commandOutputFromLocal8Bit(outputTextData);
@@ -1879,12 +1873,6 @@ QString GitClient::synchronousCurrentLocalBranch(const QString &workingDirectory
     return QString();
 }
 
-static inline QString msgCannotRun(const QString &command, const QString &workingDirectory, const QString &why)
-{
-    return GitClient::tr("Cannot run \"%1\" in \"%2\": %3")
-        .arg(command, QDir::toNativeSeparators(workingDirectory), why);
-}
-
 bool GitClient::synchronousHeadRefs(const QString &workingDirectory, QStringList *output,
                                     QString *errorMessage)
 {
@@ -1895,12 +1883,7 @@ bool GitClient::synchronousHeadRefs(const QString &workingDirectory, QStringList
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
     if (!rc) {
-        QString message = msgCannotRun(QLatin1String("git show-ref --head"), workingDirectory, commandOutputFromLocal8Bit(errorText));
-
-        if (errorMessage)
-            *errorMessage = message;
-        else
-            outputWindow()->appendError(message);
+        msgCannotRun(args, workingDirectory, errorText, errorMessage);
         return false;
     }
 
@@ -1987,12 +1970,9 @@ QString GitClient::synchronousTopRevision(const QString &workingDirectory, QStri
     }
     QString revision = commandOutputFromLocal8Bit(outputTextData);
     revision.remove(QLatin1Char('\n'));
-    if (revision.isEmpty() && !errorMessage.isEmpty()) {
-        if (errorMessageIn)
-            *errorMessageIn = errorMessage;
-        else
-            outputWindow()->appendError(errorMessage);
-    }
+    if (revision.isEmpty() && !errorMessage.isEmpty())
+        msgCannotRun(errorMessage, errorMessageIn);
+
     return revision;
 }
 
@@ -2157,17 +2137,10 @@ bool GitClient::executeSynchronousStash(const QString &workingDirectory,
         arguments << QLatin1String("save") << message;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText,
                                         VcsBasePlugin::ExpectRepoChanges);
-    if (!rc) {
-        const QString msg = tr("Cannot stash in \"%1\": %2").
-                            arg(QDir::toNativeSeparators(workingDirectory),
-                                commandOutputFromLocal8Bit(errorText));
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
-        return false;
-    }
-    return true;
+    if (!rc)
+        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
+
+    return rc;
 }
 
 // Resolve a stash name from message
@@ -2191,11 +2164,8 @@ bool GitClient::stashNameFromMessage(const QString &workingDirectory,
         }
     }
     //: Look-up of a stash via its descriptive message failed.
-    const QString msg = tr("Cannot resolve stash message \"%1\" in \"%2\".").arg(message, workingDirectory);
-    if (errorMessage)
-        *errorMessage = msg;
-    else
-        outputWindow()->appendError(msg);
+    msgCannotRun(tr("Cannot resolve stash message \"%1\" in \"%2\".")
+                 .arg(message, workingDirectory), errorMessage);
     return  false;
 }
 
@@ -2207,26 +2177,24 @@ bool GitClient::synchronousBranchCmd(const QString &workingDirectory, QStringLis
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, branchArgs, &outputText, &errorText);
     *output = commandOutputFromLocal8Bit(outputText);
-    if (!rc && errorMessage) {
-        *errorMessage = msgCannotRun(QLatin1String("git branch"), workingDirectory,
-                                     commandOutputFromLocal8Bit(errorText));
-    }
+    if (!rc)
+        msgCannotRun(branchArgs, workingDirectory, errorText, errorMessage);
+
     return rc;
 }
 
-bool GitClient::synchronousTagCmd(const QString &workingDirectory, QStringList tagArgs, QString *output, QString *errorMessage)
+bool GitClient::synchronousTagCmd(const QString &workingDirectory, QStringList tagArgs,
+                                  QString *output, QString *errorMessage)
 {
     tagArgs.push_front(QLatin1String("tag"));
     QByteArray outputText;
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, tagArgs, &outputText, &errorText);
     *output = commandOutputFromLocal8Bit(outputText);
-    if (!rc) {
-        *errorMessage = msgCannotRun(QLatin1String("git tag"), workingDirectory,
-                                     commandOutputFromLocal8Bit(errorText));
-        return false;
-    }
-    return true;
+    if (!rc)
+        msgCannotRun(tagArgs, workingDirectory, errorText, errorMessage);
+
+    return rc;
 }
 
 bool GitClient::synchronousForEachRefCmd(const QString &workingDirectory, QStringList args,
@@ -2237,17 +2205,10 @@ bool GitClient::synchronousForEachRefCmd(const QString &workingDirectory, QStrin
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
     *output = commandOutputFromLocal8Bit(outputText);
-    if (!rc) {
-        QString error = msgCannotRun(QLatin1String("git for-each-ref"), workingDirectory,
-                                     commandOutputFromLocal8Bit(errorText));
-        if (errorMessage)
-            *errorMessage = error;
-        else
-            outputWindow()->appendError(error);
+    if (!rc)
+        msgCannotRun(args, workingDirectory, errorText, errorMessage);
 
-        return false;
-    }
-    return true;
+    return rc;
 }
 
 bool GitClient::synchronousRemoteCmd(const QString &workingDirectory, QStringList remoteArgs,
@@ -2258,7 +2219,7 @@ bool GitClient::synchronousRemoteCmd(const QString &workingDirectory, QStringLis
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, remoteArgs, &outputText, &errorText);
     if (!rc) {
-        *errorMessage = msgCannotRun(QLatin1String("git remote"), workingDirectory, commandOutputFromLocal8Bit(errorText));
+        msgCannotRun(remoteArgs, workingDirectory, errorText, errorMessage);
         return false;
     }
     *output = commandOutputFromLocal8Bit(outputText);
@@ -2273,10 +2234,7 @@ QMap<QString,QString> GitClient::synchronousRemotesList(const QString &workingDi
     QString error;
     QStringList args(QLatin1String("-v"));
     if (!synchronousRemoteCmd(workingDirectory, args, &output, &error)) {
-        if (errorMessage)
-            *errorMessage = error;
-        else
-            outputWindow()->appendError(error);
+        msgCannotRun(error, errorMessage);
         return result;
     }
     QStringList remotes = output.split(QLatin1String("\n"));
@@ -2304,15 +2262,9 @@ QStringList GitClient::synchronousSubmoduleStatus(const QString &workingDirector
     // get submodule status
     arguments << QLatin1String("submodule") << QLatin1String("status");
     if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText)) {
-        QString error = tr("Cannot retrieve submodule status of \"%1\": %2")
-                .arg(QDir::toNativeSeparators(workingDirectory),
-                     commandOutputFromLocal8Bit(errorText));
-
-        if (errorMessage)
-            *errorMessage = error;
-        else
-            outputWindow()->appendError(error);
-
+        msgCannotRun(tr("Cannot retrieve submodule status of \"%1\": %2")
+                     .arg(QDir::toNativeSeparators(workingDirectory),
+                          commandOutputFromLocal8Bit(errorText)), errorMessage);
         return QStringList();
     }
     return commandOutputLinesFromLocal8Bit(outputTextData);
@@ -2387,12 +2339,11 @@ bool GitClient::synchronousShow(const QString &workingDirectory, const QString &
     QByteArray outputText;
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
-    if (!rc) {
-        *errorMessage = msgCannotRun(QLatin1String("git show"), workingDirectory, commandOutputFromLocal8Bit(errorText));
-        return false;
-    }
-    *output = commandOutputFromLocal8Bit(outputText);
-    return true;
+    if (rc)
+        *output = commandOutputFromLocal8Bit(outputText);
+    else
+        msgCannotRun(QStringList(QLatin1String("show")), workingDirectory, errorText, errorMessage);
+    return rc;
 }
 
 // Retrieve list of files to be cleaned
@@ -2404,7 +2355,8 @@ bool GitClient::cleanList(const QString &workingDirectory, const QString &flag, 
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
     if (!rc) {
-        *errorMessage = msgCannotRun(QLatin1String("git clean"), workingDirectory, commandOutputFromLocal8Bit(errorText));
+        msgCannotRun(QStringList(QLatin1String("clean")), workingDirectory,
+                     errorText, errorMessage);
         return false;
     }
     // Filter files that git would remove
@@ -2433,10 +2385,11 @@ bool GitClient::synchronousCleanList(const QString &workingDirectory, QStringLis
 }
 
 bool GitClient::synchronousApplyPatch(const QString &workingDirectory,
-                                      const QString &file, QString *errorMessage)
+                                      const QString &file, QString *errorMessage,
+                                      const QStringList &arguments)
 {
     QStringList args;
-    args << QLatin1String("apply") << QLatin1String("--whitespace=fix") << file;
+    args << QLatin1String("apply") << QLatin1String("--whitespace=fix") << arguments << file;
     QByteArray outputText;
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
@@ -2459,8 +2412,11 @@ VcsBase::Command *GitClient::createCommand(const QString &workingDirectory,
     VcsBase::Command *command = new VcsBase::Command(gitBinaryPath(), workingDirectory, processEnvironment());
     command->setCodec(getSourceCodec(currentDocumentPath()));
     command->setCookie(QVariant(editorLineNumber));
-    if (editor)
-        connect(command, SIGNAL(finished(bool,int,QVariant)), editor, SLOT(commandFinishedGotoLine(bool,int,QVariant)));
+    if (editor) {
+        editor->setCommand(command);
+        connect(command, SIGNAL(finished(bool,int,QVariant)),
+                editor, SLOT(commandFinishedGotoLine(bool,int,QVariant)));
+    }
     if (useOutputToWindow) {
         command->addFlags(VcsBasePlugin::ShowStdOutInLogWindow);
         command->addFlags(VcsBasePlugin::ShowSuccessMessage);
@@ -2709,17 +2665,17 @@ void GitClient::continueCommandIfNeeded(const QString &workingDirectory)
 {
     CommandInProgress command = checkCommandInProgress(workingDirectory);
     switch (command) {
-    case Merge:
-        continuePreviousGitCommand(workingDirectory, tr("Continue Merge"),
-                                   tr("Merge is in progress. What do you want to do?"),
-                                   tr("Continue"), QLatin1String("merge"));
-        break;
     case Rebase:
     case RebaseMerge:
         continuePreviousGitCommand(workingDirectory, tr("Continue Rebase"),
                                    tr("Rebase is in progress. What do you want to do?"),
                                    tr("Continue"), QLatin1String("rebase"),
                                    command != RebaseMerge);
+        break;
+    case Merge:
+        continuePreviousGitCommand(workingDirectory, tr("Continue Merge"),
+                tr("You need to commit changes to finish merge.\nCommit now?"),
+                tr("Commit"), QLatin1String("merge"));
         break;
     case Revert:
         continuePreviousGitCommand(workingDirectory, tr("Continue Revert"),
@@ -3008,6 +2964,11 @@ bool GitClient::getCommitData(const QString &workingDirectory,
 
     commitData.commitEncoding = readConfigValue(workingDirectory, QLatin1String("i18n.commitEncoding"));
 
+   // Set default commit encoding to 'UTF-8', when it's not set,
+   // to solve displaying error of commit log with non-latin characters.
+    if (commitData.commitEncoding.isEmpty())
+        commitData.commitEncoding = QLatin1String("UTF-8");
+
     // Get the commit template or the last commit message
     switch (commitData.commitType) {
     case AmendCommit: {
@@ -3056,6 +3017,14 @@ bool GitClient::getCommitData(const QString &workingDirectory,
     case FixupCommit:
         break;
     }
+
+    commitData.enablePush = !synchronousRemotesList(repoDirectory).isEmpty();
+    if (commitData.enablePush) {
+        CommandInProgress commandInProgress = checkCommandInProgress(repoDirectory);
+        if (commandInProgress == Rebase || commandInProgress == RebaseMerge)
+            commitData.enablePush = false;
+    }
+
     return true;
 }
 
@@ -3063,9 +3032,9 @@ bool GitClient::getCommitData(const QString &workingDirectory,
 static inline QString msgCommitted(const QString &amendSHA1, int fileCount)
 {
     if (amendSHA1.isEmpty())
-        return GitClient::tr("Committed %n file(s).\n", 0, fileCount);
+        return GitClient::tr("Committed %n file(s).", 0, fileCount) + QLatin1Char('\n');
     if (fileCount)
-        return GitClient::tr("Amended \"%1\" (%n file(s)).\n", 0, fileCount).arg(amendSHA1);
+        return GitClient::tr("Amended \"%1\" (%n file(s)).", 0, fileCount).arg(amendSHA1) + QLatin1Char('\n');
     return GitClient::tr("Amended \"%1\".").arg(amendSHA1);
 }
 
@@ -3369,9 +3338,8 @@ bool GitClient::synchronousSetTrackingBranch(const QString &workingDirectory,
         arguments << QLatin1String("--set-upstream") << branch << tracking;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
     if (!rc) {
-        const QString errorMessage = tr("Cannot set tracking branch: %1")
-                                     .arg(commandOutputFromLocal8Bit(errorText));
-        outputWindow()->appendError(errorMessage);
+        msgCannotRun(tr("Cannot set tracking branch: %1")
+                     .arg(commandOutputFromLocal8Bit(errorText)), 0);
     }
     return rc;
 }
@@ -3438,6 +3406,7 @@ void GitClient::subversionLog(const QString &workingDirectory)
     VcsBase::VcsBaseEditorWidget *editor = findExistingVCSEditor("svnLog", sourceFile);
     if (!editor)
         editor = createVcsEditor(editorId, title, sourceFile, CodecNone, "svnLog", sourceFile, 0);
+    editor->setWorkingDirectory(workingDirectory);
     executeGit(workingDirectory, arguments, editor);
 }
 
@@ -3577,24 +3546,14 @@ bool GitClient::synchronousStashRestore(const QString &workingDirectory,
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText,
                                         VcsBasePlugin::ExpectRepoChanges);
-    if (!rc) {
-        const QString stdErr = commandOutputFromLocal8Bit(errorText);
-        const QString nativeWorkingDir = QDir::toNativeSeparators(workingDirectory);
-        const QString msg = branch.isEmpty() ?
-                            tr("Cannot restore stash \"%1\": %2").
-                            arg(nativeWorkingDir, stdErr) :
-                            tr("Cannot restore stash \"%1\" to branch \"%2\": %3").
-                            arg(nativeWorkingDir, branch, stdErr);
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
-        return false;
+    if (rc) {
+        const QString output = commandOutputFromLocal8Bit(outputText);
+        if (!output.isEmpty())
+            outputWindow()->append(output);
+    } else {
+        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
     }
-    QString output = commandOutputFromLocal8Bit(outputText);
-    if (!output.isEmpty())
-        outputWindow()->append(output);
-    return true;
+    return rc;
 }
 
 bool GitClient::synchronousStashRemove(const QString &workingDirectory,
@@ -3609,24 +3568,14 @@ bool GitClient::synchronousStashRemove(const QString &workingDirectory,
     QByteArray outputText;
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
-    if (!rc) {
-        const QString stdErr = commandOutputFromLocal8Bit(errorText);
-        const QString nativeWorkingDir = QDir::toNativeSeparators(workingDirectory);
-        const QString msg = stash.isEmpty() ?
-                            tr("Cannot remove stashes of \"%1\": %2").
-                            arg(nativeWorkingDir, stdErr) :
-                            tr("Cannot remove stash \"%1\" of \"%2\": %3").
-                            arg(stash, nativeWorkingDir, stdErr);
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
-        return false;
+    if (rc) {
+        const QString output = commandOutputFromLocal8Bit(outputText);
+        if (!output.isEmpty())
+            outputWindow()->append(output);
+    } else {
+        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
     }
-    QString output = commandOutputFromLocal8Bit(outputText);
-    if (!output.isEmpty())
-        outputWindow()->append(output);
-    return true;
+    return rc;
 }
 
 void GitClient::branchList(const QString &workingDirectory)
@@ -3654,13 +3603,7 @@ bool GitClient::synchronousStashList(const QString &workingDirectory,
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
     if (!rc) {
-        const QString msg = tr("Cannot retrieve stash list of \"%1\": %2").
-                            arg(QDir::toNativeSeparators(workingDirectory),
-                                commandOutputFromLocal8Bit(errorText));
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
+        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
         return false;
     }
     Stash stash;
@@ -3786,11 +3729,9 @@ unsigned GitClient::synchronousGitVersion(QString *errorMessage) const
                                         &outputText, &errorText,
                                         VcsBasePlugin::SuppressCommandLogging);
     if (!rc) {
-        const QString msg = tr("Cannot determine git version: %1").arg(commandOutputFromLocal8Bit(errorText));
-        if (errorMessage)
-            *errorMessage = msg;
-        else
-            outputWindow()->appendError(msg);
+        msgCannotRun(tr("Cannot determine Git version: %1")
+                     .arg(commandOutputFromLocal8Bit(errorText)),
+                     errorMessage);
         return 0;
     }
     // cut 'git version 1.6.5.1.sha'

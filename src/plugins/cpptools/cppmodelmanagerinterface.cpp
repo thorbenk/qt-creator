@@ -100,12 +100,14 @@ using namespace ProjectExplorer;
 */
 
 ProjectPart::ProjectPart()
-    : cVersion(C89)
+    : project(0)
+    , cVersion(C89)
     , cxxVersion(CXX11)
     , cxxExtensions(NoExtensions)
     , qtVersion(UnknownQt)
     , cWarningFlags(ProjectExplorer::ToolChain::WarningsDefault)
     , cxxWarningFlags(ProjectExplorer::ToolChain::WarningsDefault)
+
 {
 }
 
@@ -172,6 +174,11 @@ static CppModelManagerInterface *g_instance = 0;
 
 const QString CppModelManagerInterface::configurationFileName()
 { return CPlusPlus::Preprocessor::configurationFileName; }
+
+const QString CppModelManagerInterface::editorConfigurationFileName()
+{
+    return QLatin1String("<per-editor-defines>");
+}
 
 CppModelManagerInterface::CppModelManagerInterface(QObject *parent)
     : QObject(parent)

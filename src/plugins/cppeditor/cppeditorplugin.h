@@ -74,11 +74,14 @@ public:
 signals:
     void outlineSortingChanged(bool sort);
     void typeHierarchyRequested();
+    void includeHierarchyRequested();
 
 public slots:
     void openDeclarationDefinitionInNextSplit();
     void openTypeHierarchy();
+    void openIncludeHierarchy();
     void findUsages();
+    void showPreProcessorDialog();
     void renameSymbolUnderCursor();
     void switchDeclarationDefinition();
 
@@ -121,9 +124,24 @@ private slots:
     void test_FollowSymbolUnderCursor_funLocalVarHidesOuterClass();
     void test_FollowSymbolUnderCursor_classConstructor();
     void test_FollowSymbolUnderCursor_classDestructor();
+    void test_FollowSymbolUnderCursor_QObject_connect_data();
+    void test_FollowSymbolUnderCursor_QObject_connect();
+    void test_FollowSymbolUnderCursor_classOperator_onOperatorToken_data();
+    void test_FollowSymbolUnderCursor_classOperator_onOperatorToken();
+    void test_FollowSymbolUnderCursor_classOperator_data();
+    void test_FollowSymbolUnderCursor_classOperator();
+    void test_FollowSymbolUnderCursor_classOperator_inOp_data();
+    void test_FollowSymbolUnderCursor_classOperator_inOp();
     void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_globalNamespace();
     void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_namespace();
     void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_insideFunction();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_allOverrides();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_possibleOverrides1();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_possibleOverrides2();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnQualified();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDeclaration();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDefinition();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnNonPointerNonReference();
 
     void test_doxygen_comments_qt_style();
     void test_doxygen_comments_qt_style_continuation();
@@ -135,6 +153,12 @@ private slots:
     void test_doxygen_comments_cpp_styleA_continuation();
     void test_doxygen_comments_cpp_styleA_indented_continuation();
     void test_doxygen_comments_cpp_styleA_corner_case();
+
+    void test_quickfix_CompleteSwitchCaseStatement_basic1();
+    void test_quickfix_CompleteSwitchCaseStatement_basic2();
+    void test_quickfix_CompleteSwitchCaseStatement_oneValueMissing();
+    void test_quickfix_CompleteSwitchCaseStatement_QTCREATORBUG10366_1();
+    void test_quickfix_CompleteSwitchCaseStatement_QTCREATORBUG10366_2();
 
     void test_quickfix_GenerateGetterSetter_basicGetterWithPrefix();
     void test_quickfix_GenerateGetterSetter_basicGetterWithPrefixAndNamespace();
@@ -221,6 +245,7 @@ private slots:
     void test_quickfix_MoveFuncDefToDecl_FreeFuncToCpp();
     void test_quickfix_MoveFuncDefToDecl_FreeFuncToCppNS();
     void test_quickfix_MoveFuncDefToDecl_CtorWithInitialization();
+    void test_quickfix_MoveFuncDefToDecl_structWithAssignedVariable();
 
     void test_quickfix_AssignToLocalVariable_freeFunction();
     void test_quickfix_AssignToLocalVariable_memberFunction();
@@ -239,6 +264,14 @@ private slots:
     void test_quickfix_AssignToLocalVariable_noReturnFunc2();
     void test_quickfix_AssignToLocalVariable_noSignatureMatch();
 
+    void test_quickfix_ExtractLiteralAsParameter_typeDeduction_data();
+    void test_quickfix_ExtractLiteralAsParameter_typeDeduction();
+    void test_quickfix_ExtractLiteralAsParameter_freeFunction();
+    void test_quickfix_ExtractLiteralAsParameter_freeFunction_separateFiles();
+    void test_quickfix_ExtractLiteralAsParameter_memberFunction();
+    void test_quickfix_ExtractLiteralAsParameter_memberFunction_separateFiles();
+    void test_quickfix_ExtractLiteralAsParameter_memberFunctionInline();
+
     void test_quickfix_InsertVirtualMethods_onlyDecl();
     void test_quickfix_InsertVirtualMethods_onlyDeclWithoutVirtual();
     void test_quickfix_InsertVirtualMethods_Access();
@@ -251,6 +284,19 @@ private slots:
     void test_quickfix_InsertVirtualMethods_implementationFile();
     void test_quickfix_InsertVirtualMethods_notrigger_allImplemented();
     void test_quickfix_InsertVirtualMethods_BaseClassInNamespace();
+
+    void test_quickfix_OptimizeForLoop_postcrement();
+    void test_quickfix_OptimizeForLoop_condition();
+    void test_quickfix_OptimizeForLoop_flipedCondition();
+    void test_quickfix_OptimizeForLoop_alterVariableName();
+    void test_quickfix_OptimizeForLoop_optimizeBoth();
+    void test_quickfix_OptimizeForLoop_emptyInitializer();
+    void test_quickfix_OptimizeForLoop_wrongInitializer();
+    void test_quickfix_OptimizeForLoop_noTriggerNumeric1();
+    void test_quickfix_OptimizeForLoop_noTriggerNumeric2();
+
+    void test_functionhelper_virtualFunctions();
+    void test_functionhelper_virtualFunctions_data();
 
     // The following tests depend on the projects that are loaded on startup
     // and will be skipped in case no projects are loaded.
@@ -277,8 +323,9 @@ private:
     bool m_sortedOutline;
     QAction *m_renameSymbolUnderCursorAction;
     QAction *m_findUsagesAction;
-    QAction *m_updateCodeModelAction;
+    QAction *m_reparseExternallyChangedFiles;
     QAction *m_openTypeHierarchyAction;
+    QAction *m_openIncludeHierarchyAction;
 
     CppQuickFixAssistProvider *m_quickFixProvider;
 

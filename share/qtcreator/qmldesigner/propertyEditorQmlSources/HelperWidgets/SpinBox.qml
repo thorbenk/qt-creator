@@ -28,23 +28,27 @@
 ****************************************************************************/
 
 import QtQuick 2.1
-import QtQuick.Controls 1.0 as Controls
+import QtQuick.Controls 1.1 as Controls
+import QtQuick.Controls.Styles 1.1
 
 Controls.SpinBox {
     id: spinBox
-
+    property color borderColor: "#222"
+    property color highlightColor: "orange"
+    property color textColor: colorLogic.textColor
     property variant backendValue;
     prefix: "    "
 
     ExtendedFunctionButton {
         x: 2
-        y: 3
+        y: 4
         backendValue: spinBox.backendValue
         visible: spinBox.enabled
     }
 
-    QtObject {
-        property int valueFromBackend: spinBox.backendValue.value;
+    ColorLogic {
+        id: colorLogic
+        backendValue: spinBox.backendValue
         onValueFromBackendChanged: {
             spinBox.value = valueFromBackend;
         }
@@ -73,7 +77,7 @@ Controls.SpinBox {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.bottom
-        height: 10;
+        height: 10
         visible: false
 
         maximumValue: spinBox.maximumValue
@@ -84,5 +88,8 @@ Controls.SpinBox {
         onValueChanged: {
             spinBox.value = value
         }
+    }
+
+    style: CustomSpinBoxStyle {
     }
 }

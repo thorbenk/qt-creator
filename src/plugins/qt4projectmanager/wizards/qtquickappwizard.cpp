@@ -31,17 +31,17 @@
 
 #include "qtquickapp.h"
 #include "qtquickappwizardpages.h"
-#include "targetsetuppage.h"
-#include <qt4projectmanager/qt4projectmanagerconstants.h>
+#include "../qmakeprojectmanagerconstants.h"
 
 #include <qtsupport/qtsupportconstants.h>
 #include <qtsupport/baseqtversion.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/targetsetuppage.h>
 
 #include <QIcon>
 #include <QDebug>
 
-namespace Qt4ProjectManager {
+namespace QmakeProjectManager {
 namespace Internal {
 
 class QtQuickAppWizardDialog : public AbstractMobileAppWizardDialog
@@ -108,7 +108,7 @@ QtQuickAppWizard::QtQuickAppWizard()
     : d(new QtQuickAppWizardPrivate)
 {
     setWizardKind(ProjectWizard);
-    setIcon(QIcon(QLatin1String(Qt4ProjectManager::Constants::ICON_QTQUICK_APP)));
+    setIcon(QIcon(QLatin1String(QmakeProjectManager::Constants::ICON_QTQUICK_APP)));
     setId(QLatin1String("D.QMLA Application"));
     setCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY));
     setDisplayCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY_DISPLAY));
@@ -137,7 +137,7 @@ void QtQuickAppWizard::createInstances(ExtensionSystem::IPlugin *plugin)
     wizard->setDisplayName(tr("Qt Quick 1 Application (Built-in Types)"));
     wizard->setDescription(basicDescription + tr("The built-in QML types in the QtQuick 1 namespace allow "
                                                    "you to write cross-platform applications with "
-                                                   "a custom look and feel.\n\nRequires <b>Qt 4.7.0</b> or newer."));
+                                                   "a custom look and feel.\n\nRequires <b>Qt 4.8.0</b> or newer."));
     wizard->setRequiredFeatures(basicFeatures);
     plugin->addAutoReleasedObject(wizard);
 
@@ -153,26 +153,13 @@ void QtQuickAppWizard::createInstances(ExtensionSystem::IPlugin *plugin)
 
 
     wizard = new QtQuickAppWizard;
-    wizard->setQtQuickKind(MeegoComponents);
-    wizard->setDisplayName(tr("Qt Quick 1 Application for MeeGo Harmattan"));
-    wizard->setDescription(basicDescription +  tr("The Qt Quick Components for MeeGo Harmattan are "
-                                                    "a set of ready-made components that are designed "
-                                                    "with specific native appearance for the MeeGo Harmattan "
-                                                    "platform.\n\nRequires <b>Qt 4.7.4</b> or newer, and the "
-                                                    "component set installed for your Qt version."));
-    wizard->setRequiredFeatures(basicFeatures | Core::Feature(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_MEEGO)
-                                  | Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_1_1));
-    plugin->addAutoReleasedObject(wizard);
-
-
-    wizard = new QtQuickAppWizard;
     wizard->setQtQuickKind(ImportQml);
     wizard->setDisplayName(tr("Qt Quick 1 Application (from Existing QML File)"));
     wizard->setDescription(basicDescription +  tr("Creates a deployable Qt Quick application from "
                                                     "existing QML files. All files and directories that "
                                                     "reside in the same directory as the main .qml file "
                                                     "are deployed. You can modify the contents of the "
-                                                    "directory any time before deploying.\n\nRequires <b>Qt 4.7.0</b> or newer."));
+                                                    "directory any time before deploying.\n\nRequires <b>Qt 4.8.0</b> or newer."));
     wizard->setRequiredFeatures(basicFeatures);
     plugin->addAutoReleasedObject(wizard);
 
@@ -185,7 +172,21 @@ void QtQuickAppWizard::createInstances(ExtensionSystem::IPlugin *plugin)
                                                     "reside in the same directory as the main .qml file "
                                                     "are deployed. You can modify the contents of the "
                                                     "directory any time before deploying.\n\nRequires <b>Qt 5.0</b> or newer."));
+
     wizard->setRequiredFeatures(Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_2));
+    plugin->addAutoReleasedObject(wizard);
+
+    wizard = new QtQuickAppWizard;
+    wizard->setQtQuickKind(QtQuick_Controls_1_0);
+
+    wizard->setDisplayName(tr("Qt Quick 2 Application (Qt Quick Controls)"));
+    wizard->setDescription(basicDescription +  tr("Creates a deployable Qt Quick application using "
+                                                  "Qt Quick Controls. All files and directories that "
+                                                  "reside in the same directory as the main .qml file "
+                                                  "are deployed. You can modify the contents of the "
+                                                  "directory any time before deploying.\n\nRequires <b>Qt 5.1.0</b> or newer."));
+    wizard->setRequiredFeatures(Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_2)
+                                | Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_CONTROLS));
     plugin->addAutoReleasedObject(wizard);
 }
 
@@ -197,10 +198,6 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
     switch (qtQuickKind()) {
     case QtQuick1_1:
         d->app->setComponentSet(QtQuickApp::QtQuick10Components);
-        d->app->setMainQml(QtQuickApp::ModeGenerate);
-        break;
-    case MeegoComponents:
-        d->app->setComponentSet(QtQuickApp::Meego10Components);
         d->app->setMainQml(QtQuickApp::ModeGenerate);
         break;
     case ImportQml:
@@ -215,6 +212,10 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
         d->app->setComponentSet(QtQuickApp::QtQuick20Components);
         d->app->setMainQml(QtQuickApp::ModeGenerate);
         break;
+    case QtQuick_Controls_1_0:
+        d->app->setComponentSet(QtQuickApp::QtQuickControls10);
+        d->app->setMainQml(QtQuickApp::ModeGenerate);
+        break;
     default:
         qWarning() << "QtQuickAppWizard illegal subOption:" << qtQuickKind();
         break;
@@ -226,7 +227,7 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
 void QtQuickAppWizard::projectPathChanged(const QString &path) const
 {
     if (d->wizardDialog->targetsPage())
-        d->wizardDialog->targetsPage()->setProFilePath(path);
+        d->wizardDialog->targetsPage()->setProjectPath(path);
 }
 
 void QtQuickAppWizard::prepareGenerateFiles(const QWizard *w,
@@ -269,6 +270,6 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::wizardDialog() const
 }
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace QmakeProjectManager
 
 #include "qtquickappwizard.moc"

@@ -125,29 +125,10 @@ bool PerforceVersionControl::vcsCreateRepository(const QString &)
     return false;
 }
 
-QString PerforceVersionControl::vcsCreateSnapshot(const QString &)
-{
-    return QString();
-}
-
-QStringList PerforceVersionControl::vcsSnapshots(const QString &)
-{
-    return QStringList();
-}
-
-bool PerforceVersionControl::vcsRestoreSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
-bool PerforceVersionControl::vcsRemoveSnapshot(const QString &, const QString &)
-{
-    return false;
-}
-
 bool PerforceVersionControl::vcsAnnotate(const QString &file, int line)
 {
-    m_plugin->vcsAnnotate(file, QString(), line);
+    const QFileInfo fi(file);
+    m_plugin->vcsAnnotate(fi.absolutePath(), fi.fileName(), QString(), line);
     return true;
 }
 
@@ -181,6 +162,11 @@ bool PerforceVersionControl::managesDirectory(const QString &directory, QString 
             nsp << topLevel;
     }
     return rc;
+}
+
+bool PerforceVersionControl::managesFile(const QString &workingDirectory, const QString &fileName) const
+{
+    return m_plugin->managesFile(workingDirectory, fileName);
 }
 
 void PerforceVersionControl::emitRepositoryChanged(const QString &s)

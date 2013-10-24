@@ -151,13 +151,13 @@
 
     You can also select the symbol and press \key F2, or right-click the symbol
     and select \gui {Follow Symbol Under Cursor} to move to its definition or
-    declaration. This feature is supported for namespaces, classes, methods,
+    declaration. This feature is supported for namespaces, classes, functions,
     variables, include statements, and macros.
 
-    To switch between the definition and declaration of a method, place the
+    To switch between the definition and declaration of a function, place the
     cursor on either and press \key {Shift+F2} or right-click and select \gui
-    {Switch Between Method Declaration/Definition}. For example, this allows
-    you to navigate from anywhere within a method body directly to the method
+    {Switch Between Function Declaration/Definition}. For example, this allows
+    you to navigate from anywhere within a function body directly to the function
     declaration.
 
     Links are opened in the same split by default. To open links in the next
@@ -170,12 +170,10 @@
     If you change the default behavior, the shortcuts for opening link targets
     in the next split are used to open them in the current split.
 
-    \section1 Using Update Code Model
+    \section1 Reparsing Externally Changed Files
 
-    To refresh the internal information in \QC pertaining to your code,
-    select \gui{Tools} > \gui{C++} > \gui{Update Code Model}.
-
-    \note In \QC indexing updates the code automatically. Use
-    \gui{Update Code Model} only as an emergency command.
-
+    If source files are modified from outside \QC, the opened files will be
+    reparsed automatically. For all other files, you can use \gui{Tools} >
+    \gui{C++} > \gui{Reparse Externally Changed Files} to update the code
+    model.
 */

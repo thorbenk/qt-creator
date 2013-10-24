@@ -1063,7 +1063,9 @@ void QmlJSTextEditorWidget::createToolBar(QmlJSEditor *editor)
     editor->insertExtraToolBarWidget(TextEditor::BaseTextEditor::Left, m_outlineCombo);
 }
 
-TextEditor::BaseTextEditorWidget::Link QmlJSTextEditorWidget::findLinkAt(const QTextCursor &cursor, bool /*resolveTarget*/)
+TextEditor::BaseTextEditorWidget::Link QmlJSTextEditorWidget::findLinkAt(const QTextCursor &cursor,
+                                                                         bool /*resolveTarget*/,
+                                                                         bool /*inNextSplit*/)
 {
     const SemanticInfo semanticInfo = m_semanticInfo;
     if (! semanticInfo.isValid())
@@ -1077,7 +1079,7 @@ TextEditor::BaseTextEditorWidget::Link QmlJSTextEditorWidget::findLinkAt(const Q
     if (AST::UiImport *importAst = cast<AST::UiImport *>(node)) {
         // if it's a file import, link to the file
         foreach (const ImportInfo &import, semanticInfo.document->bind()->imports()) {
-            if (import.ast() == importAst && import.type() == ImportInfo::FileImport) {
+            if (import.ast() == importAst && import.type() == ImportType::File) {
                 BaseTextEditorWidget::Link link(import.path());
                 link.linkTextStart = importAst->firstSourceLocation().begin();
                 link.linkTextEnd = importAst->lastSourceLocation().end();

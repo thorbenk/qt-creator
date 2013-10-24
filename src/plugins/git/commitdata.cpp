@@ -53,6 +53,7 @@ void GitSubmitEditorPanelData::clear()
     author.clear();
     email.clear();
     bypassHooks = false;
+    pushAction = NoPush;
 }
 
 QString GitSubmitEditorPanelData::authorString() const
@@ -72,11 +73,14 @@ QString GitSubmitEditorPanelData::authorString() const
 QDebug operator<<(QDebug d, const GitSubmitEditorPanelData &data)
 {
     d.nospace() << " author:" << data.author << " email: " << data.email
-                << " bypass hooks: " << data.bypassHooks;
+                << " bypass hooks: " << data.bypassHooks
+                << " action after commit " << data.pushAction;
     return d;
 }
 
-CommitData::CommitData(CommitType type) : commitType(type)
+CommitData::CommitData(CommitType type)
+    : commitType(type)
+    , enablePush(false)
 {
 }
 
@@ -85,6 +89,7 @@ void CommitData::clear()
     panelInfo.clear();
     panelData.clear();
     amendSHA1.clear();
+    enablePush = false;
 
     files.clear();
 }

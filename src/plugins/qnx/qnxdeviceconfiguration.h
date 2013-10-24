@@ -1,8 +1,8 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2013 Research In Motion
+** Copyright (C) 2012, 2013 BlackBerry Limited. All rights reserved.
 **
-** Contact: Research In Motion (blackberry-qt@qnx.com)
+** Contact: BlackBerry (qt@blackberry.com)
 ** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
@@ -58,6 +58,11 @@ public:
 
     QString displayType() const;
 
+    int qnxVersion() const;
+
+    void fromMap(const QVariantMap &map);
+    QVariantMap toMap() const;
+
 protected:
     QnxDeviceConfiguration();
     QnxDeviceConfiguration(const QString &name, Core::Id type, MachineType machineType,
@@ -67,6 +72,10 @@ protected:
     QString interruptProcessByNameCommandLine(const QString &filePath) const;
     QString killProcessByNameCommandLine(const QString &filePath) const;
 
+private:
+    void updateVersionNumber() const;
+
+    mutable int m_versionNumber;
 };
 
 } // namespace Internal

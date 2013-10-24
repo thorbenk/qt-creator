@@ -147,6 +147,7 @@ WelcomeMode::WelcomeMode() :
     setContext(Core::Context(Core::Constants::C_WELCOME_MODE));
 
     m_welcomePage = new QQuickView;
+    m_welcomePage->setObjectName(QLatin1String("WelcomePage"));
     m_welcomePage->setResizeMode(QQuickView::SizeRootObjectToView);
 
 //  filter to forward dragEnter events
@@ -154,11 +155,13 @@ WelcomeMode::WelcomeMode() :
 //    m_welcomePage->viewport()->installEventFilter(this);
 
     m_modeWidget = new QWidget;
+    m_modeWidget->setObjectName(QLatin1String("WelcomePageModeWidget"));
     QVBoxLayout *layout = new QVBoxLayout;
     layout->setMargin(0);
     layout->setSpacing(0);
 
     Utils::StyledBar* styledBar = new Utils::StyledBar(m_modeWidget);
+    styledBar->setObjectName(QLatin1String("WelcomePageStyledBar"));
     layout->addWidget(styledBar);
 
     // QScrollArea *scrollArea = new QScrollArea(m_modeWidget);
@@ -167,9 +170,8 @@ WelcomeMode::WelcomeMode() :
     // scrollArea->setWidget(m_welcomePage);
     // scrollArea->setWidgetResizable(true);
 
-    m_welcomePage->setMinimumWidth(880);
-    m_welcomePage->setMinimumHeight(548);
     QWidget *container = QWidget::createWindowContainer(m_welcomePage, m_modeWidget);
+    container->setMinimumSize(QSize(880, 548));
     layout->addWidget(container);
     m_modeWidget->setLayout(layout);
 
@@ -228,10 +230,6 @@ void WelcomeMode::initPlugins()
 {
     QSettings *settings = Core::ICore::settings();
     setActivePlugin(settings->value(QLatin1String(currentPageSettingsKeyC)).toInt());
-
-    // TODO: re-enable reading from Settings when possible. See QTCREATORBUG-6803
-    if (activePlugin() > 1)
-        setActivePlugin(1);
 
     QQmlContext *ctx = m_welcomePage->rootContext();
     ctx->setContextProperty(QLatin1String("welcomeMode"), this);
@@ -355,7 +353,7 @@ bool WelcomePlugin::initialize(const QStringList & /* arguments */, QString * /*
 /*! Notification that all extensions that this plugin depends on have been
     initialized. The dependencies are defined in the plugins .qwp file.
 
-    Normally this method is used for things that rely on other plugins to have
+    Normally this function is used for things that rely on other plugins to have
     added objects to the plugin manager, that implement interfaces that we're
     interested in. These objects can now be requested through the
     PluginManagerInterface.
