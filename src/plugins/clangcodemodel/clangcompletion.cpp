@@ -201,12 +201,12 @@ IAssistProcessor *ClangCompletionAssistProvider::createProcessor() const
 }
 
 IAssistInterface *ClangCompletionAssistProvider::createAssistInterface(
-        ProjectExplorer::Project *project, const QString &filePath, QTextDocument *document,
-        int position, AssistReason reason) const
+        ProjectExplorer::Project *project, TextEditor::BaseTextEditor *editor,
+        QTextDocument *document, int position, AssistReason reason) const
 {
     Q_UNUSED(project);
 
-    QString fileName = filePath;
+    QString fileName = editor->document()->filePath();
     CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
     QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
     if (parts.isEmpty())
@@ -760,8 +760,10 @@ int ClangCompletionAssistProcessor::startOfOperator(int pos,
         }
 
         SimpleLexer tokenize;
-        tokenize.setQtMocRunEnabled(true);
-        tokenize.setObjCEnabled(true);
+        LanguageFeatures lf = tokenize.languageFeatures();
+        lf.qtMocRunEnabled = true;
+        lf.objCEnabled = true;
+        tokenize.setLanguageFeatures(lf);
         tokenize.setSkipComments(false);
         const QList<CPlusPlus::Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
         const int tokenIdx = SimpleLexer::tokenBefore(tokens, qMax(0, tc.positionInBlock() - 1)); // get the token at the left of the cursor
@@ -869,8 +871,10 @@ bool ClangCompletionAssistProcessor::accepts() const
                     tc.setPosition(pos);
 
                     SimpleLexer tokenize;
-                    tokenize.setQtMocRunEnabled(true);
-                    tokenize.setObjCEnabled(true);
+                    LanguageFeatures lf = tokenize.languageFeatures();
+                    lf.qtMocRunEnabled = true;
+                    lf.objCEnabled = true;
+                    tokenize.setLanguageFeatures(lf);
                     tokenize.setSkipComments(false);
                     const QList<CPlusPlus::Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
                     const int tokenIdx = SimpleLexer::tokenBefore(tokens, qMax(0, tc.positionInBlock() - 1));
