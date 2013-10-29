@@ -36,6 +36,7 @@
 #include "gitsubmiteditor.h"
 #include "gitversioncontrol.h"
 #include "mergetool.h"
+#include "branchadddialog.h"
 
 #include <vcsbase/submitfilemodel.h>
 
@@ -981,11 +982,9 @@ QString GitClient::findGitDirForRepository(const QString &repositoryDir) const
     QString &res = repoDirCache[repositoryDir];
     if (!res.isEmpty())
         return res;
-    QByteArray outputText;
-    QStringList arguments;
-    arguments << QLatin1String("rev-parse") << QLatin1String("--git-dir");
-    fullySynchronousGit(repositoryDir, arguments, &outputText, 0, false);
-    res = QString::fromLocal8Bit(outputText.trimmed());
+
+    synchronousRevParseCmd(repositoryDir, QLatin1String("--git-dir"), &res);
+
     if (!QDir(res).isAbsolute())
         res.prepend(repositoryDir + QLatin1Char('/'));
     return res;
@@ -1547,18 +1546,77 @@ bool GitClient::synchronousCheckout(const QString &workingDirectory,
 {
     QByteArray outputText;
     QByteArray errorText;
-    QStringList arguments;
-    arguments << QLatin1String("checkout") << ref;
+    QStringList arguments = setupCheckoutArguments(workingDirectory, ref);
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText,
                                         VcsBasePlugin::ExpectRepoChanges);
-    const QString output = commandOutputFromLocal8Bit(outputText);
-    outputWindow()->append(output);
+    outputWindow()->append(commandOutputFromLocal8Bit(outputText));
     if (!rc) {
         msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
         return false;
     }
     updateSubmodulesIfNeeded(workingDirectory, true);
     return true;
+}
+
+/* method used to setup arguments for checkout, in case user wants to create local branch */
+QStringList GitClient::setupCheckoutArguments(const QString &workingDirectory,
+                                              const QString &ref)
+{
+    QStringList arguments(QLatin1String("checkout"));
+    arguments << ref;
+
+    QStringList localBranches = synchronousRepositoryBranches(workingDirectory);
+
+    if (localBranches.contains(ref))
+        return arguments;
+
+    if (QMessageBox::question(Core::ICore::mainWindow(), tr("Create Local Branch"),
+                              tr("Would you like to create local branch?"),
+                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
+        return arguments;
+    }
+
+    if (synchronousCurrentLocalBranch(workingDirectory).isEmpty())
+        localBranches.removeFirst();
+
+    QString refSha;
+    if (!synchronousRevParseCmd(workingDirectory, ref, &refSha))
+        return arguments;
+
+    QString output;
+    QStringList forEachRefArgs(QLatin1String("refs/remotes/"));
+    forEachRefArgs << QLatin1String("--format=%(objectname) %(refname:short)");
+    if (!synchronousForEachRefCmd(workingDirectory, forEachRefArgs, &output))
+        return arguments;
+
+    QString remoteBranch;
+    const QString head(QLatin1String("/HEAD"));
+
+    foreach (const QString &singleRef, output.split(QLatin1Char('\n'))) {
+        if (singleRef.startsWith(refSha)) {
+            // branch name might be origin/foo/HEAD
+            if (!singleRef.endsWith(head) || singleRef.count(QLatin1Char('/')) > 1) {
+                remoteBranch = singleRef.mid(refSha.length() + 1);
+                if (remoteBranch == ref)
+                    break;
+            }
+        }
+    }
+
+    BranchAddDialog branchAddDialog(localBranches, true, Core::ICore::mainWindow());
+    branchAddDialog.setTrackedBranchName(remoteBranch, true);
+
+    if (branchAddDialog.exec() != QDialog::Accepted)
+        return arguments;
+
+    arguments.removeLast();
+    arguments << QLatin1String("-b") << branchAddDialog.branchName();
+    if (branchAddDialog.track())
+        arguments << QLatin1String("--track") << remoteBranch;
+    else
+        arguments << QLatin1String("--no-track") << ref;
+
+    return arguments;
 }
 
 void GitClient::reset(const QString &workingDirectory, const QString &argument, const QString &commit)
@@ -1953,25 +2011,28 @@ QString GitClient::synchronousTopic(const QString &workingDirectory)
     return data.topic = remoteBranch.isEmpty() ? tr("Detached HEAD") : remoteBranch;
 }
 
+bool GitClient::synchronousRevParseCmd(const QString &workingDirectory, const QString &ref,
+                                       QString *output, QString *errorMessage) const
+{
+    QStringList arguments(QLatin1String("rev-parse"));
+    arguments << ref;
+    QByteArray outputText;
+    QByteArray errorText;
+    const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText,
+                                        VcsBasePlugin::SuppressCommandLogging);
+    *output = commandOutputFromLocal8Bit(outputText.trimmed());
+    if (!rc)
+        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
+
+    return rc;
+}
+
 // Retrieve head revision
 QString GitClient::synchronousTopRevision(const QString &workingDirectory, QString *errorMessageIn)
 {
-    QByteArray outputTextData;
-    QByteArray errorText;
-    QStringList arguments;
-    QString errorMessage;
-    // get revision
-    arguments << QLatin1String("rev-parse") << QLatin1String(HEAD);
-    if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText,
-                             VcsBasePlugin::SuppressCommandLogging)) {
-        errorMessage = tr("Cannot retrieve top revision of \"%1\": %2")
-                .arg(QDir::toNativeSeparators(workingDirectory), commandOutputFromLocal8Bit(errorText));
+    QString revision;
+    if (!synchronousRevParseCmd(workingDirectory, QLatin1String(HEAD), &revision, errorMessageIn))
         return QString();
-    }
-    QString revision = commandOutputFromLocal8Bit(outputTextData);
-    revision.remove(QLatin1Char('\n'));
-    if (revision.isEmpty() && !errorMessage.isEmpty())
-        msgCannotRun(errorMessage, errorMessageIn);
 
     return revision;
 }
@@ -2706,7 +2767,7 @@ void GitClient::continuePreviousGitCommand(const QString &workingDirectory,
             == GitClient::StatusChanged;
     }
     if (!hasChanges)
-        msgBoxText.prepend(tr("No changes found. "));
+        msgBoxText.prepend(tr("No changes found.") + QLatin1Char(' '));
     QMessageBox msgBox(QMessageBox::Question, msgBoxTitle, msgBoxText,
                        QMessageBox::NoButton, Core::ICore::mainWindow());
     if (hasChanges || isRebase)
@@ -2747,7 +2808,7 @@ QString GitClient::extendedShowDescription(const QString &workingDirectory, cons
     if (branchCount > 20) {
         const int leave = 10;
         //: Displayed after the untranslated message "Branches: branch1, branch2 'and %n more'" in git show.
-        moreBranches = tr(" and %n more", 0, branchCount - leave);
+        moreBranches = QLatin1Char(' ') + tr("and %n more", 0, branchCount - leave);
         branches.erase(branches.begin() + leave, branches.end());
     }
     if (!branches.isEmpty()) {

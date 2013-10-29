@@ -180,9 +180,10 @@ public:
                                   QString revision = QString(), QString *errorMessage = 0,
                                   bool revertStaging = true);
     // Checkout branch
-    bool synchronousCheckout(const QString &workingDirectory, const QString &ref, QString *errorMessage);
-    bool synchronousCheckout(const QString &workingDirectory, const QString &ref)
-         { return synchronousCheckout(workingDirectory, ref, 0); }
+    bool synchronousCheckout(const QString &workingDirectory, const QString &ref,
+                             QString *errorMessage = 0);
+
+    QStringList setupCheckoutArguments(const QString &workingDirectory, const QString &ref);
     void updateSubmodulesIfNeeded(const QString &workingDirectory, bool prompt);
 
     // Do a stash and return identier.
@@ -236,6 +237,8 @@ public:
     bool synchronousHeadRefs(const QString &workingDirectory, QStringList *output,
                              QString *errorMessage = 0);
     QString synchronousTopic(const QString &workingDirectory);
+    bool synchronousRevParseCmd(const QString &workingDirectory, const QString &ref,
+                                QString *output, QString *errorMessage = 0) const;
     QString synchronousTopRevision(const QString &workingDirectory, QString *errorMessage = 0);
     void synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
                                   QString &precedes, QString &follows);
