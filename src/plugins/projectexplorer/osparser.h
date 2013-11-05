@@ -38,7 +38,7 @@
 
 namespace ProjectExplorer {
 
-class OsParser : public ProjectExplorer::IOutputParser
+class PROJECTEXPLORER_EXPORT OsParser : public ProjectExplorer::IOutputParser
 {
     Q_OBJECT
 

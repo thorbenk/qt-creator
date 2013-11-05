@@ -166,9 +166,17 @@ Rectangle {
                         Loader {
                             anchors.left: parent.left
                             anchors.right: parent.right
+                            visible: theSource !== ""
 
                             id: specificsTwo;
                             sourceComponent: specificQmlComponent
+
+                            property string theSource: specificQmlData
+
+                            onTheSourceChanged: {
+                                active = false
+                                active = true
+                            }
                         }
 
                         Loader {

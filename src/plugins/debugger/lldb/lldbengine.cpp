@@ -32,6 +32,7 @@
 #include <debugger/debuggeractions.h>
 #include <debugger/debuggercore.h>
 #include <debugger/debuggerdialogs.h>
+#include <debugger/debuggerinternalconstants.h>
 #include <debugger/debuggerplugin.h>
 #include <debugger/debuggerprotocol.h>
 #include <debugger/debuggerstartparameters.h>
@@ -65,9 +66,6 @@
 #include <QApplication>
 #include <QMessageBox>
 #include <QToolTip>
-
-#include <stdio.h>
-
 
 namespace Debugger {
 namespace Internal {
@@ -131,9 +129,16 @@ void LldbEngine::shutdownEngine()
 void LldbEngine::setupEngine()
 {
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
+    if (startParameters().remoteSetupNeeded) {
+        notifyEngineRequestRemoteSetup();
+    } else {
+        startLldb();
+    }
+}
 
+void LldbEngine::startLldb()
+{
     m_lldbCmd = startParameters().debuggerCommand;
-
     connect(&m_lldbProc, SIGNAL(error(QProcess::ProcessError)),
         SLOT(handleLldbError(QProcess::ProcessError)));
     connect(&m_lldbProc, SIGNAL(finished(int,QProcess::ExitStatus)),
@@ -152,6 +157,8 @@ void LldbEngine::setupEngine()
     args.append(m_lldbCmd);
     showMessage(_("STARTING LLDB ") + args.join(QLatin1String(" ")));
     m_lldbProc.setEnvironment(startParameters().environment.toStringList());
+    if (!startParameters().workingDirectory.isEmpty())
+        m_lldbProc.setWorkingDirectory(startParameters().workingDirectory);
 
     m_lldbProc.start(_("python"), args);
 
@@ -170,9 +177,15 @@ void LldbEngine::setupInferior()
     const DebuggerStartParameters &sp = startParameters();
     Command cmd("setupInferior");
     cmd.arg("executable", QFileInfo(sp.executable).absoluteFilePath());
-    cmd.arg("startMode", sp.startMode);
+    cmd.arg("startMode", sp.startMode); // directly relying on this is brittle wrt. insertions, so check it here
     cmd.arg("processArgs", sp.processArgs);
-    cmd.arg("attachPid", sp.attachPID);
+    cmd.arg("attachPid", ((sp.startMode == AttachCrashedExternal || sp.startMode == AttachExternal)
+                          ? sp.attachPID : 0));
+    cmd.arg("sysRoot", sp.sysRoot);
+    cmd.arg("remoteChannel", ((sp.startMode == AttachToRemoteProcess
+                               || sp.startMode == AttachToRemoteServer)
+                              ? sp.remoteChannel : QString()));
+
     runCommand(cmd);
     requestUpdateWatchers();
 }
@@ -1037,8 +1050,8 @@ void LldbEngine::fetchMemory(MemoryAgent *agent, QObject *editorToken,
     if (id == -1) {
         id = ++m_lastAgentId;
         m_memoryAgents.insert(agent, id);
-        m_memoryAgentTokens.insert(id, editorToken);
     }
+    m_memoryAgentTokens.insert(id, editorToken);
     runCommand(Command("fetchMemory")
                .arg("address", addr)
                .arg("length", length)
@@ -1107,6 +1120,38 @@ DebuggerEngine *createLldbEngine(const DebuggerStartParameters &startParameters)
     return new LldbEngine(startParameters);
 }
 
+void LldbEngine::notifyEngineRemoteSetupDone(int portOrPid, int qmlPort)
+{
+    QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
+    DebuggerEngine::notifyEngineRemoteSetupDone(portOrPid, qmlPort);
+
+    if (qmlPort != -1)
+        startParameters().qmlServerPort = qmlPort;
+    if (portOrPid != -1) {
+        if (startParameters().startMode == AttachExternal) {
+            startParameters().attachPID = portOrPid;
+        } else {
+            QString &rc = startParameters().remoteChannel;
+            const int sepIndex = rc.lastIndexOf(QLatin1Char(':'));
+            if (sepIndex != -1)
+                rc.replace(sepIndex + 1, rc.count() - sepIndex - 1,
+                           QString::number(portOrPid));
+        }
+    }
+    startLldb();
+}
+
+void LldbEngine::notifyEngineRemoteSetupFailed(const QString &reason)
+{
+    QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
+    DebuggerEngine::notifyEngineRemoteSetupFailed(reason);
+    showMessage(_("ADAPTER START FAILED"));
+    if (!reason.isEmpty()) {
+        const QString title = tr("Adapter start failed");
+        Core::ICore::showWarningWithOptions(title, reason);
+    }
+    notifyEngineSetupFailed();
+}
 
 ///////////////////////////////////////////////////////////////////////
 //
