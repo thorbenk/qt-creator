@@ -139,8 +139,13 @@ void EditorManagerPlaceHolder::currentModeChanged(Core::IMode *mode)
 {
     if (m_mode == mode) {
         m_current = this;
+        QWidget *previousFocus = 0;
+        if (EditorManager::instance()->focusWidget() && EditorManager::instance()->focusWidget()->hasFocus())
+            previousFocus = EditorManager::instance()->focusWidget();
         layout()->addWidget(EditorManager::instance());
         EditorManager::instance()->show();
+        if (previousFocus)
+            previousFocus->setFocus();
     } else if (m_current == this) {
         m_current = 0;
     }
@@ -723,9 +728,8 @@ void EditorManager::closeView(Core::Internal::EditorView *view)
 bool EditorManager::closeAllEditors(bool askAboutModifiedEditors)
 {
     d->m_documentModel->removeAllRestoredDocuments();
-    if (closeDocuments(d->m_documentModel->openedDocuments(), askAboutModifiedEditors)) {
+    if (closeDocuments(d->m_documentModel->openedDocuments(), askAboutModifiedEditors))
         return true;
-    }
     return false;
 }
 
@@ -1896,7 +1900,7 @@ void EditorManager::vcsOpenCurrentEditor()
 
     const QString directory = QFileInfo(document->filePath()).absolutePath();
     IVersionControl *versionControl = VcsManager::findVersionControlForDirectory(directory);
-    if (!versionControl || versionControl->openSupportMode() == IVersionControl::NoOpen)
+    if (!versionControl || versionControl->openSupportMode(document->filePath()) == IVersionControl::NoOpen)
         return;
 
     if (!versionControl->vcsOpen(document->filePath())) {
@@ -1958,7 +1962,7 @@ void EditorManager::updateMakeWritableWarning()
         bool promptVCS = false;
         const QString directory = QFileInfo(document->filePath()).absolutePath();
         IVersionControl *versionControl = VcsManager::findVersionControlForDirectory(directory);
-        if (versionControl && versionControl->openSupportMode() != IVersionControl::NoOpen) {
+        if (versionControl && versionControl->openSupportMode(document->filePath()) != IVersionControl::NoOpen) {
             if (versionControl->settingsFlags() & IVersionControl::AutoOpen) {
                 vcsOpenCurrentEditor();
                 ww = false;

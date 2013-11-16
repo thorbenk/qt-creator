@@ -37,6 +37,7 @@
 #include "gitversioncontrol.h"
 #include "mergetool.h"
 #include "branchadddialog.h"
+#include "gerrit/gerritplugin.h"
 
 #include <vcsbase/submitfilemodel.h>
 
@@ -538,9 +539,8 @@ QString GitDiffHandler::workingTreeContents(const QString &fileName) const
     QString absoluteFileName = workingDir.absoluteFilePath(fileName);
 
     QFile file(absoluteFileName);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
         return m_editor->editorWidget()->codec()->toUnicode(file.readAll());
-    }
     return QString();
 }
 
@@ -2526,12 +2526,13 @@ QProcessEnvironment GitClient::processEnvironment() const
     return environment;
 }
 
-bool GitClient::beginStashScope(const QString &workingDirectory, const QString &command, StashFlag flag)
+bool GitClient::beginStashScope(const QString &workingDirectory, const QString &command,
+                                StashFlag flag, PushAction pushAction)
 {
     const QString repoDirectory = findRepositoryForDirectory(workingDirectory);
     QTC_ASSERT(!repoDirectory.isEmpty(), return false);
     StashInfo &stashInfo = m_stashInfo[repoDirectory];
-    return stashInfo.init(repoDirectory, command, flag);
+    return stashInfo.init(repoDirectory, command, flag, pushAction);
 }
 
 GitClient::StashInfo &GitClient::stashInfo(const QString &workingDirectory)
@@ -3595,26 +3596,14 @@ void GitClient::stashPop(const QString &workingDirectory)
 bool GitClient::synchronousStashRestore(const QString &workingDirectory,
                                         const QString &stash,
                                         bool pop,
-                                        const QString &branch /* = QString()*/,
-                                        QString *errorMessage)
+                                        const QString &branch /* = QString()*/)
 {
     QStringList arguments(QLatin1String("stash"));
     if (branch.isEmpty())
         arguments << QLatin1String(pop ? "pop" : "apply") << stash;
     else
         arguments << QLatin1String("branch") << branch << stash;
-    QByteArray outputText;
-    QByteArray errorText;
-    const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText,
-                                        VcsBasePlugin::ExpectRepoChanges);
-    if (rc) {
-        const QString output = commandOutputFromLocal8Bit(outputText);
-        if (!output.isEmpty())
-            outputWindow()->append(output);
-    } else {
-        msgCannotRun(arguments, workingDirectory, errorText, errorMessage);
-    }
-    return rc;
+    return executeAndHandleConflicts(workingDirectory, arguments);
 }
 
 bool GitClient::synchronousStashRemove(const QString &workingDirectory,
@@ -3807,15 +3796,17 @@ unsigned GitClient::synchronousGitVersion(QString *errorMessage) const
 }
 
 GitClient::StashInfo::StashInfo() :
-    m_client(GitPlugin::instance()->gitClient())
+    m_client(GitPlugin::instance()->gitClient()),
+    m_pushAction(NoPush)
 {
 }
 
 bool GitClient::StashInfo::init(const QString &workingDirectory, const QString &command,
-                                StashFlag flag)
+                                StashFlag flag, PushAction pushAction)
 {
     m_workingDir = workingDirectory;
     m_flags = flag;
+    m_pushAction = pushAction;
     QString errorMessage;
     QString statusOutput;
     switch (m_client->gitStatus(m_workingDir, StatusMode(NoUntracked | NoSubmodules),
@@ -3914,6 +3905,13 @@ void GitClient::StashInfo::end()
         if (m_client->stashNameFromMessage(m_workingDir, m_message, &stashName))
             m_client->stashPop(m_workingDir, stashName);
     }
+
+    if (m_pushAction == NormalPush)
+        m_client->push(m_workingDir);
+    else if (m_pushAction == PushToGerrit)
+        GitPlugin::instance()->gerritPlugin()->push(m_workingDir);
+
+    m_pushAction = NoPush;
     m_stashResult = NotStashed;
 }
 } // namespace Internal
