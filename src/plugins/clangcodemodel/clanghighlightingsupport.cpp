@@ -55,7 +55,7 @@ ClangHighlightingSupport::~ClangHighlightingSupport()
 
 bool ClangHighlightingSupport::hightlighterHandlesIfdefedOutBlocks() const
 {
-#if CINDEX_VERSION_MINOR < 20
+#if CINDEX_VERSION_MINOR < 21
     return false;
 #else
     return true;

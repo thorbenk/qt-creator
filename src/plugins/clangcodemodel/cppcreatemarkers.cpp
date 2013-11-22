@@ -135,7 +135,7 @@ void CreateMarkers::run()
     CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
     static const QString key = QLatin1String("ClangCodeModel.Diagnostics");
     mmi->setExtraDiagnostics(m_marker->fileName(), key, msgs);
-#if CINDEX_VERSION_MINOR >= 20
+#if CINDEX_VERSION_MINOR >= 21
     mmi->setIfdefedOutBlocks(m_marker->fileName(), m_marker->ifdefedOutBlocks());
 #endif
 
