@@ -57,8 +57,7 @@ public:
 
     void setModelManagerSupports(const QList<ModelManagerSupport *> &supporters);
 
-    QString &modelManagerSupportId(const QString &mimeType)
-    { return m_modelManagerSupportByMimeType[mimeType]; }
+    QString &modelManagerSupportId(const QString &mimeType);
 
     const QHash<QString, QString> &availableModelManagerSupportersByName() const
     { return m_availableModelManagerSupportersByName; }

@@ -60,6 +60,7 @@ void CppCodeModelSettingsWidget::setSettings(const QSharedPointer<CppCodeModelSe
     applyToWidget(m_ui->cppChooser, QLatin1String(Constants::CPP_SOURCE_MIMETYPE));
     applyToWidget(m_ui->objcChooser, QLatin1String(Constants::OBJECTIVE_C_SOURCE_MIMETYPE));
     applyToWidget(m_ui->objcppChooser, QLatin1String(Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE));
+    applyToWidget(m_ui->hChooser, QLatin1String(Constants::C_HEADER_MIMETYPE));
 
     m_ui->ignorePCHCheckBox->setChecked(s->pchUsage() == CppCodeModelSettings::PchUse_None);
 }
@@ -88,6 +89,8 @@ void CppCodeModelSettingsWidget::applyToSettings() const
                                QLatin1String(Constants::OBJECTIVE_C_SOURCE_MIMETYPE));
     changed |= applyToSettings(m_ui->objcppChooser,
                                QLatin1String(Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE));
+    changed |= applyToSettings(m_ui->objcppChooser,
+                               QLatin1String(Constants::C_HEADER_MIMETYPE));
 
     if (m_ui->ignorePCHCheckBox->isChecked() !=
             (m_settings->pchUsage() == CppCodeModelSettings::PchUse_None)) {
@@ -110,6 +113,7 @@ QString CppCodeModelSettingsWidget::searchKeywords() const
        << ' ' << m_ui->cppLabel->text()
        << ' ' << m_ui->objcLabel->text()
        << ' ' << m_ui->objcppLabel->text()
+       << ' ' << m_ui->hLabel->text()
        << ' ' << m_ui->anotherGroupBox->title()
        << ' ' << m_ui->ignorePCHCheckBox->text();
     foreach (const QString &mmsNames, m_settings->availableModelManagerSupportersByName().keys())

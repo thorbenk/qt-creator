@@ -42,6 +42,7 @@ void CppCodeModelSettings::fromSettings(QSettings *s)
     setIdForMimeType(supporters, QLatin1String(Constants::CPP_SOURCE_MIMETYPE));
     setIdForMimeType(supporters, QLatin1String(Constants::OBJECTIVE_C_SOURCE_MIMETYPE));
     setIdForMimeType(supporters, QLatin1String(Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE));
+    setIdForMimeType(supporters, QLatin1String(Constants::C_HEADER_MIMETYPE));
     QVariant v = s->value(QLatin1String(Constants::CPPTOOLS_MODEL_MANAGER_PCH_USAGE), PchUse_None);
     setPCHUsage(static_cast<PCHUsage>(v.toInt()));
     s->endGroup();
@@ -63,6 +64,17 @@ void CppCodeModelSettings::setModelManagerSupports(const QList<ModelManagerSuppo
     m_availableModelManagerSupportersByName.clear();
     foreach (ModelManagerSupport *supporter, supporters)
         m_availableModelManagerSupportersByName[supporter->displayName()] = supporter->id();
+}
+
+QString &CppCodeModelSettings::modelManagerSupportId(const QString &mimeType)
+{
+    static QLatin1String cppHeaderMimeType(Constants::CPP_HEADER_MIMETYPE);
+    static QLatin1String cHeaderMimeType(Constants::C_HEADER_MIMETYPE);
+
+    if (mimeType == cppHeaderMimeType)
+        return m_modelManagerSupportByMimeType[cHeaderMimeType];
+    else
+        return m_modelManagerSupportByMimeType[mimeType];
 }
 
 void CppCodeModelSettings::setIdForMimeType(const QVariant &var, const QString &mimeType)
