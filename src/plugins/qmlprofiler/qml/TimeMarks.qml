@@ -38,21 +38,6 @@ Canvas2D {
     property real endTime
     property real timePerPixel
 
-    Component.onCompleted: {
-        requestRedraw();
-    }
-
-    onWidthChanged: {
-        requestRedraw();
-    }
-    onHeightChanged: {
-        requestRedraw();
-    }
-
-    onYChanged: {
-        requestRedraw();
-    }
-
     Connections {
         target: labels
         onHeightChanged: { requestRedraw(); }
@@ -97,22 +82,6 @@ Canvas2D {
                 ctxt.stroke();
             }
         }
-
-
-        // gray off out-of-bounds areas
-        var rectWidth;
-        if (startTime < qmlProfilerModelProxy.traceStartTime()) {
-            ctxt.fillStyle = "rgba(127,127,127,0.2)";
-            rectWidth = (qmlProfilerModelProxy.traceStartTime() - startTime) * spacing;
-            ctxt.fillRect(0, lineStart, rectWidth, lineEnd);
-        }
-        if (endTime > qmlProfilerModelProxy.traceEndTime()) {
-            ctxt.fillStyle = "rgba(127,127,127,0.2)";
-            var rectX = (qmlProfilerModelProxy.traceEndTime() - startTime) * spacing;
-            rectWidth = (endTime - qmlProfilerModelProxy.traceEndTime()) * spacing;
-            ctxt.fillRect(rectX, lineStart, rectWidth, lineEnd);
-        }
-
     }
 
     function updateMarks(start, end) {

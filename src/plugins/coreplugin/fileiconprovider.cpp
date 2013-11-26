@@ -37,7 +37,7 @@
 #include <QStyle>
 #include <QPainter>
 #include <QFileInfo>
-#include <QPair>
+#include <QHash>
 #include <QDebug>
 
 #include <QFileIconProvider>
@@ -68,9 +68,6 @@ namespace FileIconProvider {
 
 enum { debug = 0 };
 
-typedef QPair<QString, QIcon> StringIconPair;
-typedef QList<StringIconPair> StringIconPairList;
-
 class FileIconProviderImplementation : public QFileIconProvider
 {
 public:
@@ -78,7 +75,7 @@ public:
         : m_unknownFileIcon(qApp->style()->standardIcon(QStyle::SP_FileIcon))
     {}
 
-    QIcon icon(const QFileInfo &info) const;
+    QIcon icon(const QFileInfo &info);
     using QFileIconProvider::icon;
 
     void registerIconOverlayForSuffix(const QIcon &icon, const QString &suffix)
@@ -89,15 +86,8 @@ public:
         QTC_ASSERT(!icon.isNull() && !suffix.isEmpty(), return);
 
         const QPixmap fileIconPixmap = FileIconProvider::overlayIcon(QStyle::SP_FileIcon, icon, QSize(16, 16));
-
         // replace old icon, if it exists
-        for (int i = 0, n = m_cache.size(); i != n; ++i) {
-            if (m_cache.at(i).first == suffix) {
-                m_cache[i].second = fileIconPixmap;
-                return;
-            }
-        }
-        m_cache.append(StringIconPair(suffix, fileIconPixmap));
+        m_cache.insert(suffix, fileIconPixmap);
     }
 
     void registerIconOverlayForMimeType(const QIcon &icon, const MimeType &mimeType)
@@ -107,7 +97,7 @@ public:
     }
 
     // Mapping of file suffix to icon.
-    StringIconPairList m_cache;
+    QHash<QString, QIcon> m_cache;
 
     QIcon m_unknownFileIcon;
 };
@@ -123,25 +113,26 @@ QFileIconProvider *iconProvider()
     return instance();
 }
 
-QIcon FileIconProviderImplementation::icon(const QFileInfo &fileInfo) const
+QIcon FileIconProviderImplementation::icon(const QFileInfo &fileInfo)
 {
     if (debug)
         qDebug() << "FileIconProvider::icon" << fileInfo.absoluteFilePath();
     // Check for cached overlay icons by file suffix.
-    if (!m_cache.isEmpty() && !fileInfo.isDir()) {
-        const QString suffix = fileInfo.suffix();
-        if (!suffix.isEmpty()) {
-            for (int i = 0, n = m_cache.size(); i != n; ++i)
-                if (m_cache.at(i).first == suffix)
-                    return m_cache[i].second;
-        }
+    bool isDir = fileInfo.isDir();
+    QString suffix = !isDir ? fileInfo.suffix() : QString();
+    if (!m_cache.isEmpty() && !isDir && !suffix.isEmpty()) {
+        if (m_cache.contains(suffix))
+            return m_cache.value(suffix);
     }
     // Get icon from OS.
+    QIcon icon;
     if (HostOsInfo::isWindowsHost() || HostOsInfo::isMacHost())
-        return QFileIconProvider::icon(fileInfo);
-
-    // File icons are unknown on linux systems.
-    return fileInfo.isDir() ? QFileIconProvider::icon(fileInfo) : m_unknownFileIcon;
+        icon = QFileIconProvider::icon(fileInfo);
+    else // File icons are unknown on linux systems.
+        icon = isDir ? QFileIconProvider::icon(fileInfo) : m_unknownFileIcon;
+    if (!isDir && !suffix.isEmpty())
+        m_cache.insert(suffix, icon);
+    return icon;
 }
 
 /*!

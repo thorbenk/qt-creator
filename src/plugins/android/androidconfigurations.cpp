@@ -37,6 +37,7 @@
 #include "androiddevicedialog.h"
 
 #include <coreplugin/icore.h>
+#include <coreplugin/messagemanager.h>
 #include <utils/hostosinfo.h>
 #include <utils/persistentsettings.h>
 #include <projectexplorer/kitmanager.h>
@@ -248,8 +249,9 @@ void AndroidConfigurations::updateAvailableSdkPlatforms()
     m_availableSdkPlatforms.clear();
 
     QProcess proc;
+    proc.setProcessEnvironment(androidToolEnvironment().toProcessEnvironment());
     proc.start(androidToolPath().toString(), QStringList() << QLatin1String("list") << QLatin1String("target")); // list avaialbe AVDs
-    if (!proc.waitForFinished(-1)) {
+    if (!proc.waitForFinished(5000)) {
         proc.terminate();
         return;
     }
@@ -281,6 +283,14 @@ FileName AndroidConfigurations::adbToolPath() const
 {
     FileName path = m_config.sdkLocation;
     return path.appendPath(QLatin1String("platform-tools/adb" QTC_HOST_EXE_SUFFIX));
+}
+
+Utils::Environment AndroidConfigurations::androidToolEnvironment() const
+{
+    Utils::Environment env = Utils::Environment::systemEnvironment();
+    if (!m_config.openJDKLocation.isEmpty())
+        env.set(QLatin1String("JAVA_HOME"), m_config.openJDKLocation.toUserOutput());
+    return env;
 }
 
 FileName AndroidConfigurations::androidToolPath() const
@@ -413,7 +423,7 @@ AndroidDeviceInfo AndroidConfigurations::showDeviceDialog(ProjectExplorer::Proje
                 return info;
     }
 
-    AndroidDeviceDialog dialog(apiLevel, abi);
+    AndroidDeviceDialog dialog(apiLevel, abi, Core::ICore::mainWindow());
     if (dialog.exec() == QDialog::Accepted) {
         AndroidDeviceInfo info = dialog.device();
         if (dialog.saveDeviceSelection()) {
@@ -451,7 +461,7 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::connectedDevices(QString *erro
     QVector<AndroidDeviceInfo> devices;
     QProcess adbProc;
     adbProc.start(adbToolPath().toString(), QStringList() << QLatin1String("devices"));
-    if (!adbProc.waitForFinished(-1)) {
+    if (!adbProc.waitForFinished(5000)) {
         adbProc.kill();
         if (error)
             *error = tr("Could not run: %1").arg(adbToolPath().toString() + QLatin1String(" devices"));
@@ -470,6 +480,8 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::connectedDevices(QString *erro
     foreach (const QByteArray &device, adbDevs) {
         const QString serialNo = QString::fromLatin1(device.left(device.indexOf('\t')).trimmed());
         const QString deviceType = QString::fromLatin1(device.mid(device.indexOf('\t'))).trimmed();
+        if (isBootToQt(serialNo))
+            continue;
         AndroidDeviceInfo dev;
         dev.serialNumber = serialNo;
         dev.type = serialNo.startsWith(QLatin1String("emulator")) ? AndroidDeviceInfo::Emulator : AndroidDeviceInfo::Hardware;
@@ -485,9 +497,9 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::connectedDevices(QString *erro
     return devices;
 }
 
-QString AndroidConfigurations::createAVD(int minApiLevel, QString targetArch) const
+QString AndroidConfigurations::createAVD(QWidget *parent, int minApiLevel, QString targetArch) const
 {
-    QDialog d;
+    QDialog d(parent);
     Ui::AddNewAVDDialog avdDialog;
     avdDialog.setupUi(&d);
     // NOTE: adb list targets does actually include information on which abis are supported per apilevel
@@ -522,6 +534,7 @@ QString AndroidConfigurations::createAVD(int minApiLevel, QString targetArch) co
 QString AndroidConfigurations::createAVD(const QString &target, const QString &name, const QString &abi, int sdcardSize ) const
 {
     QProcess proc;
+    proc.setProcessEnvironment(androidToolEnvironment().toProcessEnvironment());
     proc.start(androidToolPath().toString(),
                QStringList() << QLatin1String("create") << QLatin1String("avd")
                << QLatin1String("-t") << target
@@ -553,6 +566,8 @@ QString AndroidConfigurations::createAVD(const QString &target, const QString &n
             break;
     }
 
+    Core::MessageManager::write(QString::fromLocal8Bit(question), Core::MessageManager::Flash);
+
     proc.waitForFinished();
 
     if (proc.exitCode()) // error!
@@ -563,10 +578,11 @@ QString AndroidConfigurations::createAVD(const QString &target, const QString &n
 bool AndroidConfigurations::removeAVD(const QString &name) const
 {
     QProcess proc;
+    proc.setProcessEnvironment(androidToolEnvironment().toProcessEnvironment());
     proc.start(androidToolPath().toString(),
                QStringList() << QLatin1String("delete") << QLatin1String("avd")
                << QLatin1String("-n") << name);
-    if (!proc.waitForFinished(-1)) {
+    if (!proc.waitForFinished(5000)) {
         proc.terminate();
         return false;
     }
@@ -577,9 +593,10 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::androidVirtualDevices() const
 {
     QVector<AndroidDeviceInfo> devices;
     QProcess proc;
+    proc.setProcessEnvironment(androidToolEnvironment().toProcessEnvironment());
     proc.start(androidToolPath().toString(),
                QStringList() << QLatin1String("list") << QLatin1String("avd")); // list available AVDs
-    if (!proc.waitForFinished(-1)) {
+    if (!proc.waitForFinished(5000)) {
         proc.terminate();
         return devices;
     }
@@ -702,6 +719,22 @@ QString AndroidConfigurations::waitForAvd(int apiLevel, const QString &cpuAbi, c
     return QString();
 }
 
+bool AndroidConfigurations::isBootToQt(const QString &device) const
+{
+    // workaround for '????????????' serial numbers
+    QStringList arguments = AndroidDeviceInfo::adbSelector(device);
+    arguments << QLatin1String("shell")
+              << QLatin1String("ls -l /system/bin/appcontroller || ls -l /usr/bin/appcontroller && echo Boot2Qt");
+
+    QProcess adbProc;
+    adbProc.start(adbToolPath().toString(), arguments);
+    if (!adbProc.waitForFinished(5000)) {
+        adbProc.kill();
+        return false;
+    }
+    return adbProc.readAll().contains("Boot2Qt");
+}
+
 int AndroidConfigurations::getSDKVersion(const QString &device) const
 {
     // workaround for '????????????' serial numbers
@@ -711,7 +744,7 @@ int AndroidConfigurations::getSDKVersion(const QString &device) const
 
     QProcess adbProc;
     adbProc.start(adbToolPath().toString(), arguments);
-    if (!adbProc.waitForFinished(-1)) {
+    if (!adbProc.waitForFinished(5000)) {
         adbProc.kill();
         return -1;
     }
@@ -734,7 +767,7 @@ QString AndroidConfigurations::getProductModel(const QString &device) const
 
     QProcess adbProc;
     adbProc.start(adbToolPath().toString(), arguments);
-    if (!adbProc.waitForFinished(-1)) {
+    if (!adbProc.waitForFinished(5000)) {
         adbProc.kill();
         return device;
     }
@@ -754,7 +787,7 @@ bool AndroidConfigurations::hasFinishedBooting(const QString &device) const
 
     QProcess adbProc;
     adbProc.start(adbToolPath().toString(), arguments);
-    if (!adbProc.waitForFinished(-1)) {
+    if (!adbProc.waitForFinished(5000)) {
         adbProc.kill();
         return false;
     }
@@ -767,8 +800,7 @@ bool AndroidConfigurations::hasFinishedBooting(const QString &device) const
 QStringList AndroidConfigurations::getAbis(const QString &device) const
 {
     QStringList result;
-    int i = 1;
-    while (true) {
+    for (int i = 1; i < 6; ++i) {
         QStringList arguments = AndroidDeviceInfo::adbSelector(device);
         arguments << QLatin1String("shell") << QLatin1String("getprop");
         if (i == 1)
@@ -778,7 +810,7 @@ QStringList AndroidConfigurations::getAbis(const QString &device) const
 
         QProcess adbProc;
         adbProc.start(adbToolPath().toString(), arguments);
-        if (!adbProc.waitForFinished(-1)) {
+        if (!adbProc.waitForFinished(5000)) {
             adbProc.kill();
             return result;
         }
@@ -786,7 +818,6 @@ QStringList AndroidConfigurations::getAbis(const QString &device) const
         if (abi.isEmpty())
             break;
         result << abi;
-        ++i;
     }
     return result;
 }

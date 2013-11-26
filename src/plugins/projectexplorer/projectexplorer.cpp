@@ -541,7 +541,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     d->m_openWithMenu->setTitle(tr("Open With"));
 
     connect(d->m_openWithMenu, SIGNAL(triggered(QAction*)),
-            DocumentManager::instance(), SLOT(slotExecuteOpenWithMenuAction(QAction*)));
+            DocumentManager::instance(), SLOT(executeOpenWithMenuAction(QAction*)));
 
     //
     // Separators
@@ -1367,10 +1367,12 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
         QTC_ASSERT(!fileName.isEmpty(), continue);
 
         QFileInfo fi = QFileInfo(fileName);
-        QString canonicalFilePath = fi.canonicalFilePath();
+        QString filePath = fileName;
+        if (fi.exists()) // canonicalFilePath will be empty otherwise!
+            filePath = fi.canonicalFilePath();
         bool found = false;
         foreach (Project *pi, SessionManager::projects()) {
-            if (canonicalFilePath == pi->projectFilePath()) {
+            if (filePath == pi->projectFilePath()) {
                 found = true;
                 break;
             }
@@ -1383,10 +1385,12 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
         }
 
         if (const MimeType mt = MimeDatabase::findByFile(QFileInfo(fileName))) {
+            bool foundProjectManager = false;
             foreach (IProjectManager *manager, projectManagers) {
                 if (manager->mimeType() == mt.type()) {
+                    foundProjectManager = true;
                     QString tmp;
-                    if (Project *pro = manager->openProject(canonicalFilePath, &tmp)) {
+                    if (Project *pro = manager->openProject(filePath, &tmp)) {
                         if (pro->restoreSettings()) {
                             connect(pro, SIGNAL(fileListChanged()), this, SIGNAL(fileListChanged()));
                             SessionManager::addProject(pro);
@@ -1395,6 +1399,8 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
                                 setCurrentNode(pro->rootProjectNode());
                             openedPro += pro;
                         } else {
+                            appendError(errorString, tr("Failed opening project '%1': Settings could not be restored")
+                                        .arg(QDir::toNativeSeparators(fileName)));
                             delete pro;
                         }
                     }
@@ -1403,6 +1409,14 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
                     break;
                 }
             }
+            if (!foundProjectManager) {
+                appendError(errorString, tr("Failed opening project '%1': No plugin can open project type '%2'.")
+                            .arg(QDir::toNativeSeparators(fileName))
+                            .arg((mt.type())));
+            }
+        } else {
+            appendError(errorString, tr("Failed opening project '%1': Unknown project type.")
+                        .arg(QDir::toNativeSeparators(fileName)));
         }
         SessionManager::reportProjectLoadingProgress();
     }

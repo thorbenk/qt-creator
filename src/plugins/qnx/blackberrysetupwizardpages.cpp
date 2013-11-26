@@ -86,7 +86,7 @@ BlackBerrySetupWizardNdkPage::BlackBerrySetupWizardNdkPage(QWidget *parent) :
     m_widget = new BlackBerryNDKSettingsWidget(this);
     m_widget->setWizardMessageVisible(false);
 
-    connect(m_widget, SIGNAL(kitsUpdated()), this, SIGNAL(completeChanged()));
+    connect(m_widget, SIGNAL(targetsUpdated()), this, SIGNAL(completeChanged()));
 
     QVBoxLayout *layout = new QVBoxLayout;
     layout->addWidget(m_widget);
@@ -216,6 +216,13 @@ void BlackBerrySetupWizardCertificatePage::validate()
 
     if (m_ui->password->text() != m_ui->password2->text()) {
         m_ui->status->setText(tr("The entered passwords do not match."));
+        setComplete(false);
+        return;
+    }
+
+    if (m_ui->password->text().size() < 6) {
+        // TODO: Use tr() once string freeze is over
+        m_ui->status->setText(QCoreApplication::translate("Qnx::Internal::BlackBerryCreateCertificateDialog", "Password must be at least 6 characters long."));
         setComplete(false);
         return;
     }

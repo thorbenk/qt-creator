@@ -706,6 +706,7 @@ void AndroidManager::updateTarget(ProjectExplorer::Target *target, const QString
         params << QLatin1String("-t") << targetSDK;
     if (!name.isEmpty())
         params << QLatin1String("-n") << name;
+    androidProc.setProcessEnvironment(AndroidConfigurations::instance().androidToolEnvironment().toProcessEnvironment());
     androidProc.start(AndroidConfigurations::instance().androidToolPath().toString(), params);
     if (!androidProc.waitForFinished(-1))
         androidProc.terminate();
@@ -790,7 +791,7 @@ QString AndroidManager::androidNameForApiLevel(int x)
     case 19:
         return QLatin1String("Android 4.4");
     default:
-        return QLatin1String("Unknown Android version.");
+        return tr("Unknown Android version.");
     }
 }
 

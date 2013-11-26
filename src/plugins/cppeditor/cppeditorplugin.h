@@ -90,79 +90,34 @@ public slots:
 private slots:
     void onTaskStarted(Core::Id type);
     void onAllTasksFinished(Core::Id type);
-    void currentEditorChanged(Core::IEditor *editor);
 
 #ifdef WITH_TESTS
 private slots:
     // The following tests expect that no projects are loaded on start-up.
-    void test_SwitchMethodDeclarationDefinition_fromFunctionDeclarationSymbol();
-    void test_SwitchMethodDeclarationDefinition_fromFunctionDefinitionSymbol();
-    void test_SwitchMethodDeclarationDefinition_fromFunctionBody();
-    void test_SwitchMethodDeclarationDefinition_fromReturnType();
+    void test_SwitchMethodDeclarationDefinition_data();
+    void test_SwitchMethodDeclarationDefinition();
 
-    void test_FollowSymbolUnderCursor_globalVarFromFunction();
-    void test_FollowSymbolUnderCursor_funLocalVarHidesClassMember();
-    void test_FollowSymbolUnderCursor_funLocalVarHidesNamespaceMemberIntroducedByUsingDirective();
-    void test_FollowSymbolUnderCursor_loopLocalVarHidesOuterScopeVariable1();
-    void test_FollowSymbolUnderCursor_loopLocalVarHidesOuterScopeVariable2();
-    void test_FollowSymbolUnderCursor_subsequentDefinedClassMember();
-    void test_FollowSymbolUnderCursor_classMemberHidesOuterTypeDef();
-    void test_FollowSymbolUnderCursor_globalVarFromEnum();
-    void test_FollowSymbolUnderCursor_selfInitialization();
-    void test_FollowSymbolUnderCursor_pointerToClassInClassDefinition();
-    void test_FollowSymbolUnderCursor_previouslyDefinedMemberFromArrayDefinition();
-    void test_FollowSymbolUnderCursor_outerStaticMemberVariableFromInsideSubclass();
-    void test_FollowSymbolUnderCursor_memberVariableFollowingDotOperator();
-    void test_FollowSymbolUnderCursor_memberVariableFollowingArrowOperator();
-    void test_FollowSymbolUnderCursor_staticMemberVariableFollowingScopeOperator();
-    void test_FollowSymbolUnderCursor_staticMemberVariableFollowingDotOperator();
-    void test_FollowSymbolUnderCursor_staticMemberVariableFollowingArrowOperator();
-    void test_FollowSymbolUnderCursor_previouslyDefinedEnumValueFromInsideEnum();
-    void test_FollowSymbolUnderCursor_nsMemberHidesNsMemberIntroducedByUsingDirective();
-    void test_FollowSymbolUnderCursor_baseClassFunctionIntroducedByUsingDeclaration();
-    void test_FollowSymbolUnderCursor_funWithSameNameAsBaseClassFunIntroducedByUsingDeclaration();
-    void test_FollowSymbolUnderCursor_funLocalVarHidesOuterClass();
-    void test_FollowSymbolUnderCursor_classConstructor();
-    void test_FollowSymbolUnderCursor_classDestructor();
+    void test_FollowSymbolUnderCursor_data();
+    void test_FollowSymbolUnderCursor();
+
     void test_FollowSymbolUnderCursor_QObject_connect_data();
     void test_FollowSymbolUnderCursor_QObject_connect();
+
     void test_FollowSymbolUnderCursor_classOperator_onOperatorToken_data();
     void test_FollowSymbolUnderCursor_classOperator_onOperatorToken();
+
     void test_FollowSymbolUnderCursor_classOperator_data();
     void test_FollowSymbolUnderCursor_classOperator();
+
     void test_FollowSymbolUnderCursor_classOperator_inOp_data();
     void test_FollowSymbolUnderCursor_classOperator_inOp();
-    void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_globalNamespace();
-    void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_namespace();
-    void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_insideFunction();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_allOverrides();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_possibleOverrides1();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_possibleOverrides2();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_fallbackToDeclaration();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_itemOrder();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_instantiatedSymbols();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_QSharedPointer();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_multipeDocuments();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_noSiblings_references();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_noSiblings_pointers();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_noSiblings_noBaseExpression();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_onDotMemberAccessOfReferenceTypes();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDotMemberAccessOfNonReferenceType();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnQualified();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDeclaration();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnDefinition();
-    void test_FollowSymbolUnderCursor_virtualFunctionCall_notOnNonPointerNonReference();
 
-    void test_doxygen_comments_qt_style();
-    void test_doxygen_comments_qt_style_continuation();
-    void test_doxygen_comments_java_style();
-    void test_doxygen_comments_java_style_continuation();
-    void test_doxygen_comments_cpp_styleA();
-    void test_doxygen_comments_cpp_styleB();
-    void test_doxygen_comments_cpp_styleA_indented();
-    void test_doxygen_comments_cpp_styleA_continuation();
-    void test_doxygen_comments_cpp_styleA_indented_continuation();
-    void test_doxygen_comments_cpp_styleA_corner_case();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_data();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall();
+    void test_FollowSymbolUnderCursor_virtualFunctionCall_multipleDocuments();
+
+    void test_doxygen_comments_data();
+    void test_doxygen_comments();
 
     void test_quickfix_CompleteSwitchCaseStatement_basic1();
     void test_quickfix_CompleteSwitchCaseStatement_basic2();
@@ -307,6 +262,11 @@ private slots:
 
     void test_functionhelper_virtualFunctions();
     void test_functionhelper_virtualFunctions_data();
+
+    // tests for "Include Hiererchy"
+    void test_includeHierarchyModel_simpleIncludes();
+    void test_includeHierarchyModel_simpleIncludedBy();
+    void test_includeHierarchyModel_simpleIncludesAndIncludedBy();
 
     // The following tests depend on the projects that are loaded on startup
     // and will be skipped in case no projects are loaded.

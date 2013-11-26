@@ -1,9 +1,7 @@
-/**************************************************************************
+/****************************************************************************
 **
-** Copyright (C) 2013 BlackBerry Limited. All rights reserved.
-**
-** Contact: BlackBerry (qt@blackberry.com)
-** Contact: KDAB (info@kdab.com)
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
 **
@@ -29,27 +27,37 @@
 **
 ****************************************************************************/
 
-#ifndef QNX_INTERNAL_BLACKBERRYCHECKDEVMODESTEPCONFIGWIDGET_H
-#define QNX_INTERNAL_BLACKBERRYCHECKDEVMODESTEPCONFIGWIDGET_H
+#ifndef VIEWERCONTEXT_H
+#define VIEWERCONTEXT_H
 
-#include <projectexplorer/buildstep.h>
+#include "qmljs_global.h"
+#include "qmljsconstants.h"
 
-namespace Qnx {
-namespace Internal {
+#include <QStringList>
 
-class BlackBerryCheckDevModeStepConfigWidget : public ProjectExplorer::BuildStepConfigWidget
+namespace QmlJS {
+
+class QMLJS_EXPORT ViewerContext
 {
-    Q_OBJECT
 public:
-    explicit BlackBerryCheckDevModeStepConfigWidget();
+    enum Flags {
+        Complete,
+        AddAllPaths,
+        AddQtPath
+    };
 
-    QString displayName() const;
-    QString summaryText() const;
+    ViewerContext();
+    ViewerContext(QStringList selectors, QStringList paths,
+                  Language::Enum language = Language::Qml,
+                  Flags flags = AddAllPaths);
 
-    bool showWidget() const;
+    bool languageIsCompatible(Language::Enum l) const;
+
+    QStringList selectors;
+    QStringList paths;
+    Language::Enum language;
+    Flags flags;
 };
 
-} // namespace Internal
-} // namespace Qnx
-
-#endif // QNX_INTERNAL_BLACKBERRYCHECKDEVMODESTEPCONFIGWIDGET_H
+} // namespace QmlJS
+#endif // VIEWERCONTEXT_H

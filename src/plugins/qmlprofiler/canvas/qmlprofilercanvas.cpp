@@ -69,7 +69,7 @@ void QmlProfilerCanvas::draw()
     m_context2d->reset();
     m_context2d->setSize(width(), height());
 
-    if (width() != 0 && height() != 0)
+    if (width() > 0 && height() > 0)
         emit drawRegion(m_context2d, QRect(0, 0, width(), height()));
     update();
 }
@@ -92,6 +92,13 @@ void QmlProfilerCanvas::componentComplete()
             QMetaObject::connect(this, p.notifySignalIndex(), this, requestPaintMethod, 0, 0);
     }
     QQuickItem::componentComplete();
+    requestRedraw();
+}
+
+void QmlProfilerCanvas::geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
+{
+    QQuickItem::geometryChanged(newGeometry, oldGeometry);
+    requestRedraw();
 }
 
 }

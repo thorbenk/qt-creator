@@ -1829,10 +1829,6 @@ void GdbEngine::handlePythonSetup(const GdbResponse &response)
             postCommand("bbsetup");
         }
 
-        postCommand("python qqStringCutOff = "
-            + debuggerCore()->action(MaximalStringLength)->value().toByteArray(),
-            ConsoleCommand|NonCriticalResponse);
-
         m_hasPython = true;
         GdbMi data;
         data.fromStringMultiple(response.consoleStreamOutput);
@@ -3607,6 +3603,7 @@ void GdbEngine::handleStackSelectThread(const GdbResponse &)
 void GdbEngine::reloadFullStack()
 {
     PENDING_DEBUG("RELOAD FULL STACK");
+    resetLocation();
     postCommand("-stack-list-frames", Discardable, CB(handleStackListFrames),
         QVariant::fromValue<StackCookie>(StackCookie(true, true)));
 }
@@ -4311,10 +4308,8 @@ void GdbEngine::assignValueInDebugger(const WatchData *data,
             + value.toString().toUtf8().toHex();
         postCommand(cmd, Discardable, CB(handleVarAssign));
     } else {
-        postCommand("-var-delete assign");
-        postCommand("-var-create assign * " + expression.toLatin1());
-        postCommand("-var-assign assign " +
-                GdbMi::escapeCString(value.toString().toLatin1()),
+        postCommand("set variable (" + expression.toLatin1() + ")="
+            + GdbMi::escapeCString(value.toString().toLatin1()),
             Discardable, CB(handleVarAssign));
     }
 }

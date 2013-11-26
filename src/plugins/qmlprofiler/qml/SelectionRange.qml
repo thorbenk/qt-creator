@@ -39,7 +39,7 @@ RangeMover {
     property string durationString: detailedPrintTime(duration)
 
     property real startTime: getLeft() * viewTimePerPixel + qmlProfilerModelProxy.traceStartTime()
-    property real duration: getWidth() * viewTimePerPixel
+    property real duration: Math.max(getWidth() * viewTimePerPixel, 500)
     property real viewTimePerPixel: 1
     property int creationState : 0
 
@@ -69,6 +69,11 @@ RangeMover {
     }
 
     function setPos(pos) {
+        if (pos < 0)
+            pos = 0;
+        else if (pos > width)
+            pos = width;
+
         switch (creationState) {
         case 1: {
             setLeft(pos);

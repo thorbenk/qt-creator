@@ -39,6 +39,7 @@
 #include <QFutureInterface>
 #include <projectexplorer/abi.h>
 #include <utils/fileutils.h>
+#include <utils/environment.h>
 
 QT_BEGIN_NAMESPACE
 class QSettings;
@@ -90,6 +91,7 @@ public:
     QStringList sdkTargets(int minApiLevel = 0) const;
     Utils::FileName adbToolPath() const;
     Utils::FileName androidToolPath() const;
+    Utils::Environment androidToolEnvironment() const;
     Utils::FileName antToolPath() const;
     Utils::FileName emulatorToolPath() const;
     Utils::FileName gccPath(ProjectExplorer::Abi::Architecture architecture, const QString &ndkToolChainVersion) const;
@@ -100,7 +102,7 @@ public:
     Utils::FileName zipalignPath() const;
     Utils::FileName stripPath(ProjectExplorer::Abi::Architecture architecture, const QString &ndkToolChainVersion) const;
     Utils::FileName readelfPath(ProjectExplorer::Abi::Architecture architecture, const QString &ndkToolChainVersion) const;
-    QString createAVD(int minApiLevel = 0, QString targetArch = QString()) const;
+    QString createAVD(QWidget *parent, int minApiLevel = 0, QString targetArch = QString()) const;
     QString createAVD(const QString &target, const QString &name, const QString &abi, int sdcardSize) const;
     bool removeAVD(const QString &name) const;
     QVector<AndroidDeviceInfo> connectedDevices(QString *error = 0) const;
@@ -150,6 +152,7 @@ private:
 
     int getSDKVersion(const QString &device) const;
     QStringList getAbis(const QString &device) const;
+    bool isBootToQt(const QString &device) const;
     void updateAvailableNdkPlatforms();
     void updateAvailableSdkPlatforms();
 

@@ -35,6 +35,10 @@
 #include "androidconstants.h"
 #include "androidtoolchain.h"
 
+#ifdef Q_OS_WIN
+#include <utils/winutils.h>
+#endif
+#include <utils/environment.h>
 #include <utils/hostosinfo.h>
 #include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/kitmanager.h>
@@ -316,7 +320,11 @@ void AndroidSettingsWidget::searchForAnt(const QString &location)
     foreach (const QString &file, parentFolder.entryList()) {
         if (file.startsWith(QLatin1String("apache-ant"))) {
             Utils::FileName ant = Utils::FileName::fromString(parentFolder.absolutePath());
-            ant.appendPath(file).appendPath(QLatin1String("bin")).appendPath(QLatin1String("ant.bat"));
+            ant.appendPath(file).appendPath(QLatin1String("bin"));
+            if (Utils::HostOsInfo::isWindowsHost())
+                ant.appendPath(QLatin1String("ant.bat"));
+            else
+                ant.appendPath(QLatin1String("ant"));
             if (ant.toFileInfo().exists()) {
                 m_androidConfig.antLocation = ant;
                 m_ui->AntLocationLineEdit->setText(ant.toUserOutput());
@@ -394,14 +402,16 @@ void AndroidSettingsWidget::browseOpenJDKLocation()
 
 void AndroidSettingsWidget::addAVD()
 {
-    AndroidConfigurations::instance().createAVD();
+    AndroidConfigurations::instance().createAVD(this);
     m_AVDModel.setAvdList(AndroidConfigurations::instance().androidVirtualDevices());
+    avdActivated(m_ui->AVDTableView->currentIndex());
 }
 
 void AndroidSettingsWidget::removeAVD()
 {
     AndroidConfigurations::instance().removeAVD(m_AVDModel.avdName(m_ui->AVDTableView->currentIndex()));
     m_AVDModel.setAvdList(AndroidConfigurations::instance().androidVirtualDevices());
+    avdActivated(m_ui->AVDTableView->currentIndex());
 }
 
 void AndroidSettingsWidget::startAVD()
@@ -430,8 +440,12 @@ void AndroidSettingsWidget::manageAVD()
     QProcess *avdProcess = new QProcess();
     connect(this, SIGNAL(destroyed()), avdProcess, SLOT(deleteLater()));
     connect(avdProcess, SIGNAL(finished(int)), avdProcess, SLOT(deleteLater()));
-    avdProcess->start(AndroidConfigurations::instance().androidToolPath().toString(),
-                      QStringList() << QLatin1String("avd"));
+
+    avdProcess->setProcessEnvironment(AndroidConfigurations::instance().androidToolEnvironment().toProcessEnvironment());
+    QString executable = AndroidConfigurations::instance().androidToolPath().toString();
+    QStringList arguments = QStringList() << QLatin1String("avd");
+
+    avdProcess->start(executable, arguments);
 }
 
 

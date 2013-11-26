@@ -303,8 +303,7 @@ Rectangle {
     Flickable {
         id: vertflick
         flickableDirection: Flickable.VerticalFlick
-        width: parent.width
-        height: root.height
+        anchors.fill: parent
         clip: true
         contentHeight: labels.height
         boundsBehavior: Flickable.StopAtBounds
@@ -318,8 +317,8 @@ Rectangle {
             id: backgroundMarks
             y: vertflick.contentY
             height: vertflick.height
-            width: flick.width
-            anchors.left: flick.left
+            width: root.width - labels.width
+            anchors.left: labels.right
         }
 
         Flickable {
@@ -331,6 +330,7 @@ Rectangle {
             contentWidth: 0
             height: labels.height + labelsTail.height
             flickableDirection: Flickable.HorizontalFlick
+            boundsBehavior: Flickable.StopAtBounds
 
             onContentXChanged: view.updateZoomControl()
             clip:true
