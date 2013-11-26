@@ -255,8 +255,8 @@ QStringList clangOptionsForCxx(ProjectPart::QtVersion qtVersion,
 #endif
 
     static const QString injectedHeader(Core::ICore::instance()->resourcePath() + QLatin1String("/cplusplus/qt%1-qobjectdefs-injected.h"));
-    if (qtVersion == ProjectPart::Qt4)
-        opts << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('4'));
+//    if (qtVersion == ProjectPart::Qt4)
+//        opts << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('4'));
     if (qtVersion == ProjectPart::Qt5)
         opts << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('5'));
 
