@@ -102,6 +102,41 @@ QStringList createClangOptions(const ProjectPart::Ptr &pPart, const QString &fil
     return createClangOptions(pPart, fileKind);
 }
 
+static QStringList buildDefines(const QByteArray &defines, bool toolchainDefines)
+{
+    QStringList result;
+
+    foreach (QByteArray def, defines.split('\n')) {
+        if (def.isEmpty())
+            continue;
+
+        if (toolchainDefines) {
+            //### FIXME: the next 3 check shouldn't be needed: we probably don't want to get the compiler-defined defines in.
+            if (!def.startsWith("#define "))
+                continue;
+            if (def.startsWith("#define _"))
+                continue;
+            if (def.startsWith("#define OBJC_NEW_PROPERTIES"))
+                continue;
+        }
+
+        QByteArray str = def.mid(8);
+        int spaceIdx = str.indexOf(' ');
+        QString arg;
+        if (spaceIdx != -1) {
+            arg = QLatin1String("-D" + str.left(spaceIdx) + "=" + str.mid(spaceIdx + 1));
+        } else {
+            arg = QLatin1String("-D" + str);
+        }
+        arg = arg.replace(QLatin1String("\\\""), QLatin1String("\""));
+        arg = arg.replace(QLatin1String("\""), QLatin1String(""));
+        if (!result.contains(arg))
+            result.append(arg);
+    }
+
+    return result;
+}
+
 /**
  * @brief Creates list of command-line arguments required for correct parsing
  * @param pPart Null if file isn't part of any project
@@ -133,35 +168,12 @@ QStringList createClangOptions(const ProjectPart::Ptr &pPart, ProjectFile::Kind 
 
     if (pPart.isNull())
         return result;
-    QList<QByteArray> defines = pPart->defines.split('\n');
 
     result << QLatin1String("-nostdinc");
 
-    foreach (QByteArray def, defines) {
-        if (def.isEmpty())
-            continue;
+    result << buildDefines(pPart->toolchainDefines, true);
+    result << buildDefines(pPart->projectDefines, false);
 
-        //### FIXME: the next 3 check shouldn't be needed: we probably don't want to get the compiler-defined defines in.
-        if (!def.startsWith("#define "))
-            continue;
-        if (def.startsWith("#define _"))
-            continue;
-        if (def.startsWith("#define OBJC_NEW_PROPERTIES"))
-            continue;
-
-        QByteArray str = def.mid(8);
-        int spaceIdx = str.indexOf(' ');
-        QString arg;
-        if (spaceIdx != -1) {
-            arg = QLatin1String("-D" + str.left(spaceIdx) + "=" + str.mid(spaceIdx + 1));
-        } else {
-            arg = QLatin1String("-D" + str);
-        }
-        arg = arg.replace(QLatin1String("\\\""), QLatin1String("\""));
-        arg = arg.replace(QLatin1String("\""), QLatin1String(""));
-        if (!result.contains(arg))
-            result.append(arg);
-    }
     foreach (const QString &frameworkPath, pPart->frameworkPaths)
         result.append(QLatin1String("-F") + frameworkPath);
     foreach (const QString &inc, pPart->includePaths)
@@ -270,6 +282,9 @@ QStringList clangLanguageOption(ProjectFile::Kind fileKind)
     opts += QLatin1String("-x");
 
     switch (fileKind) {
+    case ProjectFile::CHeader:
+//        opts += QLatin1String("c-header");
+//        break;
     case ProjectFile::CXXHeader:
     default:
         opts += QLatin1String("c++-header");
@@ -277,20 +292,17 @@ QStringList clangLanguageOption(ProjectFile::Kind fileKind)
     case ProjectFile::CXXSource:
         opts += QLatin1String("c++");
         break;
-    case ProjectFile::CHeader:
-        opts += QLatin1String("c-header");
-        break;
     case ProjectFile::CSource:
         opts += QLatin1String("c");
         break;
     case ProjectFile::ObjCHeader:
-        opts += QLatin1String("objective-c-header");
+//        opts += QLatin1String("objective-c-header");
+//        break;
+    case ProjectFile::ObjCXXHeader:
+        opts += QLatin1String("objective-c++-header");
         break;
     case ProjectFile::ObjCSource:
         opts += QLatin1String("objective-c");
-        break;
-    case ProjectFile::ObjCXXHeader:
-        opts += QLatin1String("objective-c++-header");
         break;
     case ProjectFile::ObjCXXSource:
         opts += QLatin1String("objective-c++");

@@ -263,13 +263,14 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
             if (hasCppFiles(projectPart))
                 cplusplus[pch] = true;
 
-            QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart->defines.split('\n'));
+            QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart->toolchainDefines.split('\n'));
             QMutableSetIterator<QByteArray> iter(projectDefines);
             while (iter.hasNext()){
                 QByteArray v = iter.next();
                 if (v.startsWith("#define _") || v.isEmpty()) // TODO: see ProjectPart::createClangOptions
                     iter.remove();
             }
+            projectDefines.unite(QSet<QByteArray>::fromList(projectPart->projectDefines.split('\n')));
 
             if (definesPerPCH.contains(pch)) {
                 definesPerPCH[pch].intersect(projectDefines);
@@ -296,10 +297,10 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
 
             QList<QByteArray> defines = definesPerPCH[pch].toList();
             if (!defines.isEmpty()) {
-                projectPart->defines = defines[0];
+                projectPart->projectDefines = defines[0];
                 for (int i = 1; i < defines.size(); ++i) {
-                    projectPart->defines += '\n';
-                    projectPart->defines += defines[i];
+                    projectPart->projectDefines += '\n';
+                    projectPart->projectDefines += defines[i];
                 }
             }
 
