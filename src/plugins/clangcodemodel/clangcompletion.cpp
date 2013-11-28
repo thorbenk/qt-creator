@@ -60,7 +60,7 @@
 #include <QTextCursor>
 #include <QTextDocument>
 
-#undef DEBUG_TIMING
+static const bool DebugTiming = !qgetenv("QTC_CLANG_VERBOSE").isEmpty();
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
@@ -166,18 +166,17 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
     if (!modifiedInput.isEmpty())
         unsavedFiles.insert(fileName, modifiedInput);
 
-#ifdef DEBUG_TIMING
-    qDebug() << "Here we go with ClangCompletionAssistProcessor....";
     QTime t;
-    t.start();
-#endif // DEBUG_TIMING
+    if (DebugTiming) {
+        qDebug() << "Here we go with ClangCompletionAssistProcessor....";
+        t.start();
+    }
 
     QList<CodeCompletionResult> result = wrapper->codeCompleteAt(line, column + 1, unsavedFiles);
     qSort(result);
 
-#ifdef DEBUG_TIMING
-    qDebug() << "... Completion done in" << t.elapsed() << "ms, with" << result.count() << "items.";
-#endif // DEBUG_TIMING
+    if (DebugTiming)
+        qDebug() << "... Completion done in" << t.elapsed() << "ms, with" << result.count() << "items.";
 
     return result;
 }
@@ -989,9 +988,10 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         const QString functionName = tc2.selectedText().trimmed();
         int l = line, c = column;
         Convenience::convertPosition(m_interface->textDocument(), nameStart, &l, &c);
-#ifdef DEBUG_TIMING
-        qDebug()<<"complete constructor or function @" << line<<":"<<column << "->"<<l<<":"<<c;
-#endif // DEBUG_TIMING
+
+        if (DebugTiming)
+            qDebug()<<"complete constructor or function @" << line<<":"<<column << "->"<<l<<":"<<c;
+
         const QList<CodeCompletionResult> completions = unfilteredCompletion(
                     m_interface.data(), fileName, l, c, QByteArray(), signalCompletion || slotCompletion);
         QList<CodeCompletionResult> functionCompletions;

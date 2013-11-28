@@ -40,7 +40,7 @@
 
 #include <QDebug>
 
-#undef DEBUG_TIMING
+static const bool DebugTiming = !qgetenv("QTC_CLANG_VERBOSE").isEmpty();
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
@@ -90,32 +90,36 @@ void CreateMarkers::run()
     if (isCanceled())
         return;
 
-#ifdef DEBUG_TIMING
-    qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine << "of" << m_fileName;
-    qDebug() << "***** Options: " << m_options.join(QLatin1String(" "));
-    QTime t; t.start();
-#endif // DEBUG_TIMING
+    m_options += QLatin1String("-fspell-checking");
+
+    QTime t;
+    if (DebugTiming) {
+        qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine << "of" << m_fileName;
+        qDebug() << "***** Options: " << m_options.join(QLatin1String(" "));
+        t.start();
+    }
 
     m_usages.clear();
     m_marker->setFileName(m_fileName);
     m_marker->setCompilationOptions(m_options);
 
     m_marker->reparse(m_unsavedFiles);
-#ifdef DEBUG_TIMING
-    qDebug() << "*** Reparse for highlighting took" << t.elapsed() << "ms.";
-#endif // DEBUG_TIMING
+
+    if (DebugTiming)
+        qDebug() << "*** Reparse for highlighting took" << t.elapsed() << "ms.";
 
     m_pchInfo.clear();
 
     typedef CPlusPlus::Document::DiagnosticMessage OtherDiagnostic;
     QList<OtherDiagnostic> msgs;
-    QList<ClangCodeModel::Diagnostic> diagnostics;
     foreach (const ClangCodeModel::Diagnostic &d, m_marker->diagnostics()) {
-#ifdef DEBUG_TIMING
-        qDebug() << d.severityAsString() << d.location() << d.spelling();
-#endif // DEBUG_TIMING
+        if (DebugTiming)
+            qDebug() << d.severityAsString() << d.location() << d.spelling();
+
         if (d.location().fileName() != m_marker->fileName())
             continue;
+
+        // TODO: retrieve fix-its for this diagnostic
 
         int level;
         switch (d.severity()) {
@@ -156,17 +160,16 @@ void CreateMarkers::run()
     flush();
     reportFinished();
 
-#ifdef DEBUG_TIMING
-    qDebug() << "*** Highlighting took" << t.elapsed() << "ms in total.";
-    t.restart();
-#endif // DEBUG_TIMING
+    if (DebugTiming) {
+        qDebug() << "*** Highlighting took" << t.elapsed() << "ms in total.";
+        t.restart();
+    }
 
     if (m_fastIndexer)
         m_fastIndexer->indexNow(m_marker->unit());
 
-#if defined(DEBUG_TIMING) && defined(CLANG_INDEXING)
-    qDebug() << "*** Fast re-indexing took" << t.elapsed() << "ms in total.";
-#endif // DEBUG_TIMING
+    if (DebugTiming)
+        qDebug() << "*** Fast re-indexing took" << t.elapsed() << "ms in total.";
 }
 
 void CreateMarkers::addUse(const SourceMarker &marker)

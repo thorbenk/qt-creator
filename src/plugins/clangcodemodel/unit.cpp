@@ -86,8 +86,10 @@ UnitData::UnitData()
 {
 }
 
+static const int DisplayDiagnostics = qgetenv("QTC_CLANG_VERBOSE").isEmpty() ? 0 : 1;
+
 UnitData::UnitData(const QString &fileName)
-    : m_index(clang_createIndex(/*excludeDeclsFromPCH*/ 1, /*displayDiagnostics*/ 0))
+    : m_index(clang_createIndex(/*excludeDeclsFromPCH*/ 1, DisplayDiagnostics))
     , m_tu(0)
     , m_fileName(fileName.toUtf8())
     , m_managementOptions(0)
