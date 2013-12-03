@@ -4,6 +4,35 @@ DEFINES += CLANG_COMPLETION
 DEFINES += CLANG_HIGHLIGHTING
 #DEFINES += CLANG_INDEXING
 
+defineReplace(findLLVMConfig) {
+    LLVM_CONFIG_VARIANTS = \
+        llvm-config llvm-config-3.2 llvm-config-3.3 llvm-config-3.4 \
+        llvm-config-3.5 llvm-config-3.6 llvm-config-4.0 llvm-config-4.1
+
+    ENV_PATH = $$(PATH)
+    win32 {
+        ENV_PATH = $$split($$ENV_PATH, ;)
+    } else {
+        ENV_PATH = $$split($$ENV_PATH, :)
+    }
+    for (variant, LLVM_CONFIG_VARIANTS) {
+        !isEmpty(LLVM_INSTALL_DIR) {
+            variant=$$LLVM_INSTALL_DIR/bin/$$variant
+            exists($$variant) {
+                return($$variant)
+            }
+        } else {
+            for (path, ENV_PATH) {
+                subvariant = $$path/$$variant
+                exists($$subvariant) {
+                    return($$subvariant)
+                }
+            }
+        }
+    }
+    return(llvm-config)
+}
+
 win32 {
     LLVM_INCLUDEPATH = $$LLVM_INSTALL_DIR/include
     LLVM_LIBS = -L$$LLVM_INSTALL_DIR/bin \
@@ -14,8 +43,7 @@ win32 {
 }
 
 unix {
-    LLVM_CONFIG=llvm-config
-    !isEmpty(LLVM_INSTALL_DIR):LLVM_CONFIG=$$LLVM_INSTALL_DIR/bin/llvm-config
+    LLVM_CONFIG = $$findLLVMConfig()
 
     LLVM_INCLUDEPATH = $$system($$LLVM_CONFIG --includedir)
     isEmpty(LLVM_INCLUDEPATH):LLVM_INCLUDEPATH=$$LLVM_INSTALL_DIR/include
