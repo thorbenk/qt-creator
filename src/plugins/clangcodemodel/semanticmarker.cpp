@@ -326,7 +326,16 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
 
     QList<SourceMarker> result;
 
-    if (firstLine > lastLine || !m_unit->isLoaded())
+    if (!m_unit->isLoaded())
+        return result;
+
+    // Highlighting called asynchronously, and a few lines at the end can be deleted for this time.
+    CXSourceRange unitRange = clang_getCursorExtent(m_unit->getTranslationUnitCursor());
+    SourceLocation unitEnd = getExpansionLocation(clang_getRangeEnd(unitRange));
+    if (lastLine > unitEnd.line())
+        lastLine = unitEnd.line();
+
+    if (firstLine > lastLine)
         return result;
 
     IdentifierTokens idTokens(*m_unit, firstLine, lastLine);
