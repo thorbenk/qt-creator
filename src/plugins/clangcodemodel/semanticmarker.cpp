@@ -176,7 +176,7 @@ QList<TextEditor::BlockRange> SemanticMarker::ifdefedOutBlocks() const
     if (!m_unit || !m_unit->isLoaded())
         return blocks;
 
-#if CINDEX_VERSION_MINOR >= 21
+#if CINDEX_VERSION_MINOR >= 21 && 0
     CXSkippedRanges *skippedRanges = clang_getSkippedRanges(m_unit->clangTranslationUnit(),
                                                             m_unit->getFile());
     blocks.reserve(skippedRanges->count);
