@@ -486,11 +486,6 @@ int BaseTextEditorWidgetPrivate::visualIndent(const QTextBlock &block) const
     return 0;
 }
 
-ITextMarkable *BaseTextEditorWidget::markableInterface() const
-{
-    return baseTextDocument()->documentMarker();
-}
-
 BaseTextEditor *BaseTextEditorWidget::editor() const
 {
     if (!d->m_editor) {
@@ -3863,8 +3858,6 @@ void BaseTextEditorWidget::drawFoldingMarker(QPainter *painter, const QPalette &
                                        bool active,
                                        bool hovered) const
 {
-    Q_UNUSED(active)
-    Q_UNUSED(hovered)
     QStyle *s = style();
     if (ManhattanStyle *ms = qobject_cast<ManhattanStyle*>(s))
         s = ms->baseStyle();

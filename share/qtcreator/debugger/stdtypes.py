@@ -428,7 +428,7 @@ def qdump__std__stringHelper1(d, value, charSize):
     sizePtr = data.cast(d.sizetType().pointer())
     size = int(sizePtr[-3])
     alloc = int(sizePtr[-2])
-    refcount = int(sizePtr[-1])
+    refcount = int(sizePtr[-1]) & 0xffffffff
     d.check(refcount >= -1) # Can be -1 accoring to docs.
     d.check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
     qdump_stringHelper(d, sizePtr, size * charSize, charSize)
@@ -679,16 +679,17 @@ def qdump__std__vector(d, value):
     impl = value["_M_impl"]
     type = d.templateArgument(value.type, 0)
     alloc = impl["_M_end_of_storage"]
-    isBool = str(type) == 'bool'
+    # The allocator case below is bogus, but that's what Apple
+    # LLVM version 5.0 (clang-500.2.79) (based on LLVM 3.3svn)
+    # produces.
+    isBool = str(type) == 'bool' or str(type) == 'std::allocator<bool>'
     if isBool:
         start = impl["_M_start"]["_M_p"]
         finish = impl["_M_finish"]["_M_p"]
         # FIXME: 8 is CHAR_BIT
-        storage = d.lookupType("unsigned long")
-        storagesize = storage.sizeof * 8
-        size = (finish - start) * storagesize
-        size += impl["_M_finish"]["_M_offset"]
-        size -= impl["_M_start"]["_M_offset"]
+        size = (d.pointerValue(finish) - d.pointerValue(start)) * 8
+        size += int(impl["_M_finish"]["_M_offset"])
+        size -= int(impl["_M_start"]["_M_offset"])
     else:
         start = impl["_M_start"]
         finish = impl["_M_finish"]
@@ -705,9 +706,11 @@ def qdump__std__vector(d, value):
     if d.isExpanded():
         if isBool:
             with Children(d, size, maxNumChild=10000, childType=type):
+                base = d.pointerValue(start)
                 for i in d.childRange():
-                    q = start + int(i / storagesize)
-                    d.putBoolItem(str(i), (q.dereference() >> (i % storagesize)) & 1)
+                    q = base + int(i / 8)
+                    d.putBoolItem(str(i),
+                        (int(d.dereference(q)) >> (i % 8)) & 1)
         else:
             d.putArrayData(type, start, size)
 

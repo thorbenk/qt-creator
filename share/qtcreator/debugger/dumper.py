@@ -601,7 +601,7 @@ class DumperBase:
         if format == 0:
             # Explicitly requested bald pointer.
             self.putType(typeName)
-            self.putPointerValue(value)
+            self.putValue(b16encode(str(value)), Hex2EncodedUtf8WithoutQuotes)
             self.putNumChild(1)
             if self.currentIName in self.expandedINames:
                 with Children(self):
@@ -644,20 +644,13 @@ class DumperBase:
             self.putNumChild(0)
             return True
 
-        if format == 6:
-            # Explicitly requested formatting as array of 10 items.
+        if not format is None and format >= 6 and format <= 9:
+            # Explicitly requested formatting as array of n items.
+            n = (10, 100, 1000, 10000)[format - 6]
             self.putType(typeName)
-            self.putItemCount(10)
-            self.putNumChild(10)
-            self.putArrayData(innerType, value, 10)
-            return True
-
-        if format == 7:
-            # Explicitly requested formatting as array of 1000 items.
-            self.putType(typeName)
-            self.putItemCount(1000)
-            self.putNumChild(1000)
-            self.putArrayData(innerType, value, 1000)
+            self.putItemCount(n)
+            self.putNumChild(n)
+            self.putArrayData(innerType, value, n)
             return True
 
         if self.isFunctionType(innerType):
@@ -825,7 +818,7 @@ Hex2EncodedFloat4, \
 Hex2EncodedFloat8, \
 IPv6AddressAndHexScopeId, \
 Hex2EncodedUtf8WithoutQuotes, \
-MillisecondsSinceEpoch \
+DateTimeInternal \
     = range(30)
 
 # Display modes. Keep that synchronized with DebuggerDisplay in watchutils.h

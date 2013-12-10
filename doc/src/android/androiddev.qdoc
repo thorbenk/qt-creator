@@ -127,7 +127,7 @@
         \li Select \gui Details to view the
             \gui {Package configurations}. For more information about the
             options you have, see
-            \l{Specifying Settings for Application Packages}.
+            \l{Specifying Settings for Qt 4 Packages}.
 
         \li To specify settings for deploying applications to Android, select
             \gui Details to view the \gui {Deploy configurations}. For more
@@ -142,8 +142,7 @@
     SDK to get the API and tools packages needed for development. In addition,
     you must install Qt for Android as part of Qt 5.2, or later.
 
-    For more information, see
-    \l{http://qt-project.org/doc/qt-5/android-support.html}{Qt for Android}.
+    For more information, see \l{Qt for Android}.
 
     To configure connections between \QC and Android devices:
 
@@ -219,7 +218,7 @@
     \gui Add. If you run an application without a device connected to the
     development PC and without an AVD specified, \QC asks you to add an AVD.
 
-    To manage AVDs, select \gui {Start Android AVD Manager}.
+    To manage AVDs, select \gui {Start AVD Manager}.
 
     \note The Android Emulator has a bug that prevents it from starting on some
     systems. If the Android Emulator does not start, you can try starting it

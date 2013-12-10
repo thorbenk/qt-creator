@@ -94,10 +94,3 @@ SUBDIRS += debugger/dumper.pro
 linux-* {
      SUBDIRS += debugger/ptracepreload.pro
 }
-
-include (debugger/lldblib/guest/qtcreator-lldb.pri)
-
-plugin_pythoneditor.subdir = pythoneditor
-plugin_pythoneditor.depends = plugin_coreplugin
-plugin_pythoneditor.depends += plugin_cpptools
-plugin_pythoneditor.depends += plugin_texteditor

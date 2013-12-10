@@ -515,13 +515,11 @@ class Dumper(DumperBase):
         self.autoDerefPointers = "autoderef" in options
         self.partialUpdate = "partial" in options
         self.tooltipOnly = "tooltiponly" in options
-        self.noLocals = "nolocals" in options
         #warn("NAMESPACE: '%s'" % self.qtNamespace())
         #warn("VARIABLES: %s" % varList)
         #warn("EXPANDED INAMES: %s" % self.expandedINames)
         #warn("WATCHERS: %s" % watchers)
         #warn("PARTIAL: %s" % self.partialUpdate)
-        #warn("NO LOCALS: %s" % self.noLocals)
 
         #
         # Locals
@@ -548,7 +546,7 @@ class Dumper(DumperBase):
                 pass
             varList = []
 
-        if fullUpdateNeeded and not self.tooltipOnly and not self.noLocals:
+        if fullUpdateNeeded and not self.tooltipOnly:
             locals = listOfLocals(varList)
 
         # Take care of the return value of the last function call.
@@ -611,7 +609,6 @@ class Dumper(DumperBase):
         #
         with OutputSafer(self):
             if len(watchers) > 0:
-                self.put(",")
                 for watcher in watchers.split("##"):
                     (exp, iname) = watcher.split("#")
                     self.handleWatch(exp, iname)
@@ -962,7 +959,7 @@ class Dumper(DumperBase):
             if vtable & 0x3: # This is not a pointer.
                 return False
             metaObjectEntry = self.dereference(vtable) # It's the first entry.
-            if metaObjectEntry & 0x3: # This is not a pointer.
+            if metaObjectEntry & 0x1: # This is not a pointer.
                 return False
             #warn("MO: 0x%x " % metaObjectEntry)
             s = gdb.execute("info symbol 0x%x" % metaObjectEntry, to_string=True)
@@ -1274,7 +1271,7 @@ class Dumper(DumperBase):
                 # generic pointer." with MinGW's gcc 4.5 when it "identifies"
                 # a "QWidget &" as "void &" and with optimized out code.
                 self.putItem(value.cast(type.target().unqualified()))
-                self.putBetterType(typeName)
+                self.putBetterType("%s &" % self.currentType)
                 return
             except RuntimeError:
                 self.putValue("<optimized out reference>")

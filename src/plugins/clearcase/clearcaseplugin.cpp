@@ -48,6 +48,7 @@
 #include <coreplugin/documentmanager.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/infobar.h>
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/progressmanager/progressmanager.h>
@@ -186,6 +187,9 @@ ClearCasePlugin::ClearCasePlugin() :
     m_submitActionTriggered(false),
     m_activityMutex(new QMutex),
     m_statusMap(new StatusMap)
+  #ifdef WITH_TESTS
+   ,m_fakeClearTool(false)
+  #endif
 {
     qRegisterMetaType<ClearCase::Internal::FileStatus::Status>("ClearCase::Internal::FileStatus::Status");
 }
@@ -230,10 +234,80 @@ QString ClearCasePlugin::getDriveLetterOfPath(const QString &directory)
 {
     // cdUp until we get just the drive letter
     QDir dir(directory);
-    while (dir.cdUp())
+    while (!dir.isRoot() && dir.cdUp())
     { }
 
     return dir.path();
+}
+
+void ClearCasePlugin::updateStatusForFile(const QString &absFile)
+{
+    setStatus(absFile, getFileStatus(absFile), false);
+}
+
+/// Give warning if a derived object is edited
+void ClearCasePlugin::updateEditDerivedObjectWarning(const QString &fileName,
+                                                     const FileStatus::Status status)
+{
+    if (!isDynamic())
+        return;
+
+    Core::IDocument *curDocument = Core::EditorManager::currentDocument();
+    if (!curDocument)
+        return;
+
+    Core::InfoBar *infoBar = curDocument->infoBar();
+    const Core::Id derivedObjectWarning("ClearCase.DerivedObjectWarning");
+
+    if (status == FileStatus::Derived) {
+        if (!infoBar->canInfoBeAdded(derivedObjectWarning))
+            return;
+
+        infoBar->addInfo(Core::InfoBarEntry(derivedObjectWarning,
+                                            tr("Editing Derived Object: %1")
+                                            .arg(fileName)));
+    } else {
+        infoBar->removeInfo(derivedObjectWarning);
+    }
+}
+
+FileStatus::Status ClearCasePlugin::getFileStatus(const QString &fileName) const
+{
+    QTC_CHECK(!fileName.isEmpty());
+
+    const QDir viewRootDir = QFileInfo(fileName).dir();
+    const QString viewRoot = viewRootDir.path();
+
+    QStringList args(QLatin1String("ls"));
+    args << fileName;
+    QString buffer = runCleartoolSync(viewRoot, args);
+
+    const int atatpos = buffer.indexOf(QLatin1String("@@"));
+    if (atatpos != -1) { // probably a managed file
+        const QString absFile =
+                viewRootDir.absoluteFilePath(
+                    QDir::fromNativeSeparators(buffer.left(atatpos)));
+        QTC_CHECK(QFile(absFile).exists());
+        QTC_CHECK(!absFile.isEmpty());
+
+        // "cleartool ls" of a derived object looks like this:
+        // /path/to/file/export/MyFile.h@@--11-13T19:52.266580
+        const QChar c = buffer.at(atatpos + 2);
+        const bool isDerivedObject = c != QLatin1Char('/') && c != QLatin1Char('\\');
+        if (isDerivedObject)
+            return FileStatus::Derived;
+
+        // find first whitespace. anything before that is not interesting
+        const int wspos = buffer.indexOf(QRegExp(QLatin1String("\\s")));
+        if (buffer.lastIndexOf(QLatin1String("CHECKEDOUT"), wspos) != -1)
+            return FileStatus::CheckedOut;
+        else
+            return FileStatus::CheckedIn;
+    } else {
+        QTC_CHECK(QFile(fileName).exists());
+        QTC_CHECK(!fileName.isEmpty());
+        return FileStatus::NotManaged;
+    }
 }
 
 ///
@@ -483,12 +557,14 @@ bool ClearCasePlugin::initialize(const QStringList & /*arguments */, QString *er
     clearcaseMenu->addSeparator(globalcontext);
 
     m_diffActivityAction = new QAction(tr("Diff A&ctivity..."), this);
+    m_diffActivityAction->setEnabled(false);
     command = ActionManager::registerAction(m_diffActivityAction, CMD_ID_DIFF_ACTIVITY, globalcontext);
     connect(m_diffActivityAction, SIGNAL(triggered()), this, SLOT(diffActivity()));
     clearcaseMenu->addAction(command);
     m_commandLocator->appendCommand(command);
 
     m_checkInActivityAction = new Utils::ParameterAction(tr("Ch&eck In Activity"), tr("Chec&k In Activity \"%1\"..."), Utils::ParameterAction::EnabledWithParameter, this);
+    m_checkInActivityAction->setEnabled(false);
     command = ActionManager::registerAction(m_checkInActivityAction, CMD_ID_CHECKIN_ACTIVITY, globalcontext);
     connect(m_checkInActivityAction, SIGNAL(triggered()), this, SLOT(startCheckInActivity()));
     command->setAttribute(Command::CA_UpdateText);
@@ -671,7 +747,16 @@ QStringList ClearCasePlugin::ccGetActiveVobs() const
     return res;
 }
 
-// file must be relative to topLevel, and using '/' path separator
+void ClearCasePlugin::checkAndReIndexUnknownFile(const QString &file)
+{
+    if (isDynamic()) {
+        // reindex unknown files
+        if (m_statusMap->value(file, FileStatus(FileStatus::Unknown)).status == FileStatus::Unknown)
+            updateStatusForFile(file);
+    }
+}
+
+// file must be absolute, and using '/' path separator
 FileStatus ClearCasePlugin::vcsStatus(const QString &file) const
 {
     return m_statusMap->value(file, FileStatus(FileStatus::Unknown));
@@ -727,7 +812,10 @@ void ClearCasePlugin::updateStatusActions()
     bool hasFile = currentState().hasFile();
     if (hasFile) {
         QString absoluteFileName = currentState().currentFile();
-        fileStatus = m_statusMap->value(absoluteFileName, FileStatus(FileStatus::Unknown));
+        checkAndReIndexUnknownFile(absoluteFileName);
+        fileStatus = vcsStatus(absoluteFileName);
+
+        updateEditDerivedObjectWarning(absoluteFileName, fileStatus.status);
 
         if (Constants::debug)
             qDebug() << Q_FUNC_INFO << absoluteFileName << ", status = "
@@ -771,6 +859,7 @@ void ClearCasePlugin::updateActions(VcsBase::VcsBasePlugin::ActionState as)
     m_annotateCurrentAction->setParameter(fileName);
     m_addFileAction->setParameter(fileName);
     m_updateIndexAction->setEnabled(!m_settings.disableIndexer);
+
     updateStatusActions();
 }
 
@@ -791,6 +880,7 @@ void ClearCasePlugin::addCurrentFile()
 // Set the FileStatus of file given in absolute path
 void ClearCasePlugin::setStatus(const QString &file, FileStatus::Status status, bool update)
 {
+    QTC_CHECK(!file.isEmpty());
     m_statusMap->insert(file, FileStatus(status, QFileInfo(file).permissions()));
 
     if (update && currentState().currentFile() == file)
@@ -929,7 +1019,7 @@ void ClearCasePlugin::ccDiffWithPred(const QString &workingDir, const QStringLis
     if ((m_settings.diffType == GraphicalDiff) && (files.count() == 1)) {
         const QString file = files.first();
         const QString absFilePath = workingDir + QLatin1Char('/') + file;
-        if (m_statusMap->value(absFilePath).status == FileStatus::Hijacked)
+        if (vcsStatus(absFilePath).status == FileStatus::Hijacked)
             diffGraphical(ccGetFileVersion(workingDir, file), file);
         else
             diffGraphical(file);
@@ -943,7 +1033,7 @@ void ClearCasePlugin::ccDiffWithPred(const QString &workingDir, const QStringLis
     QString result;
     foreach (const QString &file, files) {
         const QString absFilePath = workingDir + QLatin1Char('/') + file;
-        if (m_statusMap->value(QDir::fromNativeSeparators(absFilePath)).status == FileStatus::Hijacked)
+        if (vcsStatus(QDir::fromNativeSeparators(absFilePath)).status == FileStatus::Hijacked)
             result += diffExternal(ccGetFileVersion(workingDir, file), file);
         else
             result += diffExternal(file);
@@ -1235,7 +1325,8 @@ void ClearCasePlugin::viewStatus()
         m_viewData = ccGetView(m_topLevel);
     QTC_ASSERT(!m_viewData.name.isEmpty() && !m_settings.disableIndexer, return);
     VcsBase::VcsBaseOutputWindow *outputwindow = VcsBase::VcsBaseOutputWindow::instance();
-    outputwindow->appendCommand(QLatin1String("Indexed files status (C=Checked Out, H=Hijacked, ?=Missing)"));
+    outputwindow->appendCommand(QLatin1String("Indexed files status (C=Checked Out, "
+                                              "H=Hijacked, ?=Missing)"));
     bool anymod = false;
     for (StatusMap::ConstIterator it = m_statusMap->constBegin();
          it != m_statusMap->constEnd();
@@ -1481,14 +1572,14 @@ bool ClearCasePlugin::vcsOpen(const QString &workingDir, const QString &fileName
     CheckOutDialog coDialog(title, m_viewData.isUcm);
 
     if (!m_settings.disableIndexer &&
-            (fi.isWritable() || m_statusMap->value(absPath).status == FileStatus::Unknown))
+            (fi.isWritable() || vcsStatus(absPath).status == FileStatus::Unknown))
         QtConcurrent::run(&sync, QStringList(absPath)).waitForFinished();
-    if (m_statusMap->value(absPath).status == FileStatus::CheckedOut) {
+    if (vcsStatus(absPath).status == FileStatus::CheckedOut) {
         QMessageBox::information(0, tr("ClearCase Checkout"), tr("File is already checked out."));
         return true;
     }
     // Only snapshot views can have hijacked files
-    bool isHijacked = (!m_viewData.isDynamic && (m_statusMap->value(absPath).status & FileStatus::Hijacked));
+    bool isHijacked = (!m_viewData.isDynamic && (vcsStatus(absPath).status & FileStatus::Hijacked));
     if (!isHijacked)
         coDialog.hideHijack();
     if (coDialog.exec() == QDialog::Accepted) {
@@ -1760,7 +1851,13 @@ QString ClearCasePlugin::vcsGetRepositoryURL(const QString & /*directory*/)
 ///
 bool ClearCasePlugin::managesDirectory(const QString &directory, QString *topLevel /* = 0 */) const
 {
+#ifdef WITH_TESTS
+    // If running with tests and fake ClearTool is enabled, then pretend we manage every directory
+    QString topLevelFound = m_fakeClearTool ? directory : findTopLevel(directory);
+#else
     QString topLevelFound = findTopLevel(directory);
+#endif
+
     if (topLevel)
         *topLevel = topLevelFound;
     return !topLevelFound.isEmpty();
@@ -1877,9 +1974,9 @@ bool ClearCasePlugin::ccCheckUcm(const QString &viewname, const QString &working
 
 bool ClearCasePlugin::managesFile(const QString &workingDirectory, const QString &fileName) const
 {
-    QStringList args;
-    args << QLatin1String("ls") << fileName;
-    return runCleartoolSync(workingDirectory, args).contains(QLatin1String("@@"));
+    QString absFile = QFileInfo(QDir(workingDirectory), fileName).absoluteFilePath();
+    const FileStatus::Status status = getFileStatus(absFile);
+    return status != FileStatus::NotManaged && status != FileStatus::Derived;
 }
 
 ViewData ClearCasePlugin::ccGetView(const QString &workingDir) const
@@ -2141,6 +2238,233 @@ void ClearCasePlugin::testLogResolving()
     editor.testLogResolving(data,
                             "src/plugins/clearcase/clearcaseeditor.h@@/main/branch1/branch2/9",
                             "src/plugins/clearcase/clearcaseeditor.h@@/main/branch1/branch2/8");
+}
+
+void ClearCasePlugin::initTestCase()
+{
+    m_tempFile = QDir::currentPath() + QLatin1String("/cc_file.cpp");
+    Utils::FileSaver srcSaver(m_tempFile);
+    srcSaver.write(QByteArray());
+    srcSaver.finalize();
+}
+
+void ClearCasePlugin::cleanupTestCase()
+{
+    QVERIFY(QFile::remove(m_tempFile));
+}
+
+void ClearCasePlugin::testFileStatusParsing_data()
+{
+    QTest::addColumn<QString>("filename");
+    QTest::addColumn<QString>("cleartoolLsLine");
+    QTest::addColumn<int>("status");
+
+    QTest::newRow("CheckedOut")
+            << m_tempFile
+            << QString(m_tempFile + QLatin1String("@@/main/branch1/CHECKEDOUT from /main/branch1/0  Rule: CHECKEDOUT"))
+            << static_cast<int>(FileStatus::CheckedOut);
+
+    QTest::newRow("CheckedIn")
+            << m_tempFile
+            << QString(m_tempFile + QLatin1String("@@/main/9  Rule: MY_LABEL_1.6.4 [-mkbranch branch1]"))
+            << static_cast<int>(FileStatus::CheckedIn);
+
+    QTest::newRow("Hijacked")
+            << m_tempFile
+            << QString(m_tempFile + QLatin1String("@@/main/9 [hijacked]        Rule: MY_LABEL_1.5.33 [-mkbranch myview1]"))
+            << static_cast<int>(FileStatus::Hijacked);
+
+
+    QTest::newRow("Missing")
+            << m_tempFile
+            << QString(m_tempFile + QLatin1String("@@/main/9 [loaded but missing]              Rule: MY_LABEL_1.5.33 [-mkbranch myview1]"))
+            << static_cast<int>(FileStatus::Missing);
+}
+
+void ClearCasePlugin::testFileStatusParsing()
+{
+    ClearCasePlugin *plugin = ClearCasePlugin::instance();
+    plugin->m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+
+    QFETCH(QString, filename);
+    QFETCH(QString, cleartoolLsLine);
+    QFETCH(int, status);
+
+    ClearCaseSync ccSync(plugin, plugin->m_statusMap);
+    ccSync.verifyParseStatus(filename, cleartoolLsLine, static_cast<FileStatus::Status>(status));
+}
+
+void ClearCasePlugin::testFileNotManaged()
+{
+    ClearCasePlugin *plugin = ClearCasePlugin::instance();
+    plugin->m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+    ClearCaseSync ccSync(plugin, plugin->m_statusMap);
+    ccSync.verifyFileNotManaged();
+}
+
+void ClearCasePlugin::testFileCheckedOutDynamicView()
+{
+    ClearCasePlugin *plugin = ClearCasePlugin::instance();
+    plugin->m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+
+    ClearCaseSync ccSync(plugin, plugin->m_statusMap);
+    ccSync.verifyFileCheckedOutDynamicView();
+}
+
+void ClearCasePlugin::testFileCheckedInDynamicView()
+{
+    ClearCasePlugin *plugin = ClearCasePlugin::instance();
+    plugin->m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+    ClearCaseSync ccSync(plugin, plugin->m_statusMap);
+    ccSync.verifyFileCheckedInDynamicView();
+}
+
+void ClearCasePlugin::testFileNotManagedDynamicView()
+{
+    ClearCasePlugin *plugin = ClearCasePlugin::instance();
+    plugin->m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+    ClearCaseSync ccSync(plugin, plugin->m_statusMap);
+    ccSync.verifyFileNotManagedDynamicView();
+}
+
+namespace {
+/**
+ * @brief Convenience class which also properly cleans up editors and temp files
+ */
+class TestCase
+{
+public:
+    TestCase(const QString &fileName) :
+        m_fileName(fileName) ,
+        m_editor(0)
+    {
+        ClearCasePlugin::instance()->setFakeCleartool(true);
+        Utils::FileSaver srcSaver(fileName);
+        srcSaver.write(QByteArray());
+        srcSaver.finalize();
+
+        m_editor = Core::EditorManager::openEditor(fileName);
+
+        QCoreApplication::processEvents(); // process any pending events
+    }
+
+    ViewData dummyViewData() const
+    {
+        ViewData viewData;
+        viewData.name = QLatin1String("fake_view");
+        viewData.root = QDir::currentPath();
+        viewData.isUcm = false;
+        return viewData;
+    }
+
+    ~TestCase()
+    {
+        Core::EditorManager::closeEditor(m_editor, false);
+        QCoreApplication::processEvents(); // process any pending events
+
+        QFile file(m_fileName);
+        if (!file.isWritable()) // Windows can't delete read only files
+            file.setPermissions(file.permissions() | QFile::WriteUser);
+        QVERIFY(file.remove());
+        ClearCasePlugin::instance()->setFakeCleartool(false);
+    }
+
+private:
+    QString m_fileName;
+    Core::IEditor *m_editor;
+};
+}
+
+void ClearCasePlugin::testStatusActions_data()
+{
+    QTest::addColumn<int>("status");
+    QTest::addColumn<bool>("checkOutAction");
+    QTest::addColumn<bool>("undoCheckOutAction");
+    QTest::addColumn<bool>("undoHijackAction");
+    QTest::addColumn<bool>("checkInCurrentAction");
+    QTest::addColumn<bool>("addFileAction");
+    QTest::addColumn<bool>("checkInActivityAction");
+    QTest::addColumn<bool>("diffActivityAction");
+
+    QTest::newRow("Unknown")    << static_cast<int>(FileStatus::Unknown)
+                                << true  << true  << true  << true  << true  << false << false;
+    QTest::newRow("CheckedOut") << static_cast<int>(FileStatus::CheckedOut)
+                                << false << true  << false << true  << false << false << false;
+    QTest::newRow("CheckedIn")  << static_cast<int>(FileStatus::CheckedIn)
+                                << true  << false << false << false << false << false << false;
+    QTest::newRow("NotManaged") << static_cast<int>(FileStatus::NotManaged)
+                                << false << false << false << false << true  << false << false;
+}
+
+void ClearCasePlugin::testStatusActions()
+{
+    const QString fileName = QDir::currentPath() + QLatin1String("/clearcase_file.cpp");
+    TestCase testCase(fileName);
+
+    m_viewData = testCase.dummyViewData();
+
+    QFETCH(int, status);
+    FileStatus::Status tempStatus = static_cast<FileStatus::Status>(status);
+
+    // special case: file should appear as "Unknown" since there is no entry in the index
+    // and we don't want to explicitly set the status for this test case
+    if (tempStatus != FileStatus::Unknown)
+        setStatus(fileName, tempStatus, true);
+
+    QFETCH(bool, checkOutAction);
+    QFETCH(bool, undoCheckOutAction);
+    QFETCH(bool, undoHijackAction);
+    QFETCH(bool, checkInCurrentAction);
+    QFETCH(bool, addFileAction);
+    QFETCH(bool, checkInActivityAction);
+    QFETCH(bool, diffActivityAction);
+
+    QCOMPARE(m_checkOutAction->isEnabled(), checkOutAction);
+    QCOMPARE(m_undoCheckOutAction->isEnabled(), undoCheckOutAction);
+    QCOMPARE(m_undoHijackAction->isEnabled(), undoHijackAction);
+    QCOMPARE(m_checkInCurrentAction->isEnabled(), checkInCurrentAction);
+    QCOMPARE(m_addFileAction->isEnabled(), addFileAction);
+    QCOMPARE(m_checkInActivityAction->isEnabled(), checkInActivityAction);
+    QCOMPARE(m_diffActivityAction->isEnabled(), diffActivityAction);
+}
+
+void ClearCasePlugin::testVcsStatusDynamicReadonlyNotManaged()
+{
+    // File is not in map, and is read-only
+    ClearCasePlugin::instance();
+    m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+
+    const QString fileName = QDir::currentPath() + QLatin1String("/readonly_notmanaged_file.cpp");
+
+    m_viewData.isDynamic = true;
+    TestCase testCase(fileName);
+
+    QFile::setPermissions(fileName, QFile::ReadOwner |
+                          QFile::ReadUser |
+                          QFile::ReadGroup |
+                          QFile::ReadOther);
+
+    m_viewData = testCase.dummyViewData();
+    m_viewData.isDynamic = true;
+
+    QCOMPARE(vcsStatus(fileName).status, FileStatus::NotManaged);
+
+}
+
+void ClearCasePlugin::testVcsStatusDynamicNotManaged()
+{
+    ClearCasePlugin::instance();
+    m_statusMap = QSharedPointer<StatusMap>(new StatusMap);
+
+    const QString fileName = QDir::currentPath() + QLatin1String("/notmanaged_file.cpp");
+
+    m_viewData.isDynamic = true;
+    TestCase testCase(fileName);
+
+    m_viewData = testCase.dummyViewData();
+    m_viewData.isDynamic = true;
+
+    QCOMPARE(vcsStatus(fileName).status, FileStatus::NotManaged);
 }
 #endif
 

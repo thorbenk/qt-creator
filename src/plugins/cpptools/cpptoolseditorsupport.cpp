@@ -186,7 +186,7 @@ QByteArray CppEditorSupport::contents() const
     const int editorRev = editorRevision();
     if (m_cachedContentsEditorRevision != editorRev && !m_fileIsBeingReloaded) {
         m_cachedContentsEditorRevision = editorRev;
-        m_cachedContents = m_textEditor->textDocument()->contents().toUtf8();
+        m_cachedContents = m_textEditor->textDocument()->plainText().toUtf8();
     }
 
     return m_cachedContents;
@@ -392,10 +392,14 @@ void CppEditorSupport::startHighlighting()
         m_lastHighlightRevision = revision;
         emit highlighterStarted(&m_highlighter, m_lastHighlightRevision);
     } else {
+        const unsigned revision = currentSource(false).revision;
+        if (m_lastHighlightRevision == revision)
+            return;
+
+        m_lastHighlightRevision = revision;
         static const Document::Ptr dummyDoc;
         static const Snapshot dummySnapshot;
         m_highlighter = m_highlightingSupport->highlightingFuture(dummyDoc, dummySnapshot);
-        m_lastHighlightRevision = editorRevision();
         emit highlighterStarted(&m_highlighter, m_lastHighlightRevision);
     }
 }

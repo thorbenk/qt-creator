@@ -58,7 +58,7 @@ public:
     virtual ~BaseTextDocument();
 
     // ITextEditorDocument
-    QString contents() const;
+    QString plainText() const;
     QString textAt(int pos, int length) const;
     QChar characterAt(int pos) const;
 
@@ -72,7 +72,7 @@ public:
     const TabSettings &tabSettings() const;
     const ExtraEncodingSettings &extraEncodingSettings() const;
 
-    ITextMarkable *documentMarker() const;
+    ITextMarkable *markableInterface() const;
 
     // IDocument implementation.
     bool save(QString *errorString, const QString &fileName, bool autoSave);

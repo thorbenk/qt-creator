@@ -89,7 +89,8 @@ public:
         CheckedOut = 0x02,
         Hijacked   = 0x04,
         NotManaged = 0x08,
-        Missing    = 0x10
+        Missing    = 0x10,
+        Derived    = 0x20
     } status;
 
     QFile::Permissions permissions;
@@ -158,6 +159,7 @@ public:
     bool ccFileOp(const QString &workingDir, const QString &title, const QStringList &args,
                   const QString &fileName, const QString &file2 = QString());
     FileStatus vcsStatus(const QString &file) const;
+    void checkAndReIndexUnknownFile(const QString &file);
     QString currentView() const { return m_viewData.name; }
     QString viewRoot() const { return m_viewData.root; }
     void refreshActivities();
@@ -167,6 +169,10 @@ public:
 
     bool ccCheckUcm(const QString &viewname, const QString &workingDir) const;
     bool managesFile(const QString &workingDirectory, const QString &fileName) const;
+#ifdef WITH_TESTS
+    inline void setFakeCleartool(const bool b = true) { m_fakeClearTool = b; }
+    inline bool isFakeCleartool() const { return m_fakeClearTool; }
+#endif
 
 public slots:
     void vcsAnnotate(const QString &workingDir, const QString &file,
@@ -199,9 +205,21 @@ private slots:
     void closing();
     void updateStatusActions();
 #ifdef WITH_TESTS
+    void initTestCase();
+    void cleanupTestCase();
     void testDiffFileResolving_data();
     void testDiffFileResolving();
     void testLogResolving();
+    void testFileStatusParsing_data();
+    void testFileStatusParsing();
+    void testFileNotManaged();
+    void testFileCheckedOutDynamicView();
+    void testFileCheckedInDynamicView();
+    void testFileNotManagedDynamicView();
+    void testStatusActions_data();
+    void testStatusActions();
+    void testVcsStatusDynamicReadonlyNotManaged();
+    void testVcsStatusDynamicNotManaged();
 #endif
 
 protected:
@@ -244,6 +262,10 @@ private:
                        int timeOut, QTextCodec *outputCodec = 0);
     static QString getDriveLetterOfPath(const QString &directory);
 
+    FileStatus::Status getFileStatus(const QString &fileName) const;
+    void updateStatusForFile(const QString &absFile);
+    void updateEditDerivedObjectWarning(const QString &fileName, const FileStatus::Status status);
+
     ClearCaseSettings m_settings;
 
     QString m_checkInMessageFileName;
@@ -282,6 +304,10 @@ private:
     QSharedPointer<StatusMap> m_statusMap;
 
     static ClearCasePlugin *m_clearcasePluginInstance;
+#ifdef WITH_TESTS
+    bool m_fakeClearTool;
+    QString m_tempFile;
+#endif
 };
 
 } // namespace Internal

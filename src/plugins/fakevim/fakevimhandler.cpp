@@ -623,10 +623,22 @@ static bool substituteText(QString *text, QRegExp &pattern, const QString &repla
 {
     bool substituted = false;
     int pos = 0;
+    int right = -1;
     while (true) {
         pos = pattern.indexIn(*text, pos, QRegExp::CaretAtZero);
         if (pos == -1)
             break;
+
+        // ensure that substitution is advancing towards end of line
+        if (right == text->size() - pos) {
+            ++pos;
+            if (pos == text->size())
+                break;
+            continue;
+        }
+
+        right = text->size() - pos;
+
         substituted = true;
         QString matched = text->mid(pos, pattern.cap(0).size());
         QString repl;
@@ -652,7 +664,7 @@ static bool substituteText(QString *text, QRegExp &pattern, const QString &repla
             }
         }
         text->replace(pos, matched.size(), repl);
-        pos += qMax(1, repl.size());
+        pos += (repl.isEmpty() && matched.isEmpty()) ? 1 : repl.size();
 
         if (pos >= text->size() || !global)
             break;
@@ -691,6 +703,33 @@ static void setClipboardData(const QString &content, RangeMode mode,
     data->setData(vimMimeText, bytes1);
     data->setData(vimMimeTextEncoded, bytes2);
     clipboard->setMimeData(data, clipboardMode);
+}
+
+static QByteArray toLocalEncoding(const QString &text)
+{
+    return HostOsInfo::isWindowsHost() ? QString(text).replace(_("\n"), _("\r\n")).toLocal8Bit()
+                                       : text.toLocal8Bit();
+}
+
+static QString fromLocalEncoding(const QByteArray &data)
+{
+    return HostOsInfo::isWindowsHost() ? QString::fromLocal8Bit(data).replace(_("\n"), _("\r\n"))
+                                       : QString::fromLocal8Bit(data);
+}
+
+static QString getProcessOutput(const QString &command, const QString &input)
+{
+    QProcess proc;
+    proc.start(command);
+    proc.waitForStarted();
+    proc.write(toLocalEncoding(input));
+    proc.closeWriteChannel();
+
+    // FIXME: Process should be interruptable by user.
+    //        Solution is to create a QObject for each process and emit finished state.
+    proc.waitForFinished();
+
+    return fromLocalEncoding(proc.readAllStandardOutput());
 }
 
 static const QMap<QString, int> &vimKeyNames()
@@ -802,6 +841,11 @@ QString Range::toString() const
 {
     return QString::fromLatin1("%1-%2 (mode: %3)").arg(beginPos).arg(endPos)
         .arg(rangemode);
+}
+
+bool Range::isValid() const
+{
+    return beginPos >= 0 && endPos >= 0;
 }
 
 QDebug operator<<(QDebug ts, const Range &range)
@@ -5038,9 +5082,6 @@ bool FakeVimHandler::Private::parseExCommmand(QString *line, ExCommand *cmd)
     if (line->isEmpty())
         return false;
 
-    // remove leading colons and spaces
-    line->remove(QRegExp(_("^\\s*(:+\\s*)*")));
-
     // parse range first
     if (!parseLineRange(line, cmd))
         return false;
@@ -5093,6 +5134,15 @@ bool FakeVimHandler::Private::parseExCommmand(QString *line, ExCommand *cmd)
 
 bool FakeVimHandler::Private::parseLineRange(QString *line, ExCommand *cmd)
 {
+    // remove leading colons and spaces
+    line->remove(QRegExp(_("^\\s*(:+\\s*)*")));
+
+    // special case ':!...' (use invalid range)
+    if (line->startsWith(QLatin1Char('!'))) {
+        cmd->range = Range();
+        return true;
+    }
+
     // FIXME: that seems to be different for %w and %s
     if (line->startsWith(QLatin1Char('%')))
         line->replace(0, 1, _("1,$"));
@@ -5655,22 +5705,15 @@ bool FakeVimHandler::Private::handleExBangCommand(const ExCommand &cmd) // :!
     if (!cmd.cmd.isEmpty() || !cmd.hasBang)
         return false;
 
-    setCurrentRange(cmd.range);
-    int targetPosition = firstPositionInLine(lineForPosition(cmd.range.beginPos));
-    QString command = QString(cmd.cmd.mid(1) + QLatin1Char(' ') + cmd.args).trimmed();
-    QString text = selectText(cmd.range);
-    QProcess proc;
-    proc.start(command);
-    proc.waitForStarted();
-    if (HostOsInfo::isWindowsHost())
-        text.replace(_("\n"), _("\r\n"));
-    proc.write(text.toUtf8());
-    proc.closeWriteChannel();
-    proc.waitForFinished();
-    QString result = QString::fromUtf8(proc.readAllStandardOutput());
-    if (text.isEmpty()) {
-        emit q->extraInformationChanged(result);
-    } else {
+    bool replaceText = cmd.range.isValid();
+    const QString command = QString(cmd.cmd.mid(1) + QLatin1Char(' ') + cmd.args).trimmed();
+    const QString input = replaceText ? selectText(cmd.range) : QString();
+
+    const QString result = getProcessOutput(command, input);
+
+    if (replaceText) {
+        setCurrentRange(cmd.range);
+        int targetPosition = firstPositionInLine(lineForPosition(cmd.range.beginPos));
         beginEditBlock();
         removeText(currentRange());
         insertText(result);
@@ -5679,8 +5722,11 @@ bool FakeVimHandler::Private::handleExBangCommand(const ExCommand &cmd) // :!
         leaveVisualMode();
         //qDebug() << "FILTER: " << command;
         showMessage(MessageInfo, FakeVimHandler::tr("%n lines filtered.", 0,
-            text.count(QLatin1Char('\n'))));
+            input.count(QLatin1Char('\n'))));
+    } else if (!result.isEmpty()) {
+        emit q->extraInformationChanged(result);
     }
+
     return true;
 }
 
@@ -6478,10 +6524,19 @@ void FakeVimHandler::Private::scrollToLine(int line)
     EDITOR(setTextCursor(tc2));
     EDITOR(ensureCursorVisible());
 
+    int offset = 0;
     const QTextBlock block = document()->findBlockByLineNumber(line);
-    const QTextLine textLine = block.isValid()
-        ? block.layout()->lineAt(line - block.firstLineNumber()) : QTextLine();
-    tc2.setPosition(block.position() + (textLine.isValid() ? textLine.textStart() : 0));
+    if (block.isValid()) {
+        const int blockLineCount = block.layout()->lineCount();
+        const int lineInBlock = line - block.firstLineNumber();
+        if (0 <= lineInBlock && lineInBlock < blockLineCount) {
+            QTextLine textLine = block.layout()->lineAt(lineInBlock);
+            offset = textLine.textStart();
+        } else {
+//            QTC_CHECK(false);
+        }
+    }
+    tc2.setPosition(block.position() + offset);
     EDITOR(setTextCursor(tc2));
     EDITOR(ensureCursorVisible());
 

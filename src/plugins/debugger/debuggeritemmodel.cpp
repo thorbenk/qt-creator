@@ -37,6 +37,8 @@
 namespace Debugger {
 namespace Internal {
 
+const int AbiRole = Qt::UserRole + 2;
+
 static QList<QStandardItem *> describeItem(const DebuggerItem &item)
 {
     QList<QStandardItem *> row;
@@ -44,7 +46,7 @@ static QList<QStandardItem *> describeItem(const DebuggerItem &item)
     row.append(new QStandardItem(item.command().toUserOutput()));
     row.append(new QStandardItem(item.engineTypeName()));
     row.at(0)->setData(item.id());
-    row.at(0)->setData(item.abiNames(), Qt::UserRole + 2);
+    row.at(0)->setData(item.abiNames(), AbiRole);
     row.at(0)->setEditable(false);
     row.at(1)->setEditable(false);
     row.at(1)->setData(item.toMap());
@@ -150,15 +152,15 @@ bool DebuggerItemModel::updateDebuggerStandardItem(const DebuggerItem &item, boo
     QTC_ASSERT(parent, return false);
 
     // Do not mark items as changed if they actually are not:
-    DebuggerItem orig = debuggerItem(sitem);
-    if (orig == item && DebuggerItemManager::findById(orig.id()))
+    const DebuggerItem *orig = DebuggerItemManager::findById(item.id());
+    if (orig && *orig == item)
         changed = false;
 
     int row = sitem->row();
     QFont font = sitem->font();
     font.setBold(changed);
     parent->child(row, 0)->setData(item.displayName(), Qt::DisplayRole);
-    parent->child(row, 0)->setData(item.abiNames(), Qt::UserRole + 2);
+    parent->child(row, 0)->setData(item.abiNames(), AbiRole);
     parent->child(row, 0)->setFont(font);
     parent->child(row, 1)->setData(item.command().toUserOutput(), Qt::DisplayRole);
     parent->child(row, 1)->setFont(font);
@@ -178,7 +180,7 @@ DebuggerItem DebuggerItemModel::debuggerItem(QStandardItem *sitem) const
         item.m_id = i->data();
         item.setDisplayName(i->data(Qt::DisplayRole).toString());
 
-        QStringList abis = i->data(Qt::UserRole + 2).toStringList();
+        QStringList abis = i->data(AbiRole).toStringList();
         QList<ProjectExplorer::Abi> abiList;
         foreach (const QString &abi, abis)
             abiList << ProjectExplorer::Abi(abi);

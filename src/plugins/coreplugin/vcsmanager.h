@@ -58,23 +58,19 @@ class CORE_EXPORT VcsManager : public QObject
     Q_OBJECT
 
 public:
-    static QObject *instance();
+    static VcsManager *instance();
 
     static void extensionsInitialized();
 
     static void resetVersionControlForDirectory(const QString &inputDirectory);
     static IVersionControl *findVersionControlForDirectory(const QString &directory,
-                                                    QString *topLevelDirectory = 0);
+                                                           QString *topLevelDirectory = 0);
 
     static QStringList repositories(const IVersionControl *);
 
     static IVersionControl *checkout(const QString &versionControlType,
                               const QString &directory,
                               const QByteArray &url);
-    // Used only by Trac plugin.
-    bool findVersionControl(const QString &versionControl);
-    // Used only by Trac plugin.
-    static QString repositoryUrl(const QString &directory);
 
     // Shows a confirmation dialog, whether the file should also be deleted
     // from revision control. Calls vcsDelete on the file. Returns false

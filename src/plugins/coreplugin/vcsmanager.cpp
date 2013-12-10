@@ -196,7 +196,7 @@ VcsManager::~VcsManager()
     delete d;
 }
 
-QObject *VcsManager::instance()
+VcsManager *VcsManager::instance()
 {
     return m_instance;
 }
@@ -233,8 +233,11 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
 {
     typedef QPair<QString, IVersionControl *> StringVersionControlPair;
     typedef QList<StringVersionControlPair> StringVersionControlPairs;
-    if (inputDirectory.isEmpty())
+    if (inputDirectory.isEmpty()) {
+        if (topLevelDirectory)
+            topLevelDirectory->clear();
         return 0;
+    }
 
     // Make sure we an absolute path:
     const QString directory = QDir(inputDirectory).absolutePath();
@@ -350,24 +353,6 @@ IVersionControl *VcsManager::checkout(const QString &versionControlType,
         }
     }
     return 0;
-}
-
-bool VcsManager::findVersionControl(const QString &versionControlType)
-{
-    foreach (IVersionControl * versionControl, allVersionControls()) {
-        if (versionControl->displayName() == versionControlType)
-            return true;
-    }
-    return false;
-}
-
-QString VcsManager::repositoryUrl(const QString &directory)
-{
-    IVersionControl *vc = findVersionControlForDirectory(directory);
-
-    if (vc && vc->supportsOperation(Core::IVersionControl::GetRepositoryRootOperation))
-       return vc->vcsGetRepositoryURL(directory);
-    return QString();
 }
 
 bool VcsManager::promptToDelete(IVersionControl *vc, const QString &fileName)

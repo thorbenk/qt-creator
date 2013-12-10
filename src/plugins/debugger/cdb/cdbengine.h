@@ -156,6 +156,8 @@ private slots:
     void consoleStubProcessStarted();
     void consoleStubExited();
 
+    void createFullBacktrace();
+
     void handleDoInterruptInferior(const QString &errorMessage);
 
 private:
@@ -227,6 +229,7 @@ private:
     void ensureUsing32BitStackInWow64(const CdbBuiltinCommandPtr &cmd);
     void handleSwitchWow64Stack(const CdbBuiltinCommandPtr &cmd);
     void jumpToAddress(quint64 address);
+    void handleCreateFullBackTrace(const CdbBuiltinCommandPtr &cmd);
 
     // Extension commands
     void handleThreads(const CdbExtensionCommandPtr &);
@@ -248,7 +251,6 @@ private:
     unsigned parseStackTrace(const GdbMi &data, bool sourceStepInto);
     void mergeStartParametersSourcePathMap();
 
-    const QByteArray m_creatorExtPrefix;
     const QByteArray m_tokenPrefix;
 
     QProcess m_process;

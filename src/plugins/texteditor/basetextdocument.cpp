@@ -92,7 +92,7 @@ BaseTextDocument::~BaseTextDocument()
     delete d;
 }
 
-QString BaseTextDocument::contents() const
+QString BaseTextDocument::plainText() const
 {
     return document()->toPlainText();
 }
@@ -195,7 +195,7 @@ SyntaxHighlighter *BaseTextDocument::syntaxHighlighter() const
     return d->m_highlighter;
 }
 
-ITextMarkable *BaseTextDocument::documentMarker() const
+ITextMarkable *BaseTextDocument::markableInterface() const
 {
     BaseTextDocumentLayout *documentLayout =
         qobject_cast<BaseTextDocumentLayout *>(d->m_document->documentLayout());

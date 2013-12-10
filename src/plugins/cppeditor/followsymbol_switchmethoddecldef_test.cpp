@@ -465,6 +465,8 @@ void TestCase::run()
 
 } // anonymous namespace
 
+Q_DECLARE_METATYPE(QList<TestDocumentPtr>)
+
 void CppEditorPlugin::test_SwitchMethodDeclarationDefinition_data()
 {
     QTest::addColumn<QByteArray>("header");
@@ -870,6 +872,18 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_data()
             "}\n"
     );
 
+    QTest::newRow("skipForwardDeclarationBasic") << _(
+            "class $Foo {};\n"
+            "class Foo;\n"
+            "@Foo foo;\n"
+    );
+
+    QTest::newRow("skipForwardDeclarationTemplates") << _(
+            "template <class E> class $Container {};\n"
+            "template <class E> class Container;\n"
+            "@Container<int> container;\n"
+    );
+
     QTest::newRow("using_QTCREATORBUG7903_globalNamespace") << _(
             "namespace NS {\n"
             "class Foo {};\n"
@@ -904,13 +918,41 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_data()
             "    @Foo foo;\n"
             "}\n"
     );
-
 }
 
 void CppEditorPlugin::test_FollowSymbolUnderCursor()
 {
     QFETCH(QByteArray, source);
     TestCase test(TestCase::FollowSymbolUnderCursorAction, source);
+    test.run();
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_multipleDocuments_data()
+{
+    QTest::addColumn<QList<TestDocumentPtr> >("documents");
+
+    QTest::newRow("skipForwardDeclarationBasic") << (QList<TestDocumentPtr>()
+        << TestDocument::create("class $Foo {};\n",
+                                QLatin1String("defined.h"))
+        << TestDocument::create("class Foo;\n"
+                                "@Foo foo;\n",
+                                QLatin1String("forwardDeclaredAndUsed.h"))
+    );
+
+    QTest::newRow("skipForwardDeclarationTemplates") << (QList<TestDocumentPtr>()
+        << TestDocument::create("template <class E> class $Container {};\n",
+                                QLatin1String("defined.h"))
+        << TestDocument::create("template <class E> class Container;\n"
+                                "@Container<int> container;\n",
+                                QLatin1String("forwardDeclaredAndUsed.h"))
+    );
+}
+
+void CppEditorPlugin::test_FollowSymbolUnderCursor_multipleDocuments()
+{
+    QFETCH(QList<TestDocumentPtr>, documents);
+
+    TestCase test(TestCase::FollowSymbolUnderCursorAction, documents);
     test.run();
 }
 
@@ -1311,6 +1353,14 @@ void CppEditorPlugin::test_FollowSymbolUnderCursor_virtualFunctionCall_data()
             "struct Base { virtual Base *virt() { return this; } };\n"
             "struct Derived : public Base { Derived *virt() { return this; } };\n"
             "void client(Base *b) { b->$@virt(); }\n")
+        << (OverrideItemList()
+            << OverrideItem(QLatin1String("Base::virt"), 1)
+            << OverrideItem(QLatin1String("Derived::virt"), 2));
+
+    QTest::newRow("QTCREATORBUG-10294_cursorIsAtTheEndOfVirtualFunctionName") << _(
+            "struct Base { virtual void virt() {} };\n"
+            "struct Derived : Base { void virt() {} };\n"
+            "void client(Base *b) { b->virt$@(); }\n")
         << (OverrideItemList()
             << OverrideItem(QLatin1String("Base::virt"), 1)
             << OverrideItem(QLatin1String("Derived::virt"), 2));

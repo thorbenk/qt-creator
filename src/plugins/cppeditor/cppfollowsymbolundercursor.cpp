@@ -119,7 +119,7 @@ bool VirtualFunctionHelper::canLookupVirtualFunctionOverrides(Function *function
 {
     m_function = function;
     if (!m_function || !m_baseExpressionAST || !m_expressionDocument || !m_document || !m_scope
-            || m_scope->isClass() || m_snapshot.isEmpty()) {
+            || m_scope->isClass() || m_scope->isFunction() || m_snapshot.isEmpty()) {
         return false;
     }
 
@@ -128,11 +128,13 @@ bool VirtualFunctionHelper::canLookupVirtualFunctionOverrides(Function *function
     if (IdExpressionAST *idExpressionAST = m_baseExpressionAST->asIdExpression()) {
         NameAST *name = idExpressionAST->name;
         const bool nameIsQualified = name && name->asQualifiedName();
-        result = !nameIsQualified && FunctionHelper::isVirtualFunction(function, m_snapshot);
+        result = !nameIsQualified && FunctionHelper::isVirtualFunction(
+                    function, LookupContext(m_document, m_snapshot));
     } else if (MemberAccessAST *memberAccessAST = m_baseExpressionAST->asMemberAccess()) {
         NameAST *name = memberAccessAST->member_name;
         const bool nameIsQualified = name && name->asQualifiedName();
-        if (!nameIsQualified && FunctionHelper::isVirtualFunction(function, m_snapshot)) {
+        if (!nameIsQualified && FunctionHelper::isVirtualFunction(
+                    function, LookupContext(m_document, m_snapshot))) {
             TranslationUnit *unit = m_expressionDocument->translationUnit();
             QTC_ASSERT(unit, return false);
             m_accessTokenKind = unit->tokenKind(memberAccessAST->access_token);
@@ -242,6 +244,24 @@ Link findMacroLink(const QByteArray &name, const Document::Ptr &doc)
     return Link();
 }
 
+/// Considers also forward declared templates.
+static bool isForwardClassDeclaration(Type *type)
+{
+    if (!type)
+        return false;
+
+    if (type->isForwardClassDeclarationType()) {
+        return true;
+    } else if (Template *templ = type->asTemplateType()) {
+        if (Symbol *declaration = templ->declaration()) {
+            if (declaration->isForwardClassDeclaration())
+                return true;
+        }
+    }
+
+    return false;
+}
+
 inline LookupItem skipForwardDeclarations(const QList<LookupItem> &resolvedSymbols)
 {
     QList<LookupItem> candidates = resolvedSymbols;
@@ -249,11 +269,11 @@ inline LookupItem skipForwardDeclarations(const QList<LookupItem> &resolvedSymbo
     LookupItem result = candidates.first();
     const FullySpecifiedType ty = result.type().simplified();
 
-    if (ty->isForwardClassDeclarationType()) {
+    if (isForwardClassDeclaration(ty.type())) {
         while (!candidates.isEmpty()) {
             LookupItem r = candidates.takeFirst();
 
-            if (!r.type()->isForwardClassDeclarationType()) {
+            if (!isForwardClassDeclaration(r.type().type())) {
                 result = r;
                 break;
             }
@@ -676,8 +696,15 @@ BaseTextEditorWidget::Link FollowSymbolUnderCursor::findLink(const QTextCursor &
                 if (def == lastVisibleSymbol)
                     def = 0; // jump to declaration then.
 
-                if (symbol->isForwardClassDeclaration())
+                if (symbol->isForwardClassDeclaration()) {
                     def = symbolFinder->findMatchingClassDeclaration(symbol, snapshot);
+                } else if (Template *templ = symbol->asTemplate()) {
+                    if (Symbol *declaration = templ->declaration()) {
+                        if (declaration->isForwardClassDeclaration())
+                            def = symbolFinder->findMatchingClassDeclaration(declaration, snapshot);
+                    }
+                }
+
             }
 
             link = m_widget->linkToSymbol(def ? def : symbol);

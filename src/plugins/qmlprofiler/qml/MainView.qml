@@ -76,19 +76,12 @@ Rectangle {
         onRangeChanged: {
             var startTime = zoomControl.startTime();
             var endTime = zoomControl.endTime();
-            var duration = Math.abs(endTime - startTime);
 
-            mainviewTimePerPixel = duration / root.width;
+            mainviewTimePerPixel = Math.abs(endTime - startTime) / root.width;
 
             backgroundMarks.updateMarks(startTime, endTime);
             view.updateFlickRange(startTime, endTime);
-            if (duration > 0) {
-                var candidateWidth = qmlProfilerModelProxy.traceDuration() *
-                        flick.width / duration;
-                if (flick.contentWidth !== candidateWidth)
-                    flick.contentWidth = candidateWidth;
-            }
-
+            flick.setContentWidth();
         }
     }
 
@@ -309,8 +302,11 @@ Rectangle {
         boundsBehavior: Flickable.StopAtBounds
 
         // ScrollView will try to deinteractivate it. We don't want that
-        // as the horizontal flickable is interactive, too.
-        onInteractiveChanged: interactive = true
+        // as the horizontal flickable is interactive, too. We do occasionally
+        // switch to non-interactive ourselves, though.
+        property bool stayInteractive: true
+        onInteractiveChanged: interactive = stayInteractive
+        onStayInteractiveChanged: interactive = stayInteractive
 
         // ***** child items
         TimeMarks {
@@ -322,6 +318,12 @@ Rectangle {
         }
 
         Flickable {
+            function setContentWidth() {
+                var duration = Math.abs(zoomControl.endTime() - zoomControl.startTime());
+                if (duration > 0)
+                    contentWidth = qmlProfilerModelProxy.traceDuration() * width / duration;
+            }
+
             id: flick
             anchors.top: parent.top
             anchors.topMargin: labels.y
@@ -333,6 +335,8 @@ Rectangle {
             boundsBehavior: Flickable.StopAtBounds
 
             onContentXChanged: view.updateZoomControl()
+            onWidthChanged: setContentWidth()
+
             clip:true
 
             SelectionRange {
@@ -429,6 +433,9 @@ Rectangle {
                 onPressed:  {
                     selectionRange.pressedOnCreation();
                 }
+                onCanceled: {
+                    selectionRange.releasedOnCreation();
+                }
                 onPositionChanged: {
                     selectionRange.movedOnCreation();
                 }
@@ -508,8 +515,6 @@ Rectangle {
         x: 0
         y: 0
 
-        function toggleEnabled() {enabled = !enabled}
-        function toggleVisible() {visible = !visible}
         function updateZoomLevel() {
             zoomSlider.externalUpdate = true;
             zoomSlider.value = Math.pow((view.endTime - view.startTime) / qmlProfilerModelProxy.traceDuration(), 1 / zoomSlider.exponent) * zoomSlider.maximumValue;

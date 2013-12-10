@@ -93,6 +93,8 @@ BlackBerrySetupWizard::BlackBerrySetupWizard(QWidget *parent) :
     m_uploader = new BlackBerryDebugTokenUploader(this);
     m_keyGenerator = new QSsh::SshKeyGenerator;
 
+    connect(m_ndkPage, SIGNAL(targetsUpdated()),
+            this, SIGNAL(ndkTargetsUpdated()));
     connect(m_deviceInfo, SIGNAL(finished(int)),
             this, SLOT(deviceInfoFinished(int)));
     connect(m_requester, SIGNAL(finished(int)),
@@ -214,6 +216,13 @@ void BlackBerrySetupWizard::debugTokenArrived(int status)
         errorString += tr("An unknwon error has occurred.");
         break;
     }
+
+    BlackBerryConfigurationManager &configuration = BlackBerryConfigurationManager::instance();
+
+    QFile dt(configuration.defaultKeystorePath());
+
+    if (dt.exists())
+        dt.remove();
 
     QMessageBox::critical(this, tr("Error"), errorString);
 
@@ -405,8 +414,13 @@ void BlackBerrySetupWizard::requestDebugToken()
 
     BlackBerryConfigurationManager &configuration = BlackBerryConfigurationManager::instance();
 
+    bool ok;
+    const QString cskPassword = m_utils.cskPassword(this, &ok);
+    if (!ok)
+        return;
+
     m_requester->requestDebugToken(configuration.defaultDebugTokenPath(),
-            m_utils.cskPassword(), configuration.defaultKeystorePath(), certificatePassword(), m_devicePin);
+            cskPassword, configuration.defaultKeystorePath(), certificatePassword(), m_devicePin);
 }
 
 void BlackBerrySetupWizard::uploadDebugToken()
