@@ -2130,6 +2130,7 @@ public:
     bool handleExChangeCommand(const ExCommand &cmd);
     bool handleExMoveCommand(const ExCommand &cmd);
     bool handleExJoinCommand(const ExCommand &cmd);
+    bool handleExAlignCommand(const ExCommand &cmd);
     bool handleExGotoCommand(const ExCommand &cmd);
     bool handleExHistoryCommand(const ExCommand &cmd);
     bool handleExRegisterCommand(const ExCommand &cmd);
@@ -5815,6 +5816,57 @@ bool FakeVimHandler::Private::handleExMoveCommand(const ExCommand &cmd)
     return true;
 }
 
+bool FakeVimHandler::Private::handleExAlignCommand(const ExCommand &cmd)
+{
+    if (!cmd.matches(_("Align"), _("Align")))
+        return false;
+    QString alignAt = cmd.args;
+    if(alignAt.length() == 0)
+        return false;
+    else if(cmd.range.endPos - cmd.range.beginPos < 1)
+        return false;
+
+    pushUndoState();
+
+    setPosition(cmd.range.beginPos);
+    const QString text = selectText(cmd.range);
+
+    QStringList lines = text.split(QLatin1Char('\n'));
+    QVector<int> pos(lines.size()-1);
+
+    for(int i=0; i<lines.size()-1; ++i)
+    {
+        const QString& l = lines[i];
+        int p = l.indexOf(alignAt);
+        if(p < 0) p = l.length();
+        pos[i] = p;
+    }
+    int alignAtCol = *std::max_element(pos.begin(), pos.end());
+
+    QString aligned;
+    for(int i=0; i<lines.size()-1; ++i)
+    {
+        const QString& o = lines[i];
+        int p = pos[i];
+        if(alignAtCol-p > 0)
+        {
+            QString f(alignAtCol-p, QChar::fromLatin1(' '));
+            aligned += o.mid(0,p) + f + o.mid(p);
+        }
+        else
+        {
+            aligned += o;
+        }
+        aligned += QLatin1Char('\n');
+    }
+
+    removeText(cmd.range);
+    insertText(aligned);
+    moveToEndOfLine();
+
+    return true;
+}
+
 bool FakeVimHandler::Private::handleExJoinCommand(const ExCommand &cmd)
 {
     // :[range]j[oin][!] [count]
@@ -6143,6 +6195,7 @@ bool FakeVimHandler::Private::handleExCommandHelper(ExCommand &cmd)
         || handleExChangeCommand(cmd)
         || handleExMoveCommand(cmd)
         || handleExJoinCommand(cmd)
+        || handleExAlignCommand(cmd)
         || handleExMapCommand(cmd)
         || handleExNohlsearchCommand(cmd)
         || handleExNormalCommand(cmd)

@@ -12,10 +12,8 @@ SUBDIRS   = \
     bookmarks \
     projectexplorer \
     vcsbase \
-    perforce \
     subversion \
     git \
-    cvs \
     cpptools \
     qtsupport \
     qmakeprojectmanager \
@@ -29,49 +27,34 @@ SUBDIRS   = \
     designer \
     resourceeditor \
     genericprojectmanager \
-    qmljseditor \
-    qmlprojectmanager \
     glsleditor \
     pythoneditor \
-    mercurial \
-    bazaar \
     classview \
     tasklist \
     analyzerbase \
-    qmljstools \
     macros \
-    remotelinux \
-    android \
-    valgrind \
     todo \
-    qnx \
-    clearcase \
-    baremetal \
-    ios \
     beautifier \
-    qmakeandroidsupport \
-    winrt \
-    qmlprofiler \
     welcome
 
-DO_NOT_BUILD_QMLDESIGNER = $$(DO_NOT_BUILD_QMLDESIGNER)
-isEmpty(DO_NOT_BUILD_QMLDESIGNER) {
-    SUBDIRS += qmldesigner
-} else {
-    warning("QmlDesigner plugin has been disabled.")
-}
+# DO_NOT_BUILD_QMLDESIGNER = $$(DO_NOT_BUILD_QMLDESIGNER)
+# isEmpty(DO_NOT_BUILD_QMLDESIGNER) {
+#     SUBDIRS += qmldesigner
+# } else {
+#     warning("QmlDesigner plugin has been disabled.")
+# }
 
 
-isEmpty(QBS_INSTALL_DIR): QBS_INSTALL_DIR = $$(QBS_INSTALL_DIR)
-exists(../shared/qbs/qbs.pro)|!isEmpty(QBS_INSTALL_DIR): \
-    SUBDIRS += \
-        qbsprojectmanager
+# isEmpty(QBS_INSTALL_DIR): QBS_INSTALL_DIR = $$(QBS_INSTALL_DIR)
+# exists(../shared/qbs/qbs.pro)|!isEmpty(QBS_INSTALL_DIR): \
+#     SUBDIRS += \
+#         qbsprojectmanager
 
-# prefer qmake variable set on command line over env var
-isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
-!isEmpty(LLVM_INSTALL_DIR) {
-    SUBDIRS += clangcodemodel
-}
+# # prefer qmake variable set on command line over env var
+# isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
+# !isEmpty(LLVM_INSTALL_DIR) {
+#     SUBDIRS += clangcodemodel
+# }
 
 isEmpty(IDE_PACKAGE_MODE) {
     SUBDIRS += \
