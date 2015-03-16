@@ -35,6 +35,7 @@
 #include <utils/algorithm.h>
 #include <projectexplorer/projectnodes.h>
 
+#include <QElapsedTimer>
 #include <QLoggingCategory>
 
 using namespace ProjectExplorer;
@@ -54,7 +55,122 @@ int distance(const QString &targetDirectory, const FileName &fileName)
     return targetDirectory.mid(commonParent.size()).count(QLatin1Char('/'))
             + fileName.toString().mid(commonParent.size()).count(QLatin1Char('/'));
 }
+
+QByteArray targetFromNinjaLine(QByteArray const& line)
+{
+    // This function recognizes lines looking like this:
+    //
+    // # Object build statements for MODULE_LIBRARY target testtarget
+    //
+    // and returns 'testtarget'
+    QByteArray currentTarget;
+    int p1 = line.indexOf(" target ");
+    if (p1 < 0)
+        return currentTarget;
+    p1 += 8;
+    int p2 = line.indexOf(" ", p1);
+    if (p2 < 0)
+        p2 = line.size();
+    currentTarget = line.mid(p1, p2-p1);
+    return currentTarget; 
 }
+
+QList<Utils::FileName> filesFromNinjaLine(QByteArray line, const QList<Utils::FileName>& knownFiles)
+{
+    if (line.startsWith("build")) {
+        int p = line.indexOf(": ")+1;
+        line = line.mid(p);
+    }
+    
+    QList<Utils::FileName> files;
+  
+    QList<QByteArray> tokens = line.split (' ');
+    foreach (QByteArray token, tokens) {
+        token = token.trimmed ();
+        token = token.replace ("/./", "/");
+        Utils::FileName file = Utils::FileName::fromLatin1 (token);
+        if (std::binary_search(knownFiles.begin (), knownFiles.end(), file)) {
+            files.append(file);
+        }
+    }
+    
+    return files;
+}
+
+bool sortFilesToTargetsViaNinja(const QString &ninjaFilename,
+                                const QList<Utils::FileName> &fileNames,
+                                QList<CMakeBuildTarget> &buildTargets)
+{
+    QElapsedTimer timer;
+    timer.start();
+
+    // attempt to open the 'build.ninja' file
+    QFile ninjaFile(ninjaFilename);
+    bool ok = ninjaFile.open(QFile::ReadOnly | QFile::Text);
+    if (!ok)
+        return false;
+   
+    // read all non-empty lines into a list of lines
+    QList<QByteArray> ninjaLines;
+    while (!ninjaFile.atEnd()) {
+        QByteArray line = ninjaFile.readLine().trimmed();
+        if (line.isEmpty())
+            continue;
+        ninjaLines.append(line);
+    }
+    if (ninjaLines.isEmpty())
+        return false;
+    
+    QMap<Utils::FileName, QByteArray> fileToTarget;
+    for(int i = 0; i < ninjaLines.size(); ++i) {
+        QByteArray line = ninjaLines[i];
+
+        // find the first comment line
+        if (line.size() > 0 && line[0] != '#')
+            continue;
+        if (line.startsWith("# Make the all target"))
+            continue;
+        
+        // find the name of the current target
+        QByteArray currentTarget = targetFromNinjaLine(line);
+        if (currentTarget.isEmpty ())
+          continue;
+
+        // go over the next lines, until we hit another comment block
+        while (i+1 < ninjaLines.size() && !ninjaLines[i+1].startsWith(QByteArray("#")))
+        {
+            // each such line may contain references to the files
+            // associated to the target 'currentTarget'
+            QByteArray line = ninjaLines[++i];
+            QList<Utils::FileName> files = filesFromNinjaLine(line, fileNames);
+            foreach (Utils::FileName file, files) {
+                fileToTarget[file] = currentTarget;
+            }
+        }
+    }
+
+    // make a lookup table 'target name' --> 'target index in buildTargets'
+    QMap<QByteArray, int> targetLookup;
+    int i = 0;
+    foreach (CMakeBuildTarget const& buildTarget, buildTargets) {
+        targetLookup[buildTarget.title.toLatin1 ()] = i;
+        ++i;
+    }
+
+    // add files to targets
+    foreach (const Utils::FileName &fileName, fileToTarget.keys ()) {
+        QByteArray targetName = fileToTarget[fileName];
+        buildTargets[targetLookup[targetName]].files.append(fileName.toString());
+        // qDebug() << fileName.toString() << " -> target " << targetName;
+    }
+
+    qDebug() << "sorting files to targets via 'build.ninja' took"
+             << (timer.elapsed()/1000.0) << " seconds";
+
+    return true;
+}
+
+} // namespace
 
 // called after everything is parsed
 // this function tries to figure out to which CMakeBuildTarget
@@ -68,7 +184,16 @@ void CMakeCbpParser::sortFiles()
     });
 
     Utils::sort(fileNames);
+    
+    // Try to obtain the relevant information from a 'build.ninja' file
+    // if present in the build directory.
+    QString ninjaFile = QDir::cleanPath(m_buildDirectory + QDir::separator () + QLatin1String("build.ninja"));
+    bool ok = sortFilesToTargetsViaNinja (ninjaFile, fileNames, m_buildTargets);
+    if (ok)
+      return;
 
+    // Otherwise, use a heuristic to figure out the relation
+    // filename <-> CMakeBuildTarget.
 
     CMakeBuildTarget *last = 0;
     FileName parentDirectory;
